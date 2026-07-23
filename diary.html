@@ -609,7 +609,7 @@ async function loadDay(dateStr){
 }
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
-    status: t.status||'wait', due: t.due||'', note: t.note||'',
+    status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
 }
 function normalize(v){
@@ -744,12 +744,13 @@ function taskRow(t, ctx){
         <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
       </div>
     </div>`;
-  row.querySelector('.chk').onclick = () => { t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status); ctx.save(); ctx.rerender(); };
+  row.querySelector('.chk').onclick = () => { t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status); if(ctx.inbox) t.doneAt = t.done? todayStr() : ''; ctx.save(); ctx.rerender(); };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.status-chip').onclick = () => {
     const i = STATUS.findIndex(s=>s.k===t.status);
     t.status = STATUS[(i+1)%STATUS.length].k;
     t.done = t.status==='done';
+    if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
   };
   row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); });
@@ -1313,12 +1314,37 @@ $('inboxAddBtn').onclick = () => {
   const ins = $('inboxList').querySelectorAll('.task-text');
   if(ins.length) ins[ins.length-1].focus();
 };
-$('inboxClearBtn').onclick = () => {
-  const done = inbox.filter(t=>t.done).length;
-  if(!done){ toast('완료된 업무가 없어요'); return; }
-  if(confirm(`완료된 업무 ${done}건을 기타 업무함에서 지울까요?`)){
-    inbox = inbox.filter(t=>!t.done); markInbox(); renderInbox(); toast('완료 업무를 정리했어요');
-  }
+$('inboxClearBtn').onclick = async () => {
+  const done = inbox.filter(t=>t.done);
+  if(!done.length){ toast('완료된 업무가 없어요'); return; }
+  if(!confirm(`완료된 업무 ${done.length}건을 각 완료일 일지의 '기타 업무' 카테고리로 옮겨 정리할까요?\n(기록·검색·완료 모아보기에 계속 남습니다)`)) return;
+  await flushSave();
+  try{
+    const byDate = {};
+    done.forEach(t => { const ds = t.doneAt || todayStr(); (byDate[ds] = byDate[ds]||[]).push(t); });
+    for(const ds of Object.keys(byDate)){
+      if(ds === curDate){
+        let target = day.cats.find(c => c.name.trim()==='기타 업무');
+        if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
+        byDate[ds].forEach(t => target.tasks.push({...normTask(t), id:uid8()}));
+        markDirty();
+      }else{
+        const [y,m,dd] = ds.split('-');
+        const ref = db.ref(`diaries/${USER.uid}/${y}/${m}/${dd}`);
+        const snap = await ref.get();
+        const dv = snap.exists()? normalize(snap.val()) : emptyDay();
+        let target = dv.cats.find(c => c.name.trim()==='기타 업무');
+        if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; dv.cats.push(target); }
+        byDate[ds].forEach(t => target.tasks.push({...normTask(t), id:uid8()}));
+        await ref.set(JSON.parse(JSON.stringify(dv, (k,v)=>(k==='open'||k==='_ov')? undefined : v)));
+        delete yearCache[+y];
+      }
+    }
+    inbox = inbox.filter(t=>!t.done);
+    markInbox(); renderAll();
+    await flushSave();
+    toast(`완료 업무 ${done.length}건을 완료일 일지로 옮겼어요`);
+  }catch(e){ toast('정리 실패: '+e.message); }
 };
 function sendInboxToToday(t, idx){
   let target = null;
@@ -1640,6 +1666,18 @@ function renderArcDone(yd){
       if(items.length){ total += items.length; groups.push({mm, dd, items}); }
     });
   });
+  /* 아직 기타함에 남아 있는 완료 업무도 완료일 기준으로 합류 */
+  inbox.forEach(t => {
+    if(!(t.done && t.text.trim())) return;
+    const ds = t.doneAt || todayStr();
+    if(!ds.startsWith(String(arcYear))) return;
+    const mm = ds.slice(5,7), dd = ds.slice(8,10);
+    if(arcDoneScope==='month' && mm !== arcMonth) return;
+    let g = groups.find(x => x.mm===mm && x.dd===dd);
+    if(!g){ g = {mm, dd, items:[]}; groups.push(g); }
+    g.items.push({c:null, t}); total++;
+  });
+  groups.sort((a,b) => (b.mm+b.dd).localeCompare(a.mm+a.dd));
   const head = document.createElement('div');
   head.className = 'empty-note'; head.style.padding = '0 0 12px';
   head.textContent = total
@@ -1653,10 +1691,11 @@ function renderArcDone(yd){
     card.className = 'day-card';
     card.style.flexDirection = 'column'; card.style.alignItems = 'stretch'; card.style.cursor = 'default';
     const rows = g.items.map(({c,t}) => {
-      const col = catColor(c);
+      const col = c? catColor(c) : '#B08A5A';
+      const nm = c? (c.name.trim()||'무제') : '📥 기타함';
       return `<div class="done-row" style="border-top:1px solid var(--rule);padding:8px 2px">
         <span class="dr-chk">✔</span>
-        <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
+        <span class="dr-cat" style="color:${col};border:1.5px ${c?'solid':'dashed'} ${col}88">${nm==='📥 기타함'? nm : esc(nm)}</span>
         <span class="dr-text">${esc(t.text)}</span></div>`;
     }).join('');
     card.innerHTML = `
