@@ -7,321 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
-/* ═══════════════ 💾 월별 백업 · 복원 · 용량 관리 ═══════════════ */
-let bkYear = new Date().getFullYear();
-let bkSel = new Set();       // 선택된 월 'MM'
-let bkRunning = false, bkAbort = false;
-
-$('backupBtn').onclick = () => { bkYear = arcYear; bkSel.clear(); openBackup(); };
-$('bkCancel').onclick = () => {
-  if(bkRunning){ bkAbort = true; $('bkProgText').textContent = '중단하는 중…'; }
-  else $('backupModal').classList.add('hidden');
-};
-$('backupModal').addEventListener('click', e => { if(e.target.id==='backupModal' && !bkRunning) $('backupModal').classList.add('hidden'); });
-$('bkPrevY').onclick = () => { if(bkRunning) return; bkYear--; bkSel.clear(); renderBkMonths(); };
-$('bkNextY').onclick = () => { if(bkRunning) return; bkYear++; bkSel.clear(); renderBkMonths(); };
-$('bkAll').onclick = async () => {
-  if(bkRunning) return;
-  const yd = await getYear(bkYear);
-  const all = Object.keys(yd);
-  bkSel = (bkSel.size === all.length) ? new Set() : new Set(all);
-  renderBkMonths();
-};
-async function openBackup(){
-  $('backupModal').classList.remove('hidden');
-  $('bkProgWrap').classList.add('hidden');
-  $('bkDelete').checked = false;
-  await renderBkMonths();
-}
-async function renderBkMonths(){
-  $('bkYearLabel').textContent = bkYear + '년';
-  const yd = await getYear(bkYear);
-  const box = $('bkMonths'); box.innerHTML = '';
-  for(let m=1;m<=12;m++){
-    const mm = String(m).padStart(2,'0');
-    const cnt = yd[mm] ? Object.keys(yd[mm]).length : 0;
-    const cell = document.createElement('div');
-    cell.className = 'bk-m' + (cnt?' has':'') + (bkSel.has(mm)?' sel':'');
-    cell.innerHTML = `${m}월<span class="c">${cnt? cnt+'일':'－'}</span>`;
-    if(cnt) cell.onclick = () => { if(bkRunning) return; bkSel.has(mm)? bkSel.delete(mm) : bkSel.add(mm); renderBkMonths(); };
-    box.appendChild(cell);
-  }
-}
-function bkProgress(pct, text){
-  $('bkProgWrap').classList.remove('hidden');
-  $('bkBarIn').style.width = Math.min(100,Math.round(pct)) + '%';
-  $('bkProgText').textContent = text;
-}
-function safeName(s){ return (s||'file').replace(/[\\/:*?"<>|#%&{}]/g,'_').slice(0,60); }
-function dataUrlParts(u){
-  const i = u.indexOf(',');
-  return { b64: u.slice(i+1), mime: (u.slice(5, u.indexOf(';'))||'') };
-}
-function audioExt(f){
-  if(/\.[a-z0-9]{2,4}$/i.test(f.name)) return '';                     // 이름에 이미 확장자
-  const m = dataUrlParts(f.data).mime;
-  return m.includes('mp4')? '.m4a' : m.includes('webm')? '.webm' : m.includes('mpeg')? '.mp3' : '.audio';
-}
-
-$('bkStart').onclick = async () => {
-  if(bkRunning) return;
-  const months = [...bkSel].sort();
-  if(!months.length){ toast('백업할 월을 선택해 주세요'); return; }
-  const fmt = document.querySelector('input[name=bkFmt]:checked').value;
-  const incAudio = $('bkIncAudio').checked;
-  const incJson  = $('bkIncJson').checked;
-  const delAfter = $('bkDelete').checked;
-  if(delAfter && !incJson){
-    if(!confirm('삭제를 선택했는데 JSON(복원용 데이터)을 포함하지 않았어요.\nJSON 없이 삭제하면 앱으로 되돌릴 수 없습니다. 그래도 진행할까요?')) return;
-  }
-  if(delAfter && !confirm(`백업이 끝나면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터가 서버에서 삭제됩니다.\n계속할까요?`)) return;
-
-  bkRunning = true; bkAbort = false;
-  $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
-  try{
-    await flushSave();
-    await document.fonts.ready;
-    const yd = await getYear(bkYear);
-    const total = months.reduce((s,mm)=> s + (yd[mm]? Object.keys(yd[mm]).length : 0), 0);
-    if(!total) throw new Error('선택한 월에 기록이 없습니다');
-    const zip = new JSZip();
-    let done = 0;
-
-    for(const mm of months){
-      if(bkAbort) throw new Error('abort');
-      const daysObj = yd[mm] || {};
-      const folder = zip.folder(`${bkYear}-${mm}`);
-      if(incJson) folder.file(`data_${bkYear}-${mm}.json`,
-        JSON.stringify({app:'inhyeok-diary', ver:1, year:bkYear, month:mm, days:daysObj}));
-
-      for(const dd of Object.keys(daysObj).sort()){
-        if(bkAbort) throw new Error('abort');
-        const dateStr = `${bkYear}-${mm}-${dd}`;
-        bkProgress(done/total*90, `${dateStr} 변환 중… (${done+1}/${total}일)`);
-        const data = normalize(daysObj[dd]);
-        const canvas = await renderDayCanvas(dateStr, data);
-        if(fmt==='png') folder.file(`업무일지_${dateStr}.png`, canvas.toDataURL('image/png').split(',')[1], {base64:true});
-        else            folder.file(`업무일지_${dateStr}.pdf`, canvasToPdfBlob(canvas));
-
-        if(incAudio){
-          const files = [
-            ...data.memoFiles.map(f => ({...f, from:'메모'})),
-            ...data.cats.flatMap(c => c.tasks.flatMap(t => t.files.map(f => ({...f, from:safeName(t.text)||'업무'}))))
-          ].filter(f => f.type==='audio');
-          files.forEach((f,i) => {
-            folder.file(`첨부/${dd}일_${f.from}_${i+1}_${safeName(f.name)}${audioExt(f)}`, dataUrlParts(f.data).b64, {base64:true});
-          });
-        }
-        done++;
-        await new Promise(r => setTimeout(r, 20));   // 화면 갱신 양보
-      }
-    }
-    bkProgress(92, 'ZIP으로 압축하는 중…');
-    const blob = await zip.generateAsync(
-      {type:'blob', compression:'DEFLATE', compressionOptions:{level:6}},
-      meta => bkProgress(92 + meta.percent*0.08, `ZIP으로 압축하는 중… ${Math.round(meta.percent)}%`)
-    );
-    const label = months.length===12? '전체' : months.map(m=>+m+'월').join('·');
-    downloadBlob(blob, `업무일지_백업_${bkYear}년_${label}.zip`);
-    bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`);
-
-    if(delAfter){
-      if(confirm(`ZIP 다운로드가 시작됐습니다.\n파일이 단말기에 정상 저장된 것을 확인하셨나요?\n[확인]을 누르면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터를 서버에서 삭제합니다.`)){
-        for(const mm of months) await db.ref(`diaries/${USER.uid}/${bkYear}/${mm}`).remove();
-        delete yearCache[bkYear];
-        if(+curDate.slice(0,4)===bkYear && months.includes(curDate.slice(5,7))){ day = emptyDay(); renderSheet(); }
-        toast('선택한 월 데이터를 삭제해 용량을 확보했어요');
-        renderBkMonths(); renderArchive();
-      } else toast('삭제를 취소했어요. 데이터는 그대로 있습니다');
-    } else toast('백업 ZIP을 저장했어요');
-  }catch(e){
-    if(e.message==='abort'){ bkProgress(0,''); $('bkProgWrap').classList.add('hidden'); toast('백업을 중단했어요. 데이터는 변경되지 않았습니다'); }
-    else { bkProgress(0,''); toast('백업 실패: '+e.message); }
-    $('exportStage').innerHTML = '';
-  }finally{
-    bkRunning = false; bkAbort = false;
-    $('bkStart').disabled = false; $('bkCancel').textContent = '닫기';
-  }
-};
-
-/* ── 백업 JSON에서 복원 ── */
-$('bkRestore').onclick = () => {
-  if(bkRunning) return;
-  pickFile('.json,application/json', async file => {
-    try{
-      const obj = JSON.parse(await file.text());
-      if(obj.app!=='inhyeok-diary' || !obj.days) throw new Error('이 앱의 백업 JSON이 아닙니다');
-      const {year, month, days} = obj;
-      const dds = Object.keys(days);
-      const exist = await db.ref(`diaries/${USER.uid}/${year}/${month}`).get();
-      const dup = exist.exists()? dds.filter(d => exist.val()[d]) : [];
-      if(dup.length && !confirm(`${year}년 ${+month}월에 이미 ${dup.length}일의 기록이 있습니다.\n백업 내용으로 덮어쓸까요? (겹치지 않는 날은 그대로 추가됩니다)`)) return;
-      const updates = {};
-      dds.forEach(d => updates[d] = days[d]);
-      await db.ref(`diaries/${USER.uid}/${year}/${month}`).update(updates);
-      delete yearCache[year]; delete yearCache[String(year)];
-      toast(`${year}년 ${+month}월 ${dds.length}일 기록을 복원했어요`);
-      bkYear = +year; renderBkMonths();
-      if(!$('archiveView').classList.contains('hidden')){ arcYear=+year; arcMonth=month; renderArchive(); }
-      if(curDate.startsWith(`${year}-${month}`)) loadDay(curDate);
-    }catch(e){ toast('복원 실패: '+e.message); }
-  });
-};
-
-/* ═══════════════ 기타 업무함 (날짜와 무관, 처리 시까지 유지) ═══════════════ */
-let inbox = [], inboxTimer = null, inboxDirty = false;
-async function loadInbox(){
-  const snap = await db.ref(`diaries/${USER.uid}/inbox`).get();
-  const v = snap.exists()? snap.val() : [];
-  inbox = (Array.isArray(v)? v : Object.values(v)).map(normTask);
-}
-function markInbox(){
-  inboxDirty = true;
-  clearTimeout(inboxTimer);
-  inboxTimer = setTimeout(saveInbox, 800);
-}
-async function saveInbox(){
-  if(!inboxDirty || !USER) return;
-  inboxDirty = false;
-  const clean = JSON.parse(JSON.stringify(inbox, (k,v)=> k==='open'? undefined : v));
-  try{
-    if(clean.length) await db.ref(`diaries/${USER.uid}/inbox`).set(clean);
-    else await db.ref(`diaries/${USER.uid}/inbox`).remove();
-  }catch(e){ inboxDirty = true; }
-}
-function renderInbox(){
-  const box = $('inboxList'); box.innerHTML = '';
-  inbox.forEach((t,ti) => box.appendChild(taskRow(t, {arr:inbox, idx:ti, save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
-}
-$('inboxAddBtn').onclick = () => {
-  inbox.push(newTask()); markInbox(); renderInbox();
-  const ins = $('inboxList').querySelectorAll('.task-text');
-  if(ins.length) ins[ins.length-1].focus();
-};
-$('inboxClearBtn').onclick = () => {
-  const done = inbox.filter(t=>t.done).length;
-  if(!done){ toast('완료된 업무가 없어요'); return; }
-  if(confirm(`완료된 업무 ${done}건을 기타 업무함에서 지울까요?`)){
-    inbox = inbox.filter(t=>!t.done); markInbox(); renderInbox(); toast('완료 업무를 정리했어요');
-  }
-};
-function sendInboxToToday(t, idx){
-  let target = null;
-  const named = day.cats.filter(c=>c.name.trim());
-  if(named.length){
-    const menu = named.map((c,i)=>`${i+1}. ${c.name.trim()}`).join('\n');
-    const ans = prompt(`어느 카테고리로 보낼까요? 번호를 입력하세요.\n${menu}\n0. 새 '기타 업무' 카테고리`, '0');
-    if(ans===null) return;
-    const n = parseInt(ans,10);
-    if(n>=1 && n<=named.length) target = named[n-1];
-  }
-  if(!target){
-    target = day.cats.find(c=>c.name.trim()==='기타 업무');
-    if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
-  }
-  target.tasks.push({...normTask(t), id:uid8()});
-  inbox.splice(idx,1);
-  markDirty(); markInbox(); renderAll();
-  toast(`'${target.name.trim()||'기타 업무'}'(으)로 옮겼어요`);
-}
-
-/* ═══════════════ 기록 검색 ═══════════════ */
-let searchQ = '', searchTimer = null;
-$('searchIn').addEventListener('input', e => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(()=>{ searchQ = e.target.value.trim(); refreshArchive(); }, 300);
-});
-function refreshArchive(){ searchQ ? doSearch(searchQ) : renderArchive(); }
-function hl(text, q){
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
-  if(i<0) return esc(text);
-  return esc(text.slice(0,i)) + '<mark>' + esc(text.slice(i,i+q.length)) + '</mark>' + esc(text.slice(i+q.length));
-}
-function snippet(text, q){
-  const i = text.toLowerCase().indexOf(q.toLowerCase());
-  const st = Math.max(0, i-15);
-  return (st>0?'…':'') + text.slice(st, i + q.length + 30).replace(/\n/g,' ');
-}
-async function doSearch(q){
-  await flushSave();
-  $('yearLabel').textContent = arcYear + '년';
-  $('monthGrid').classList.add('hidden');
-  const yd = await getYear(arcYear);
-  const ql = q.toLowerCase();
-  const list = $('dayList'); list.innerHTML = '';
-  const out = [];
-  for(const mm of Object.keys(yd).sort().reverse()){
-    for(const dd of Object.keys(yd[mm]).sort().reverse()){
-      const v = normalize(yd[mm][dd]);
-      const lines = [];
-      if(v.note.toLowerCase().includes(ql)) lines.push({k:'남김말', h:hl(v.note,q)});
-      v.cats.forEach(c => {
-        const cn = c.name.trim()||'(무제)', col = catColor(c);
-        if(cn.toLowerCase().includes(ql))
-          lines.push({k:'카테고리', h:`<span class="sr-cat" style="color:${col}">${hl(cn,q)}</span>`});
-        c.tasks.forEach(t => {
-          if(t.text.toLowerCase().includes(ql))
-            lines.push({k:'업무', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} ›</span> ${hl(t.text,q)}${t.done?' ✔':''}`});
-          else if(t.note.toLowerCase().includes(ql))
-            lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`});
-        });
-      });
-      if(v.memo.toLowerCase().includes(ql)) lines.push({k:'메모', h:hl(snippet(v.memo,q),q)});
-      if(lines.length) out.push({mm, dd, lines});
-    }
-  }
-  if(!out.length){
-    list.innerHTML = `<div class="empty-note">'${esc(q)}'에 대한 ${arcYear}년 기록이 없어요.<br>◀ ▶ 로 연도를 바꿔 검색해 보세요.</div>`;
-    return;
-  }
-  const head = document.createElement('div');
-  head.className = 'empty-note'; head.style.padding = '4px 0 12px';
-  head.textContent = `'${q}' — ${arcYear}년에서 ${out.length}일의 기록을 찾았어요`;
-  list.appendChild(head);
-  out.forEach(r => {
-    const dt = new Date(`${arcYear}-${r.mm}-${r.dd}T12:00:00`);
-    const card = document.createElement('div'); card.className = 'day-card';
-    const shown = r.lines.slice(0,5).map(l => `<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('');
-    const more = r.lines.length>5 ? `<div class="sr-line" style="color:var(--ink-soft)">＋ ${r.lines.length-5}건 더</div>` : '';
-    card.innerHTML = `
-      <div class="dc-date"><div class="d">${+r.dd}</div><div class="w">${+r.mm}월 ${DOW[dt.getDay()]}</div></div>
-      <div class="dc-body">${shown}${more}</div>`;
-    card.onclick = () => { switchTab(true); loadDay(`${arcYear}-${r.mm}-${r.dd}`); };
-    list.appendChild(card);
-  });
-}
-
-/* ═══════════════ 보고용 텍스트 복사 ═══════════════ */
-function buildReport(){
-  const d = new Date(curDate+'T12:00:00');
-  const stMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
-  let out = `[업무일지] ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}.(${DOW[d.getDay()]})`;
-  if(day.note.trim()) out += `\n남김말: ${day.note.trim()}`;
-  day.cats.forEach(c => {
-    const ts = c.tasks.filter(t=>t.text.trim());
-    if(!ts.length && !c.name.trim()) return;
-    out += `\n\n■ ${c.name.trim()||'(무제)'}`;
-    ts.forEach(t => {
-      out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
-      if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
-    });
-  });
-  if(day.memo.trim()) out += `\n\n※ 메모\n${day.memo.trim()}`;
-  return out;
-}
-$('expCopy').onclick = async () => {
-  $('exportMenu').classList.add('hidden');
-  await flushSave();
-  const txt = buildReport();
-  try{ await navigator.clipboard.writeText(txt); }
-  catch(e){
-    const ta = document.createElement('textarea'); ta.value = txt;
-    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
-  }
-  toast('보고용 텍스트를 복사했어요 — 메신저·메일에 붙여넣으세요');
-};
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -1306,6 +992,320 @@ function downloadBlob(blob, name){
   a.href = url; a.download = name; a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
+
+/* ═══════════════ 💾 월별 백업 · 복원 · 용량 관리 ═══════════════ */
+let bkYear = new Date().getFullYear();
+let bkSel = new Set();       // 선택된 월 'MM'
+let bkRunning = false, bkAbort = false;
+
+$('backupBtn').onclick = () => { bkYear = arcYear; bkSel.clear(); openBackup(); };
+$('bkCancel').onclick = () => {
+  if(bkRunning){ bkAbort = true; $('bkProgText').textContent = '중단하는 중…'; }
+  else $('backupModal').classList.add('hidden');
+};
+$('backupModal').addEventListener('click', e => { if(e.target.id==='backupModal' && !bkRunning) $('backupModal').classList.add('hidden'); });
+$('bkPrevY').onclick = () => { if(bkRunning) return; bkYear--; bkSel.clear(); renderBkMonths(); };
+$('bkNextY').onclick = () => { if(bkRunning) return; bkYear++; bkSel.clear(); renderBkMonths(); };
+$('bkAll').onclick = async () => {
+  if(bkRunning) return;
+  const yd = await getYear(bkYear);
+  const all = Object.keys(yd);
+  bkSel = (bkSel.size === all.length) ? new Set() : new Set(all);
+  renderBkMonths();
+};
+async function openBackup(){
+  $('backupModal').classList.remove('hidden');
+  $('bkProgWrap').classList.add('hidden');
+  $('bkDelete').checked = false;
+  await renderBkMonths();
+}
+async function renderBkMonths(){
+  $('bkYearLabel').textContent = bkYear + '년';
+  const yd = await getYear(bkYear);
+  const box = $('bkMonths'); box.innerHTML = '';
+  for(let m=1;m<=12;m++){
+    const mm = String(m).padStart(2,'0');
+    const cnt = yd[mm] ? Object.keys(yd[mm]).length : 0;
+    const cell = document.createElement('div');
+    cell.className = 'bk-m' + (cnt?' has':'') + (bkSel.has(mm)?' sel':'');
+    cell.innerHTML = `${m}월<span class="c">${cnt? cnt+'일':'－'}</span>`;
+    if(cnt) cell.onclick = () => { if(bkRunning) return; bkSel.has(mm)? bkSel.delete(mm) : bkSel.add(mm); renderBkMonths(); };
+    box.appendChild(cell);
+  }
+}
+function bkProgress(pct, text){
+  $('bkProgWrap').classList.remove('hidden');
+  $('bkBarIn').style.width = Math.min(100,Math.round(pct)) + '%';
+  $('bkProgText').textContent = text;
+}
+function safeName(s){ return (s||'file').replace(/[\\/:*?"<>|#%&{}]/g,'_').slice(0,60); }
+function dataUrlParts(u){
+  const i = u.indexOf(',');
+  return { b64: u.slice(i+1), mime: (u.slice(5, u.indexOf(';'))||'') };
+}
+function audioExt(f){
+  if(/\.[a-z0-9]{2,4}$/i.test(f.name)) return '';                     // 이름에 이미 확장자
+  const m = dataUrlParts(f.data).mime;
+  return m.includes('mp4')? '.m4a' : m.includes('webm')? '.webm' : m.includes('mpeg')? '.mp3' : '.audio';
+}
+
+$('bkStart').onclick = async () => {
+  if(bkRunning) return;
+  const months = [...bkSel].sort();
+  if(!months.length){ toast('백업할 월을 선택해 주세요'); return; }
+  const fmt = document.querySelector('input[name=bkFmt]:checked').value;
+  const incAudio = $('bkIncAudio').checked;
+  const incJson  = $('bkIncJson').checked;
+  const delAfter = $('bkDelete').checked;
+  if(delAfter && !incJson){
+    if(!confirm('삭제를 선택했는데 JSON(복원용 데이터)을 포함하지 않았어요.\nJSON 없이 삭제하면 앱으로 되돌릴 수 없습니다. 그래도 진행할까요?')) return;
+  }
+  if(delAfter && !confirm(`백업이 끝나면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터가 서버에서 삭제됩니다.\n계속할까요?`)) return;
+
+  bkRunning = true; bkAbort = false;
+  $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
+  try{
+    await flushSave();
+    await document.fonts.ready;
+    const yd = await getYear(bkYear);
+    const total = months.reduce((s,mm)=> s + (yd[mm]? Object.keys(yd[mm]).length : 0), 0);
+    if(!total) throw new Error('선택한 월에 기록이 없습니다');
+    const zip = new JSZip();
+    let done = 0;
+
+    for(const mm of months){
+      if(bkAbort) throw new Error('abort');
+      const daysObj = yd[mm] || {};
+      const folder = zip.folder(`${bkYear}-${mm}`);
+      if(incJson) folder.file(`data_${bkYear}-${mm}.json`,
+        JSON.stringify({app:'inhyeok-diary', ver:1, year:bkYear, month:mm, days:daysObj}));
+
+      for(const dd of Object.keys(daysObj).sort()){
+        if(bkAbort) throw new Error('abort');
+        const dateStr = `${bkYear}-${mm}-${dd}`;
+        bkProgress(done/total*90, `${dateStr} 변환 중… (${done+1}/${total}일)`);
+        const data = normalize(daysObj[dd]);
+        const canvas = await renderDayCanvas(dateStr, data);
+        if(fmt==='png') folder.file(`업무일지_${dateStr}.png`, canvas.toDataURL('image/png').split(',')[1], {base64:true});
+        else            folder.file(`업무일지_${dateStr}.pdf`, canvasToPdfBlob(canvas));
+
+        if(incAudio){
+          const files = [
+            ...data.memoFiles.map(f => ({...f, from:'메모'})),
+            ...data.cats.flatMap(c => c.tasks.flatMap(t => t.files.map(f => ({...f, from:safeName(t.text)||'업무'}))))
+          ].filter(f => f.type==='audio');
+          files.forEach((f,i) => {
+            folder.file(`첨부/${dd}일_${f.from}_${i+1}_${safeName(f.name)}${audioExt(f)}`, dataUrlParts(f.data).b64, {base64:true});
+          });
+        }
+        done++;
+        await new Promise(r => setTimeout(r, 20));   // 화면 갱신 양보
+      }
+    }
+    bkProgress(92, 'ZIP으로 압축하는 중…');
+    const blob = await zip.generateAsync(
+      {type:'blob', compression:'DEFLATE', compressionOptions:{level:6}},
+      meta => bkProgress(92 + meta.percent*0.08, `ZIP으로 압축하는 중… ${Math.round(meta.percent)}%`)
+    );
+    const label = months.length===12? '전체' : months.map(m=>+m+'월').join('·');
+    downloadBlob(blob, `업무일지_백업_${bkYear}년_${label}.zip`);
+    bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`);
+
+    if(delAfter){
+      if(confirm(`ZIP 다운로드가 시작됐습니다.\n파일이 단말기에 정상 저장된 것을 확인하셨나요?\n[확인]을 누르면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터를 서버에서 삭제합니다.`)){
+        for(const mm of months) await db.ref(`diaries/${USER.uid}/${bkYear}/${mm}`).remove();
+        delete yearCache[bkYear];
+        if(+curDate.slice(0,4)===bkYear && months.includes(curDate.slice(5,7))){ day = emptyDay(); renderSheet(); }
+        toast('선택한 월 데이터를 삭제해 용량을 확보했어요');
+        renderBkMonths(); renderArchive();
+      } else toast('삭제를 취소했어요. 데이터는 그대로 있습니다');
+    } else toast('백업 ZIP을 저장했어요');
+  }catch(e){
+    if(e.message==='abort'){ bkProgress(0,''); $('bkProgWrap').classList.add('hidden'); toast('백업을 중단했어요. 데이터는 변경되지 않았습니다'); }
+    else { bkProgress(0,''); toast('백업 실패: '+e.message); }
+    $('exportStage').innerHTML = '';
+  }finally{
+    bkRunning = false; bkAbort = false;
+    $('bkStart').disabled = false; $('bkCancel').textContent = '닫기';
+  }
+};
+
+/* ── 백업 JSON에서 복원 ── */
+$('bkRestore').onclick = () => {
+  if(bkRunning) return;
+  pickFile('.json,application/json', async file => {
+    try{
+      const obj = JSON.parse(await file.text());
+      if(obj.app!=='inhyeok-diary' || !obj.days) throw new Error('이 앱의 백업 JSON이 아닙니다');
+      const {year, month, days} = obj;
+      const dds = Object.keys(days);
+      const exist = await db.ref(`diaries/${USER.uid}/${year}/${month}`).get();
+      const dup = exist.exists()? dds.filter(d => exist.val()[d]) : [];
+      if(dup.length && !confirm(`${year}년 ${+month}월에 이미 ${dup.length}일의 기록이 있습니다.\n백업 내용으로 덮어쓸까요? (겹치지 않는 날은 그대로 추가됩니다)`)) return;
+      const updates = {};
+      dds.forEach(d => updates[d] = days[d]);
+      await db.ref(`diaries/${USER.uid}/${year}/${month}`).update(updates);
+      delete yearCache[year]; delete yearCache[String(year)];
+      toast(`${year}년 ${+month}월 ${dds.length}일 기록을 복원했어요`);
+      bkYear = +year; renderBkMonths();
+      if(!$('archiveView').classList.contains('hidden')){ arcYear=+year; arcMonth=month; renderArchive(); }
+      if(curDate.startsWith(`${year}-${month}`)) loadDay(curDate);
+    }catch(e){ toast('복원 실패: '+e.message); }
+  });
+};
+
+/* ═══════════════ 기타 업무함 (날짜와 무관, 처리 시까지 유지) ═══════════════ */
+let inbox = [], inboxTimer = null, inboxDirty = false;
+async function loadInbox(){
+  const snap = await db.ref(`diaries/${USER.uid}/inbox`).get();
+  const v = snap.exists()? snap.val() : [];
+  inbox = (Array.isArray(v)? v : Object.values(v)).map(normTask);
+}
+function markInbox(){
+  inboxDirty = true;
+  clearTimeout(inboxTimer);
+  inboxTimer = setTimeout(saveInbox, 800);
+}
+async function saveInbox(){
+  if(!inboxDirty || !USER) return;
+  inboxDirty = false;
+  const clean = JSON.parse(JSON.stringify(inbox, (k,v)=> k==='open'? undefined : v));
+  try{
+    if(clean.length) await db.ref(`diaries/${USER.uid}/inbox`).set(clean);
+    else await db.ref(`diaries/${USER.uid}/inbox`).remove();
+  }catch(e){ inboxDirty = true; }
+}
+function renderInbox(){
+  const box = $('inboxList'); box.innerHTML = '';
+  inbox.forEach((t,ti) => box.appendChild(taskRow(t, {arr:inbox, idx:ti, save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
+}
+$('inboxAddBtn').onclick = () => {
+  inbox.push(newTask()); markInbox(); renderInbox();
+  const ins = $('inboxList').querySelectorAll('.task-text');
+  if(ins.length) ins[ins.length-1].focus();
+};
+$('inboxClearBtn').onclick = () => {
+  const done = inbox.filter(t=>t.done).length;
+  if(!done){ toast('완료된 업무가 없어요'); return; }
+  if(confirm(`완료된 업무 ${done}건을 기타 업무함에서 지울까요?`)){
+    inbox = inbox.filter(t=>!t.done); markInbox(); renderInbox(); toast('완료 업무를 정리했어요');
+  }
+};
+function sendInboxToToday(t, idx){
+  let target = null;
+  const named = day.cats.filter(c=>c.name.trim());
+  if(named.length){
+    const menu = named.map((c,i)=>`${i+1}. ${c.name.trim()}`).join('\n');
+    const ans = prompt(`어느 카테고리로 보낼까요? 번호를 입력하세요.\n${menu}\n0. 새 '기타 업무' 카테고리`, '0');
+    if(ans===null) return;
+    const n = parseInt(ans,10);
+    if(n>=1 && n<=named.length) target = named[n-1];
+  }
+  if(!target){
+    target = day.cats.find(c=>c.name.trim()==='기타 업무');
+    if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
+  }
+  target.tasks.push({...normTask(t), id:uid8()});
+  inbox.splice(idx,1);
+  markDirty(); markInbox(); renderAll();
+  toast(`'${target.name.trim()||'기타 업무'}'(으)로 옮겼어요`);
+}
+
+/* ═══════════════ 기록 검색 ═══════════════ */
+let searchQ = '', searchTimer = null;
+$('searchIn').addEventListener('input', e => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(()=>{ searchQ = e.target.value.trim(); refreshArchive(); }, 300);
+});
+function refreshArchive(){ searchQ ? doSearch(searchQ) : renderArchive(); }
+function hl(text, q){
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if(i<0) return esc(text);
+  return esc(text.slice(0,i)) + '<mark>' + esc(text.slice(i,i+q.length)) + '</mark>' + esc(text.slice(i+q.length));
+}
+function snippet(text, q){
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  const st = Math.max(0, i-15);
+  return (st>0?'…':'') + text.slice(st, i + q.length + 30).replace(/\n/g,' ');
+}
+async function doSearch(q){
+  await flushSave();
+  $('yearLabel').textContent = arcYear + '년';
+  $('monthGrid').classList.add('hidden');
+  const yd = await getYear(arcYear);
+  const ql = q.toLowerCase();
+  const list = $('dayList'); list.innerHTML = '';
+  const out = [];
+  for(const mm of Object.keys(yd).sort().reverse()){
+    for(const dd of Object.keys(yd[mm]).sort().reverse()){
+      const v = normalize(yd[mm][dd]);
+      const lines = [];
+      if(v.note.toLowerCase().includes(ql)) lines.push({k:'남김말', h:hl(v.note,q)});
+      v.cats.forEach(c => {
+        const cn = c.name.trim()||'(무제)', col = catColor(c);
+        if(cn.toLowerCase().includes(ql))
+          lines.push({k:'카테고리', h:`<span class="sr-cat" style="color:${col}">${hl(cn,q)}</span>`});
+        c.tasks.forEach(t => {
+          if(t.text.toLowerCase().includes(ql))
+            lines.push({k:'업무', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} ›</span> ${hl(t.text,q)}${t.done?' ✔':''}`});
+          else if(t.note.toLowerCase().includes(ql))
+            lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`});
+        });
+      });
+      if(v.memo.toLowerCase().includes(ql)) lines.push({k:'메모', h:hl(snippet(v.memo,q),q)});
+      if(lines.length) out.push({mm, dd, lines});
+    }
+  }
+  if(!out.length){
+    list.innerHTML = `<div class="empty-note">'${esc(q)}'에 대한 ${arcYear}년 기록이 없어요.<br>◀ ▶ 로 연도를 바꿔 검색해 보세요.</div>`;
+    return;
+  }
+  const head = document.createElement('div');
+  head.className = 'empty-note'; head.style.padding = '4px 0 12px';
+  head.textContent = `'${q}' — ${arcYear}년에서 ${out.length}일의 기록을 찾았어요`;
+  list.appendChild(head);
+  out.forEach(r => {
+    const dt = new Date(`${arcYear}-${r.mm}-${r.dd}T12:00:00`);
+    const card = document.createElement('div'); card.className = 'day-card';
+    const shown = r.lines.slice(0,5).map(l => `<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('');
+    const more = r.lines.length>5 ? `<div class="sr-line" style="color:var(--ink-soft)">＋ ${r.lines.length-5}건 더</div>` : '';
+    card.innerHTML = `
+      <div class="dc-date"><div class="d">${+r.dd}</div><div class="w">${+r.mm}월 ${DOW[dt.getDay()]}</div></div>
+      <div class="dc-body">${shown}${more}</div>`;
+    card.onclick = () => { switchTab(true); loadDay(`${arcYear}-${r.mm}-${r.dd}`); };
+    list.appendChild(card);
+  });
+}
+
+/* ═══════════════ 보고용 텍스트 복사 ═══════════════ */
+function buildReport(){
+  const d = new Date(curDate+'T12:00:00');
+  const stMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
+  let out = `[업무일지] ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}.(${DOW[d.getDay()]})`;
+  if(day.note.trim()) out += `\n남김말: ${day.note.trim()}`;
+  day.cats.forEach(c => {
+    const ts = c.tasks.filter(t=>t.text.trim());
+    if(!ts.length && !c.name.trim()) return;
+    out += `\n\n■ ${c.name.trim()||'(무제)'}`;
+    ts.forEach(t => {
+      out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
+      if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
+    });
+  });
+  if(day.memo.trim()) out += `\n\n※ 메모\n${day.memo.trim()}`;
+  return out;
+}
+$('expCopy').onclick = async () => {
+  $('exportMenu').classList.add('hidden');
+  await flushSave();
+  const txt = buildReport();
+  try{ await navigator.clipboard.writeText(txt); }
+  catch(e){
+    const ta = document.createElement('textarea'); ta.value = txt;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+  }
+  toast('보고용 텍스트를 복사했어요 — 메신저·메일에 붙여넣으세요');
+};
 </script>
 </body>
 </html>
