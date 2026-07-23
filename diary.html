@@ -1045,11 +1045,11 @@ function buildA4(dateStr, data){
   const el = document.createElement('div');
   el.className = 'a4';
   el.innerHTML = `
-    <div class="a4-head">
+    <div class="a4-head" style="justify-content:space-between">
       <div class="a4-title">정인혁의 업무일지</div>
-      <div class="a4-note">남김말 : ${esc(data.note)}</div>
       <div class="a4-date">${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}. (${DOW[d.getDay()]})</div>
     </div>
+    ${data.note.trim()? `<div class="a4-note" style="padding:12px 2px 0">남김말 : ${esc(data.note)}</div>`:''}
     <div class="a4-star">★ 일일 업무 기록</div>
     <table>
       <tr><th style="text-align:left;padding-left:30px">To-Do List</th><th>Prior</th><th>Status</th><th>Due date</th></tr>
