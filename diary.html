@@ -266,6 +266,43 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .sr-line .sr-cat{font-weight:800;margin-right:4px}
 .sr-line .sr-kind{font-size:.7rem;color:var(--ink-soft);background:var(--paper-deep);border-radius:6px;padding:1px 6px;margin-right:6px}
 
+/* ───────── v4: 완료 모음·달력·날씨·회의록 ───────── */
+#doneSec{margin-top:12px;background:#F1F7EE;border:1.5px dashed #B4D6BE;border-radius:12px;overflow:hidden}
+#doneHead{width:100%;text-align:left;padding:10px 14px;font-weight:800;color:var(--green);font-size:.9rem;
+  display:flex;justify-content:space-between;align-items:center}
+.done-row{display:flex;gap:8px;align-items:center;padding:8px 14px;border-top:1px solid #DCEBD8;font-size:.92rem}
+.done-row .dr-chk{width:19px;height:19px;flex:none;border-radius:6px;background:var(--green);color:#fff;
+  font-size:.75rem;display:flex;align-items:center;justify-content:center}
+.done-row .dr-cat{font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:#fff;flex:none}
+.done-row .dr-text{flex:1;text-decoration:line-through;color:var(--done);min-width:0;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+.mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.72rem;font-weight:800;color:var(--ink-soft);
+  text-align:center;padding:4px 6px 10px}
+.cal-dow span:first-child{color:var(--danger)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 6px 8px}
+.cal-cell{aspect-ratio:1;border:none;border-radius:10px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:3px;font-weight:700;font-size:.92rem;color:#C7B49B;background:transparent;font-family:inherit}
+.cal-cell.none{color:var(--ink-soft);cursor:pointer}
+.cal-cell.has{background:#FFF0D6;color:var(--accent-deep);cursor:pointer}
+.cal-cell.has:hover,.cal-cell.none:hover{background:#FFE9C4}
+.cal-cell.today{outline:2.5px solid var(--accent);outline-offset:-2px}
+.cal-cell.sun{color:#D9958A}.cal-cell.has.sun{color:var(--danger)}
+.cal-cell .bar{width:62%;height:4px;border-radius:99px;background:#EBDCC0;overflow:hidden}
+.cal-cell .bar i{display:block;height:100%;background:var(--green)}
+.bignote{background:#FFFBEF;border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:12px;padding:14px;margin-bottom:12px}
+.bn-head{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+.bn-title{flex:1;border:none;background:transparent;font-family:'Jua';font-size:1.15rem;color:var(--accent-deep);
+  border-bottom:1.5px dashed var(--rule);padding:2px 4px;min-width:0}
+.bn-meta{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;background:#FFF4DE;border-radius:10px;
+  padding:11px 13px;margin-bottom:10px;font-size:.88rem}
+.bn-meta label{font-weight:800;color:var(--accent-deep);white-space:nowrap;padding-top:3px}
+.bn-meta input{border:none;background:transparent;border-bottom:1px dashed var(--rule);padding:3px 2px;font-size:.9rem}
+.bn-body{width:100%;border:none;background:repeating-linear-gradient(transparent,transparent 27px,var(--rule) 27px,var(--rule) 28px);
+  line-height:28px;font-size:.95rem;resize:vertical;min-height:112px;margin-bottom:8px;color:var(--ink)}
+.bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
+
 /* A4 렌더용 (794×1123 @96dpi) */
 .a4{width:794px;min-height:1123px;background:#FBF2E1;padding:56px 52px;color:#4A3423;
   font-family:"Pretendard Variable",Pretendard,sans-serif;position:relative}
@@ -339,6 +376,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       </div>
       <button class="date-arrow" id="nextDay">▶</button>
       <button class="today-btn" id="goToday">오늘</button>
+      <span id="wxChip" class="today-btn hidden" style="cursor:default;border-style:dashed"></span>
     </div>
     <div id="saveState"></div>
 
@@ -355,10 +393,15 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
         <div class="section-star">★ 일일 업무 기록
           <div class="actions">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
+            <button class="mini-btn" id="doneModeBtn">✔ 모아보기</button>
           </div>
         </div>
         <div id="catList"></div>
-        <div class="empty-note hidden" id="emptyTasks">아직 기록이 없어요. ＋ 카테고리로 오늘을 시작해 보세요.</div>
+        <div class="empty-note hidden" id="emptyTasks">아직 기록이 없어요. 우측 하단 ＋ 버튼으로 오늘을 시작해 보세요.</div>
+        <div id="doneSec" class="hidden">
+          <button id="doneHead"><span>✔ 완료된 업무 <span id="doneCnt">0</span>건</span><span id="doneArrow">▾</span></button>
+          <div id="doneList"></div>
+        </div>
 
         <div class="section-star">★ 기타 업무함 <span style="font-family:Pretendard;font-size:.72rem;font-weight:600;color:var(--ink-soft)">날짜와 무관 · 처리할 때까지 유지</span>
           <div class="actions">
@@ -370,6 +413,11 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
           <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 매일 따라다니다가, 카테고리가 정해지면 "↥ 오늘로" 버튼으로 오늘 일지에 올릴 수 있어요.</div>
           <div id="inboxList"></div>
         </div>
+
+        <div class="section-star">★ 회의록 · 큰 메모장
+          <div class="actions"><button class="mini-btn" id="noteAddBtn">＋ 새 메모장</button></div>
+        </div>
+        <div id="bigNotes"></div>
 
         <div class="section-star">★ 회의 및 기타 메모
           <div class="actions">
@@ -396,7 +444,10 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       <button class="date-arrow" id="nextYear">▶</button>
       <button class="mini-btn" id="backupBtn" style="margin-left:8px">💾 백업</button>
     </div>
-    <div class="month-grid" id="monthGrid"></div>
+    <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
+      <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
+      <div class="cal-grid" id="calGrid"></div>
+    </div>
     <div class="day-list" id="dayList"></div>
   </div>
 </div>
@@ -482,7 +533,7 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[] }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[] }; }
 function dayRef(dateStr){
   const [y,m,d] = dateStr.split('-');
   return db.ref(`diaries/${USER.uid}/${y}/${m}/${d}`);
@@ -544,6 +595,12 @@ function normalize(v){
   return {
     note: v.note||'', memo: v.memo||'',
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
+    notes: (Array.isArray(v.notes)? v.notes : Object.values(v.notes||{})).map(n => ({
+      id: n.id||uid8(), title: n.title||'', body: n.body||'',
+      meta: { when:(n.meta&&n.meta.when)||'', where:(n.meta&&n.meta.where)||'',
+              who:(n.meta&&n.meta.who)||'', agenda:(n.meta&&n.meta.agenda)||'' },
+      files: Array.isArray(n.files)? n.files : Object.values(n.files||{})
+    })),
     cats: (Array.isArray(v.cats)? v.cats : Object.values(v.cats||{})).map(c => ({
       id: c.id||uid8(), name: c.name||'', color: c.color||0,
       tasks: (Array.isArray(c.tasks)? c.tasks : Object.values(c.tasks||{})).map(normTask)
@@ -564,6 +621,7 @@ function renderDate(){
   $('dowText').textContent = `${DOW[d.getDay()]}요일`;
   $('ymdText').textContent = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`;
   $('datePick').value = curDate;
+  loadWeather();
 }
 
 /* ───────── 저장 (자동, 800ms 디바운스) ───────── */
@@ -575,8 +633,8 @@ function markDirty(){
 async function saveNow(){
   if(!dirty || !USER) return;
   dirty = false;
-  const clean = JSON.parse(JSON.stringify(day, (k,v)=> k==='open'? undefined : v));
-  const isEmpty = !clean.note && !clean.memo && !clean.memoFiles.length && !clean.cats.length;
+  const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
+  const isEmpty = !clean.note && !clean.memo && !clean.memoFiles.length && !clean.cats.length && !clean.notes.length;
   try{
     if(isEmpty) await dayRef(curDate).remove();
     else await dayRef(curDate).set(clean);
@@ -593,7 +651,7 @@ window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 function renderSheet(){
   $('dayNote').value = day.note;
   $('memoText').value = day.memo;
-  renderCats(); renderInbox(); renderMemoFiles();
+  renderCats(); renderInbox(); renderNotes(); renderMemoFiles();
 }
 $('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); });
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
@@ -626,9 +684,11 @@ function renderCats(){
     add.onclick  = () => { cat.tasks.push(newTask()); markDirty(); renderCats(); focusLastTask(el); };
     del.onclick  = () => { if(!cat.tasks.length || confirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`)){ day.cats.splice(ci,1); markDirty(); renderCats(); } };
     const list = el.querySelector('.task-list');
-    cat.tasks.forEach((t,ti)=> list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})));
+    cat.tasks.forEach((t,ti)=>{ if(doneMode && t.done) return; list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})); });
     box.appendChild(el);
   });
+  $('doneModeBtn').classList.toggle('active', doneMode);
+  renderDoneSec();
 }
 function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', files:[], open:false}; }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
@@ -796,7 +856,7 @@ function renderFiles(box, arr, ctx){
     }
   });
 }
-function renderAll(){ renderCats(); renderInbox(); renderMemoFiles(); }
+function renderAll(){ renderCats(); renderInbox(); renderNotes(); renderMemoFiles(); }
 $('lightbox').onclick = () => $('lightbox').classList.add('hidden');
 
 /* 메모 첨부 (화면에 바로 표시) */
@@ -805,8 +865,8 @@ $('memoAudioBtn').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, day.
 function renderMemoFiles(){ renderFiles($('memoFiles'), day.memoFiles, {save:markDirty, rerender:renderAll}); autoGrow($('memoText')); }
 
 /* 브라우저 내 음성 녹음 → 메모 첨부 */
-$('memoRecBtn').onclick = async () => {
-  const btn = $('memoRecBtn');
+$('memoRecBtn').onclick = e => startRecording(day.memoFiles, e.currentTarget);
+async function startRecording(arr, btn){
   if(mediaRecorder && mediaRecorder.state==='recording'){ mediaRecorder.stop(); return; }
   try{
     const stream = await navigator.mediaDevices.getUserMedia({audio:true});
@@ -814,24 +874,25 @@ $('memoRecBtn').onclick = async () => {
                : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
     mediaRecorder = new MediaRecorder(stream, mime? {mimeType:mime}:{});
     recChunks = [];
+    const orig = btn.textContent;
     mediaRecorder.ondataavailable = e => { if(e.data.size) recChunks.push(e.data); };
     mediaRecorder.onstop = () => {
       stream.getTracks().forEach(t=>t.stop());
-      btn.classList.remove('recording'); btn.textContent = '🎙 녹음';
+      btn.classList.remove('recording'); btn.textContent = orig;
       const blob = new Blob(recChunks, {type: mediaRecorder.mimeType||'audio/mp4'});
       if(blob.size > 8*1024*1024){ toast('녹음이 너무 길어 저장하지 못했어요(8MB 초과)'); return; }
       const ext = (mediaRecorder.mimeType||'').includes('mp4') ? 'm4a' : 'webm';
       const r = new FileReader();
       r.onload = () => {
-        day.memoFiles.push({id:uid8(), type:'audio', name:`녹음_${curDate}_${new Date().toTimeString().slice(0,5).replace(':','')}.${ext}`, data:r.result, ts:Date.now()});
-        markDirty(); renderMemoFiles(); toast('녹음을 메모에 저장했어요');
+        arr.push({id:uid8(), type:'audio', name:`녹음_${curDate}_${new Date().toTimeString().slice(0,5).replace(':','')}.${ext}`, data:r.result, ts:Date.now()});
+        markDirty(); renderAll(); toast('녹음을 저장했어요');
       };
       r.readAsDataURL(blob);
     };
     mediaRecorder.start();
     btn.classList.add('recording'); btn.textContent = '⏹ 녹음 중… 누르면 종료';
   }catch(e){ toast('마이크 권한을 허용해 주세요'); }
-};
+}
 
 /* ───────── 탭/기록(아카이브) ───────── */
 $('tabToday').onclick = () => switchTab(true);
@@ -845,8 +906,15 @@ function switchTab(today){
   $('fabCat').classList.toggle('hidden', !today);
   if(!today){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
 }
-$('prevYear').onclick = () => { arcYear--; arcMonth=null; refreshArchive(); };
-$('nextYear').onclick = () => { arcYear++; arcMonth=null; refreshArchive(); };
+$('prevYear').onclick = () => stepMonth(-1);
+$('nextYear').onclick = () => stepMonth(1);
+function stepMonth(dir){
+  if(searchQ){ arcYear += dir; refreshArchive(); return; }   // 검색 중엔 연 단위 이동
+  let y = arcYear, m = +(arcMonth || curDate.slice(5,7)) + dir;
+  if(m < 1){ m = 12; y--; } if(m > 12){ m = 1; y++; }
+  arcYear = y; arcMonth = String(m).padStart(2,'0');
+  refreshArchive();
+}
 
 const yearCache = {};
 async function getYear(y){
@@ -858,35 +926,57 @@ async function getYear(y){
 async function renderArchive(){
   await flushSave();
   $('monthGrid').classList.remove('hidden');
-  $('yearLabel').textContent = arcYear + '년';
-  const yearData = await getYear(arcYear);
-  const grid = $('monthGrid'); grid.innerHTML = '';
-  for(let m=1;m<=12;m++){
-    const mm = String(m).padStart(2,'0');
-    const cnt = yearData[mm] ? Object.keys(yearData[mm]).length : 0;
+  if(!arcMonth) arcMonth = curDate.slice(5,7);
+  $('yearLabel').textContent = `${arcYear}년 ${+arcMonth}월`;
+  const yd = await getYear(arcYear);
+  const md = yd[arcMonth] || {};
+
+  /* 달력 */
+  const grid = $('calGrid'); grid.innerHTML = '';
+  const firstDow = new Date(arcYear, +arcMonth-1, 1).getDay();
+  const dim = new Date(arcYear, +arcMonth, 0).getDate();
+  for(let i=0;i<firstDow;i++){ const sp=document.createElement('div'); sp.className='cal-cell'; grid.appendChild(sp); }
+  const tstr = todayStr();
+  for(let d=1;d<=dim;d++){
+    const dd = String(d).padStart(2,'0');
+    const ds = `${arcYear}-${arcMonth}-${dd}`;
+    const has = !!md[dd];
+    const dow = new Date(arcYear, +arcMonth-1, d).getDay();
     const cell = document.createElement('button');
-    cell.className = 'month-cell' + (cnt?' has':'') + (arcMonth===mm?' on':'');
-    cell.innerHTML = `${m}월<span class="mc-cnt">${cnt? cnt+'일 기록':'　'}</span>`;
-    cell.onclick = () => { arcMonth = mm; renderArchive(); };
+    cell.className = 'cal-cell ' + (has?'has':'none') + (ds===tstr?' today':'') + (dow===0?' sun':'');
+    let bar = '';
+    if(has){
+      const v = normalize(md[dd]);
+      const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
+      const pct = all.length? Math.round(all.filter(t=>t.done).length/all.length*100) : 0;
+      bar = `<span class="bar"><i style="width:${pct}%"></i></span>`;
+    }
+    cell.innerHTML = `${d}${bar}`;
+    cell.title = has? `${ds} 기록 열기` : `${ds} 새로 기록하기`;
+    cell.onclick = () => { switchTab(true); loadDay(ds); };
     grid.appendChild(cell);
   }
+
+  /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
-  if(!arcMonth || !yearData[arcMonth]){
-    list.innerHTML = `<div class="empty-note">${arcMonth? '이 달에는 기록이 없어요.' : '월을 선택하면 그 달의 기록이 펼쳐집니다.'}</div>`;
+  const keys = Object.keys(md).sort((a,b)=>b.localeCompare(a));
+  if(!keys.length){
+    list.innerHTML = `<div class="empty-note">이 달에는 기록이 없어요. 달력의 날짜를 누르면 그날을 새로 기록할 수 있어요.</div>`;
     return;
   }
-  Object.keys(yearData[arcMonth]).sort((a,b)=>b.localeCompare(a)).forEach(dd => {
-    const v = normalize(yearData[arcMonth][dd]);
+  keys.forEach(dd => {
+    const v = normalize(md[dd]);
     const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
     const done = all.filter(t=>t.done).length;
     const pct = all.length? Math.round(done/all.length*100) : 0;
     const dt = new Date(`${arcYear}-${arcMonth}-${dd}T12:00:00`);
+    const hasNotes = v.notes.some(n=>n.title.trim()||n.body.trim());
     const card = document.createElement('div'); card.className='day-card';
     card.innerHTML = `
       <div class="dc-date"><div class="d">${+dd}</div><div class="w">${DOW[dt.getDay()]}요일</div></div>
       <div class="dc-body">
         <div class="dc-note">${esc(v.note) || '<span style="color:#C7B49B">남김말 없음</span>'}</div>
-        <div class="dc-sub">업무 ${all.length}건 · 완료 ${done}건${v.memo.trim()? ' · 📝메모':''}${(v.memoFiles.length||v.cats.some(c=>c.tasks.some(t=>t.files.length)))? ' · 📎첨부':''}</div>
+        <div class="dc-sub">업무 ${all.length}건 · 완료 ${done}건${hasNotes? ' · 📋회의록':''}${v.memo.trim()? ' · 📝메모':''}${(v.memoFiles.length||v.cats.some(c=>c.tasks.some(t=>t.files.length))||v.notes.some(n=>n.files.length))? ' · 📎첨부':''}</div>
       </div>
       <div class="dc-ring" style="background:conic-gradient(var(--accent) ${pct*3.6}deg, #F0E2C6 0)">
         <span style="background:var(--card);border-radius:50%;width:34px;height:34px;display:flex;align-items:center;justify-content:center">${pct}%</span>
@@ -895,7 +985,6 @@ async function renderArchive(){
     list.appendChild(card);
   });
 }
-
 /* ───────── A4 내보내기 (PDF / PNG) ───────── */
 $('exportBtn').onclick = () => $('exportMenu').classList.remove('hidden');
 $('expClose').onclick  = () => $('exportMenu').classList.add('hidden');
@@ -938,6 +1027,17 @@ function buildA4(dateStr, data){
       <tr><th style="text-align:left;padding-left:30px">To-Do List</th><th>Prior</th><th>Status</th><th>Due date</th></tr>
       ${rows}
     </table>
+    ${(data.notes||[]).filter(n=>n.title.trim()||n.body.trim()||n.files.length).map(n=>{
+      const mrows = [['일시',n.meta.when],['장소',n.meta.where],['참석자',n.meta.who],['안건',n.meta.agenda]]
+        .filter(x=>x[1].trim())
+        .map(x=>`<div style="font-size:13.5px;padding:2px 0"><b style="color:#C95F1D">${x[0]}</b> ｜ ${esc(x[1])}</div>`).join('');
+      const nimgs = n.files.filter(f=>f.type==='image').map(f=>`<img src="${f.data}">`).join('');
+      const naud = n.files.some(f=>f.type==='audio')? '<div style="font-size:12.5px;color:#8A705A;margin-top:6px">🎵 녹음 첨부 있음(백업 ZIP의 첨부 폴더 참고)</div>':'';
+      return `<div class="a4-star">📋 ${esc(n.title.trim()||'회의록')}</div>
+        ${mrows? `<div style="background:#FFF4DE;border-radius:8px;padding:9px 12px;margin-bottom:8px">${mrows}</div>`:''}
+        <div class="memo-a4" style="min-height:70px;font-family:Pretendard;font-size:14.5px;line-height:1.6">${esc(n.body)}</div>
+        <div class="memo-imgs">${nimgs}</div>${naud}`;
+    }).join('')}
     <div class="a4-star">★ 회의 및 기타 메모</div>
     <div class="memo-a4">${esc(data.memo)}</div>
     <div class="memo-imgs">${imgs}</div>${audioNote}
@@ -1092,6 +1192,7 @@ $('bkStart').onclick = async () => {
         if(incAudio){
           const files = [
             ...data.memoFiles.map(f => ({...f, from:'메모'})),
+            ...data.notes.flatMap(n => n.files.map(f => ({...f, from:safeName(n.title)||'회의록'}))),
             ...data.cats.flatMap(c => c.tasks.flatMap(t => t.files.map(f => ({...f, from:safeName(t.text)||'업무'}))))
           ].filter(f => f.type==='audio');
           files.forEach((f,i) => {
@@ -1230,11 +1331,16 @@ function snippet(text, q){
 }
 async function doSearch(q){
   await flushSave();
-  $('yearLabel').textContent = arcYear + '년';
+  $('yearLabel').textContent = `${arcYear}년 전체 검색`;
   $('monthGrid').classList.add('hidden');
   const yd = await getYear(arcYear);
   const ql = q.toLowerCase();
   const list = $('dayList'); list.innerHTML = '';
+  const ibLines = [];
+  inbox.forEach(t => {
+    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'기타함', h:hl(t.text,q)+(t.done?' ✔':'')});
+    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'기타함·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
+  });
   const out = [];
   for(const mm of Object.keys(yd).sort().reverse()){
     for(const dd of Object.keys(yd[mm]).sort().reverse()){
@@ -1252,18 +1358,34 @@ async function doSearch(q){
             lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`});
         });
       });
+      v.notes.forEach(n => {
+        const nt = n.title.trim()||'(제목 없음)';
+        if(n.title.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${hl(n.title,q)}</b>`});
+        if(n.body.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${esc(nt)}</b> — ${hl(snippet(n.body,q),q)}`});
+        const ms = [n.meta.when,n.meta.where,n.meta.who,n.meta.agenda].filter(Boolean).join(' · ');
+        if(ms.toLowerCase().includes(ql)) lines.push({k:'회의록·개요', h:`<b>${esc(nt)}</b> — ${hl(snippet(ms,q),q)}`});
+      });
       if(v.memo.toLowerCase().includes(ql)) lines.push({k:'메모', h:hl(snippet(v.memo,q),q)});
       if(lines.length) out.push({mm, dd, lines});
     }
   }
-  if(!out.length){
+  if(ibLines.length){
+    const ib = document.createElement('div'); ib.className = 'day-card';
+    ib.innerHTML = `<div class="dc-date"><div class="d">📥</div><div class="w">기타함</div></div>
+      <div class="dc-body">${ibLines.slice(0,5).map(l=>`<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('')}</div>`;
+    ib.onclick = () => { switchTab(true); setTimeout(()=>$('inboxList').scrollIntoView({behavior:'smooth', block:'center'}), 200); };
+    list.appendChild(ib);
+  }
+  if(!out.length && !ibLines.length){
     list.innerHTML = `<div class="empty-note">'${esc(q)}'에 대한 ${arcYear}년 기록이 없어요.<br>◀ ▶ 로 연도를 바꿔 검색해 보세요.</div>`;
     return;
   }
-  const head = document.createElement('div');
-  head.className = 'empty-note'; head.style.padding = '4px 0 12px';
-  head.textContent = `'${q}' — ${arcYear}년에서 ${out.length}일의 기록을 찾았어요`;
-  list.appendChild(head);
+  if(out.length){
+    const head = document.createElement('div');
+    head.className = 'empty-note'; head.style.padding = '4px 0 12px';
+    head.textContent = `'${q}' — ${arcYear}년에서 ${out.length}일의 기록을 찾았어요`;
+    list.appendChild(head);
+  }
   out.forEach(r => {
     const dt = new Date(`${arcYear}-${r.mm}-${r.dd}T12:00:00`);
     const card = document.createElement('div'); card.className = 'day-card';
@@ -1292,6 +1414,14 @@ function buildReport(){
       if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
     });
   });
+  day.notes.forEach(n => {
+    if(!(n.title.trim()||n.body.trim())) return;
+    out += `\n\n□ 회의록: ${n.title.trim()||'(무제)'}`;
+    [['일시',n.meta.when],['장소',n.meta.where],['참석자',n.meta.who],['안건',n.meta.agenda]].forEach(([k,v])=>{
+      if(v.trim()) out += `\n · ${k}: ${v.trim()}`;
+    });
+    if(n.body.trim()) out += `\n${n.body.trim().replace(/^/gm,'  ')}`;
+  });
   if(day.memo.trim()) out += `\n\n※ 메모\n${day.memo.trim()}`;
   return out;
 }
@@ -1306,6 +1436,115 @@ $('expCopy').onclick = async () => {
   }
   toast('보고용 텍스트를 복사했어요 — 메신저·메일에 붙여넣으세요');
 };
+
+/* ═══════════════ 완료된 업무 모아보기 ═══════════════ */
+let doneMode = false, doneOpen = true;
+try{ doneMode = localStorage.getItem('doneMode')==='1'; }catch(e){}
+$('doneModeBtn').onclick = () => {
+  doneMode = !doneMode;
+  try{ localStorage.setItem('doneMode', doneMode?'1':'0'); }catch(e){}
+  renderCats();
+};
+$('doneHead').onclick = () => { doneOpen = !doneOpen; renderDoneSec(); };
+function renderDoneSec(){
+  const items = [];
+  day.cats.forEach(c => c.tasks.forEach((t,ti) => { if(t.done && t.text.trim()) items.push({c,t,ti}); }));
+  $('doneSec').classList.toggle('hidden', !doneMode || !items.length);
+  if(!doneMode || !items.length) return;
+  $('doneCnt').textContent = items.length;
+  $('doneArrow').textContent = doneOpen? '▾' : '▸';
+  const list = $('doneList'); list.innerHTML = '';
+  if(!doneOpen) return;
+  items.forEach(({c,t,ti}) => {
+    const col = catColor(c);
+    const row = document.createElement('div'); row.className = 'done-row';
+    row.innerHTML = `
+      <button class="dr-chk" title="완료 해제">✔</button>
+      <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
+      <span class="dr-text">${esc(t.text)}</span>
+      <div class="ctl"><button class="del" title="삭제">✕</button></div>`;
+    row.querySelector('.dr-chk').onclick = () => { t.done=false; t.status='doing'; markDirty(); renderCats(); };
+    row.querySelector('.del').onclick = () => { if(confirm('이 업무를 삭제할까요?')){ c.tasks.splice(ti,1); markDirty(); renderCats(); } };
+    list.appendChild(row);
+  });
+}
+
+/* ═══════════════ 회의록 · 큰 메모장 ═══════════════ */
+function renderNotes(){
+  const box = $('bigNotes'); box.innerHTML = '';
+  day.notes.forEach((n, ni) => {
+    const metaFilled = n.meta.when||n.meta.where||n.meta.who||n.meta.agenda;
+    const el = document.createElement('div'); el.className = 'bignote';
+    el.innerHTML = `
+      <div class="bn-head">
+        <input class="bn-title" value="${esc(n.title)}" placeholder="제목 (예: 7월 조직문화 TF 회의)">
+        <button class="mini-btn bn-ov ${(metaFilled||n._ov)?'active':''}">📋 개요</button>
+        <div class="ctl"><button class="del" title="메모장 삭제">✕</button></div>
+      </div>
+      <div class="bn-meta ${(metaFilled||n._ov)? '':'hidden'}">
+        <label>일시</label><input data-k="when" value="${esc(n.meta.when)}" placeholder="7/23(목) 14:00">
+        <label>장소</label><input data-k="where" value="${esc(n.meta.where)}" placeholder="본관 3층 회의실">
+        <label>참석자</label><input data-k="who" value="${esc(n.meta.who)}" placeholder="센터장님 외 5명">
+        <label>안건</label><input data-k="agenda" value="${esc(n.meta.agenda)}" placeholder="① 하반기 계획  ② 예산">
+      </div>
+      <textarea class="bn-body" placeholder="회의 내용, 논의 사항, 결정 사항, 후속 조치(To-Do)를 기록하세요">${esc(n.body)}</textarea>
+      <div class="ap-head">
+        <span class="ap-title">📎 첨부 (${n.files.length})</span>
+        <button class="mini-btn bn-img">🖼 사진</button>
+        <button class="mini-btn bn-aud">🎵 녹음파일</button>
+        <button class="mini-btn bn-rec rec-btn">🎙 녹음</button>
+      </div>
+      <div class="file-grid bn-files"></div>`;
+    el.querySelector('.bn-title').addEventListener('input', e => { n.title = e.target.value; markDirty(); });
+    el.querySelector('.bn-ov').onclick = () => { n._ov = !(metaFilled||n._ov); renderNotes(); };
+    el.querySelectorAll('.bn-meta input').forEach(inp =>
+      inp.addEventListener('input', () => { n.meta[inp.dataset.k] = inp.value; markDirty(); }));
+    const ta = el.querySelector('.bn-body');
+    ta.addEventListener('input', () => { n.body = ta.value; markDirty(); ta.style.height='auto'; ta.style.height = Math.max(112, ta.scrollHeight)+'px'; });
+    el.querySelector('.bn-head .del').onclick = () => {
+      if((!n.title.trim() && !n.body.trim() && !n.files.length) || confirm(`'${n.title.trim()||'메모장'}'을(를) 통째로 삭제할까요?`)){
+        day.notes.splice(ni,1); markDirty(); renderNotes();
+      }
+    };
+    el.querySelector('.bn-img').onclick = () => pickFile('image/*', f => addImage(f, n.files));
+    el.querySelector('.bn-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, n.files));
+    el.querySelector('.bn-rec').onclick = e => startRecording(n.files, e.currentTarget);
+    renderFiles(el.querySelector('.bn-files'), n.files, {save:markDirty, rerender:renderAll});
+    box.appendChild(el);
+  });
+}
+$('noteAddBtn').onclick = () => {
+  day.notes.push({id:uid8(), title:'', body:'', meta:{when:'',where:'',who:'',agenda:''}, files:[], _ov:true});
+  markDirty(); renderNotes();
+  const ts = $('bigNotes').querySelectorAll('.bn-title');
+  if(ts.length){ ts[ts.length-1].scrollIntoView({behavior:'smooth', block:'center'}); ts[ts.length-1].focus(); }
+};
+
+/* ═══════════════ 위치 기반 오늘 날씨 (Open-Meteo, 키 불필요) ═══════════════ */
+let wxCache = { t:0, text:'' };
+function wmoIcon(c){
+  if(c===0) return '☀️'; if(c<=2) return '🌤️'; if(c===3) return '☁️';
+  if(c<=48) return '🌫️'; if(c<=57) return '🌦️'; if(c<=67) return '🌧️';
+  if(c<=77) return '🌨️'; if(c<=82) return '🌧️'; if(c<=86) return '🌨️'; return '⛈️';
+}
+function loadWeather(){
+  const chip = $('wxChip');
+  if(curDate !== todayStr()){ chip.classList.add('hidden'); return; }
+  if(wxCache.text && Date.now()-wxCache.t < 30*60*1000){
+    chip.textContent = wxCache.text; chip.classList.remove('hidden'); return;
+  }
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try{
+      const {latitude, longitude} = pos.coords;
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`);
+      const j = await r.json();
+      wxCache.text = `${wmoIcon(j.current.weather_code)} ${Math.round(j.current.temperature_2m)}° (${Math.round(j.daily.temperature_2m_min[0])}°~${Math.round(j.daily.temperature_2m_max[0])}°)`;
+      wxCache.t = Date.now();
+      if(curDate === todayStr()){ chip.textContent = wxCache.text; chip.classList.remove('hidden'); }
+    }catch(e){ /* 날씨는 조용히 생략 */ }
+  }, ()=>{}, {timeout:6000, maximumAge:600000});
+}
 </script>
 </body>
 </html>
