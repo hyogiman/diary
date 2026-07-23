@@ -277,6 +277,8 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .done-row .dr-text{flex:1;text-decoration:line-through;color:var(--done);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
+  font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.72rem;font-weight:800;color:var(--ink-soft);
   text-align:center;padding:4px 6px 10px}
 .cal-dow span:first-child{color:var(--danger)}
@@ -356,12 +358,15 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 <div id="appView" class="hidden">
   <div id="topbar">
     <div class="topbar-in">
-      <div class="brand">📔 업무일지</div>
+      <div class="brand">📔 정인혁의 업무일지</div>
       <div class="tabs">
         <button class="tab on" id="tabToday">오늘</button>
         <button class="tab" id="tabArchive">기록</button>
       </div>
+      <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
+      <button class="icon-btn" id="diaryBtn" title="오늘의 일기">📖</button>
       <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
+      <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
       <button class="icon-btn" id="logoutBtn" title="잠그기">🔒</button>
     </div>
   </div>
@@ -369,39 +374,31 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
   <div id="todayView">
     <div id="dateNav">
       <button class="date-arrow" id="prevDay">◀</button>
-      <div class="date-chip">
-        <div class="dow" id="dowText">—</div>
+      <div class="date-chip" style="padding:12px 20px">
         <div class="ymd" id="ymdText">—</div>
         <input type="date" id="datePick">
       </div>
       <button class="date-arrow" id="nextDay">▶</button>
       <button class="today-btn" id="goToday">오늘</button>
-      <span id="wxChip" class="today-btn hidden" style="cursor:default;border-style:dashed"></span>
     </div>
+    <div id="wxChip" class="hidden" style="text-align:center;font-size:.85rem;font-weight:700;color:var(--ink-soft);margin-top:6px"></div>
     <div id="saveState"></div>
 
     <div id="sheet">
       <div class="paper">
-        <div class="sheet-head">
-          <div class="sheet-title">정인혁의 업무일지</div>
+        <div class="sheet-head" style="border-bottom-width:2px">
           <div class="note-wrap">
             <span class="note-label">남김말 :</span>
             <input id="dayNote" placeholder="오늘 하루를 한 줄로">
           </div>
-        </div>
-
-        <div class="section-star">★ 일일 업무 기록
-          <div class="actions">
+          <div class="actions" style="display:flex;gap:6px;flex:none">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
-            <button class="mini-btn" id="doneModeBtn">✔ 모아보기</button>
+            <button class="mini-btn" id="prioBtn">⚡ 우선순위</button>
           </div>
         </div>
         <div id="catList"></div>
+        <div id="prioList" class="hidden"></div>
         <div class="empty-note hidden" id="emptyTasks">아직 기록이 없어요. 우측 하단 ＋ 버튼으로 오늘을 시작해 보세요.</div>
-        <div id="doneSec" class="hidden">
-          <button id="doneHead"><span>✔ 완료된 업무 <span id="doneCnt">0</span>건</span><span id="doneArrow">▾</span></button>
-          <div id="doneList"></div>
-        </div>
 
         <div class="section-star">★ 기타 업무함 <span style="font-family:Pretendard;font-size:.72rem;font-weight:600;color:var(--ink-soft)">날짜와 무관 · 처리할 때까지 유지</span>
           <div class="actions">
@@ -414,11 +411,6 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
           <div id="inboxList"></div>
         </div>
 
-        <div class="section-star">★ 회의록 · 큰 메모장
-          <div class="actions"><button class="mini-btn" id="noteAddBtn">＋ 새 메모장</button></div>
-        </div>
-        <div id="bigNotes"></div>
-
         <div class="section-star">★ 회의 및 기타 메모
           <div class="actions">
             <button class="mini-btn" id="memoImgBtn">🖼 사진</button>
@@ -430,6 +422,8 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
           <textarea id="memoText" placeholder="중요한 회의 내용, 아이디어, 하루의 기록을 남겨 두세요."></textarea>
           <div id="memoFiles" class="file-grid"></div>
         </div>
+
+        <div id="bigNotes"></div>
       </div>
     </div>
   </div>
@@ -443,6 +437,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       <div class="year-label" id="yearLabel">2026년</div>
       <button class="date-arrow" id="nextYear">▶</button>
       <button class="mini-btn" id="backupBtn" style="margin-left:8px">💾 백업</button>
+      <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
     </div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
@@ -494,6 +489,32 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
     </div>
   </div>
 </div>
+<div id="settingsMenu" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.45);z-index:155;display:flex;align-items:flex-end;justify-content:center">
+  <div class="export-card">
+    <h3>⚙ 설정</h3>
+    <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
+    <button class="btn-line" id="delTodayBtn" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
+    <button class="btn-line" id="setClose" style="margin-top:10px;border-style:dashed">닫기</button>
+  </div>
+</div>
+<div id="diaryModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.55);z-index:170;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:520px">
+    <h3 id="diaryTitle">📖 오늘의 일기</h3>
+    <div id="diaryLock">
+      <p style="text-align:center;font-size:.9rem;color:var(--ink-soft);margin:12px 0">비밀번호 4자리를 입력하세요</p>
+      <input id="diaryPinIn" type="password" inputmode="numeric" maxlength="4" autocomplete="off"
+        style="width:150px;margin:0 auto 12px;display:block;text-align:center;font-size:1.4rem;letter-spacing:.4em;padding:10px;border:1.5px solid var(--rule);border-radius:10px;background:#FFFDF6">
+      <button class="btn-primary" id="diaryOpenBtn" style="max-width:200px;margin:0 auto">열기</button>
+      <div class="login-msg" id="diaryMsg" style="text-align:center"></div>
+    </div>
+    <div id="diaryBody" class="hidden">
+      <textarea id="diaryText" placeholder="오늘 하루, 나에게만 남기는 이야기"
+        style="width:100%;min-height:280px;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);line-height:32px;font-family:'Nanum Pen Script';font-size:1.35rem;resize:vertical;color:var(--ink)"></textarea>
+      <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
+    </div>
+    <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
+  </div>
+</div>
 <div id="exportStage"></div>
 <div id="toast"></div>
 <input type="file" id="fileInput" class="hidden">
@@ -533,7 +554,7 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[] }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', prioOrder:[] }; }
 function dayRef(dateStr){
   const [y,m,d] = dateStr.split('-');
   return db.ref(`diaries/${USER.uid}/${y}/${m}/${d}`);
@@ -593,7 +614,8 @@ function normTask(t){
 }
 function normalize(v){
   return {
-    note: v.note||'', memo: v.memo||'',
+    note: v.note||'', memo: v.memo||'', diary: v.diary||'',
+    prioOrder: Array.isArray(v.prioOrder)? v.prioOrder : [],
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
     notes: (Array.isArray(v.notes)? v.notes : Object.values(v.notes||{})).map(n => ({
       id: n.id||uid8(), title: n.title||'', body: n.body||'',
@@ -618,8 +640,7 @@ $('goToday').onclick = () => loadDay(todayStr());
 $('datePick').addEventListener('change', e => { if(e.target.value) loadDay(e.target.value); });
 function renderDate(){
   const d = new Date(curDate+'T12:00:00');
-  $('dowText').textContent = `${DOW[d.getDay()]}요일`;
-  $('ymdText').textContent = `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`;
+  $('ymdText').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
   $('datePick').value = curDate;
   loadWeather();
 }
@@ -634,7 +655,8 @@ async function saveNow(){
   if(!dirty || !USER) return;
   dirty = false;
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
-  const isEmpty = !clean.note && !clean.memo && !clean.memoFiles.length && !clean.cats.length && !clean.notes.length;
+  if(!clean.cats.length) clean.prioOrder = [];
+  const isEmpty = !clean.note && !clean.memo && !clean.diary && !clean.memoFiles.length && !clean.cats.length && !clean.notes.length;
   try{
     if(isEmpty) await dayRef(curDate).remove();
     else await dayRef(curDate).set(clean);
@@ -661,6 +683,10 @@ const PALETTE = ['#3A57C8','#C8503C','#2E8B57','#7B4AC8','#C87A2E','#1F8FA8','#C
 const catColor = cat => PALETTE[(cat.color||0)%PALETTE.length];
 
 function renderCats(){
+  $('prioBtn').classList.toggle('active', prioMode);
+  $('prioList').classList.toggle('hidden', !prioMode);
+  $('catList').classList.toggle('hidden', prioMode);
+  if(prioMode){ $('emptyTasks').classList.add('hidden'); renderPrio(); return; }
   const box = $('catList'); box.innerHTML = '';
   $('emptyTasks').classList.toggle('hidden', day.cats.length>0);
   day.cats.forEach((cat, ci) => {
@@ -684,11 +710,9 @@ function renderCats(){
     add.onclick  = () => { cat.tasks.push(newTask()); markDirty(); renderCats(); focusLastTask(el); };
     del.onclick  = () => { if(!cat.tasks.length || confirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`)){ day.cats.splice(ci,1); markDirty(); renderCats(); } };
     const list = el.querySelector('.task-list');
-    cat.tasks.forEach((t,ti)=>{ if(doneMode && t.done) return; list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})); });
+    cat.tasks.forEach((t,ti)=> list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})));
     box.appendChild(el);
   });
-  $('doneModeBtn').classList.toggle('active', doneMode);
-  renderDoneSec();
 }
 function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', files:[], open:false}; }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
@@ -910,6 +934,7 @@ $('prevYear').onclick = () => stepMonth(-1);
 $('nextYear').onclick = () => stepMonth(1);
 function stepMonth(dir){
   if(searchQ){ arcYear += dir; refreshArchive(); return; }   // 검색 중엔 연 단위 이동
+  if(arcDone && arcDoneScope==='year'){ arcYear += dir; refreshArchive(); return; }
   let y = arcYear, m = +(arcMonth || curDate.slice(5,7)) + dir;
   if(m < 1){ m = 12; y--; } if(m > 12){ m = 1; y++; }
   arcYear = y; arcMonth = String(m).padStart(2,'0');
@@ -956,6 +981,9 @@ async function renderArchive(){
     cell.onclick = () => { switchTab(true); loadDay(ds); };
     grid.appendChild(cell);
   }
+
+  $('arcDoneBtn').classList.toggle('active', arcDone);
+  if(arcDone){ renderArcDone(yd); return; }
 
   /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
@@ -1437,41 +1465,13 @@ $('expCopy').onclick = async () => {
   toast('보고용 텍스트를 복사했어요 — 메신저·메일에 붙여넣으세요');
 };
 
-/* ═══════════════ 완료된 업무 모아보기 ═══════════════ */
-let doneMode = false, doneOpen = true;
-try{ doneMode = localStorage.getItem('doneMode')==='1'; }catch(e){}
-$('doneModeBtn').onclick = () => {
-  doneMode = !doneMode;
-  try{ localStorage.setItem('doneMode', doneMode?'1':'0'); }catch(e){}
-  renderCats();
-};
-$('doneHead').onclick = () => { doneOpen = !doneOpen; renderDoneSec(); };
-function renderDoneSec(){
-  const items = [];
-  day.cats.forEach(c => c.tasks.forEach((t,ti) => { if(t.done && t.text.trim()) items.push({c,t,ti}); }));
-  $('doneSec').classList.toggle('hidden', !doneMode || !items.length);
-  if(!doneMode || !items.length) return;
-  $('doneCnt').textContent = items.length;
-  $('doneArrow').textContent = doneOpen? '▾' : '▸';
-  const list = $('doneList'); list.innerHTML = '';
-  if(!doneOpen) return;
-  items.forEach(({c,t,ti}) => {
-    const col = catColor(c);
-    const row = document.createElement('div'); row.className = 'done-row';
-    row.innerHTML = `
-      <button class="dr-chk" title="완료 해제">✔</button>
-      <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
-      <span class="dr-text">${esc(t.text)}</span>
-      <div class="ctl"><button class="del" title="삭제">✕</button></div>`;
-    row.querySelector('.dr-chk').onclick = () => { t.done=false; t.status='doing'; markDirty(); renderCats(); };
-    row.querySelector('.del').onclick = () => { if(confirm('이 업무를 삭제할까요?')){ c.tasks.splice(ti,1); markDirty(); renderCats(); } };
-    list.appendChild(row);
-  });
-}
-
 /* ═══════════════ 회의록 · 큰 메모장 ═══════════════ */
 function renderNotes(){
   const box = $('bigNotes'); box.innerHTML = '';
+  if(!day.notes.length) return;
+  const hd = document.createElement('div');
+  hd.className = 'section-star'; hd.textContent = '★ 회의록 · 큰 메모장';
+  box.appendChild(hd);
   day.notes.forEach((n, ni) => {
     const metaFilled = n.meta.when||n.meta.where||n.meta.who||n.meta.agenda;
     const el = document.createElement('div'); el.className = 'bignote';
@@ -1487,7 +1487,14 @@ function renderNotes(){
         <label>참석자</label><input data-k="who" value="${esc(n.meta.who)}" placeholder="센터장님 외 5명">
         <label>안건</label><input data-k="agenda" value="${esc(n.meta.agenda)}" placeholder="① 하반기 계획  ② 예산">
       </div>
-      <textarea class="bn-body" placeholder="회의 내용, 논의 사항, 결정 사항, 후속 조치(To-Do)를 기록하세요">${esc(n.body)}</textarea>
+      <div class="ap-head" style="margin-bottom:6px">
+        <span class="ap-title">✏ 서식</span>
+        <button class="mini-btn bn-t" data-k="num" title="번호 목록">1.</button>
+        <button class="mini-btn bn-t" data-k="circ" title="원문자 목록">①</button>
+        <button class="mini-btn bn-t" data-k="dot" title="점 목록">•</button>
+        <button class="mini-btn bn-t" data-k="ind" title="들여쓴 항목">└</button>
+      </div>
+      <textarea class="bn-body" placeholder="회의 내용, 논의 사항, 결정 사항, 후속 조치(To-Do)를 기록하세요&#10;· 1. ① • 버튼으로 목록을 시작하면, 엔터를 칠 때 다음 번호가 자동으로 이어져요">${esc(n.body)}</textarea>
       <div class="ap-head">
         <span class="ap-title">📎 첨부 (${n.files.length})</span>
         <button class="mini-btn bn-img">🖼 사진</button>
@@ -1501,6 +1508,8 @@ function renderNotes(){
       inp.addEventListener('input', () => { n.meta[inp.dataset.k] = inp.value; markDirty(); }));
     const ta = el.querySelector('.bn-body');
     ta.addEventListener('input', () => { n.body = ta.value; markDirty(); ta.style.height='auto'; ta.style.height = Math.max(112, ta.scrollHeight)+'px'; });
+    ta.addEventListener('keydown', outlineKeydown);
+    el.querySelectorAll('.bn-t').forEach(b => b.onclick = () => insertOutline(ta, b.dataset.k));
     el.querySelector('.bn-head .del').onclick = () => {
       if((!n.title.trim() && !n.body.trim() && !n.files.length) || confirm(`'${n.title.trim()||'메모장'}'을(를) 통째로 삭제할까요?`)){
         day.notes.splice(ni,1); markDirty(); renderNotes();
@@ -1513,7 +1522,8 @@ function renderNotes(){
     box.appendChild(el);
   });
 }
-$('noteAddBtn').onclick = () => {
+$('noteTopBtn').onclick = () => {
+  if($('todayView').classList.contains('hidden')) switchTab(true);
   day.notes.push({id:uid8(), title:'', body:'', meta:{when:'',where:'',who:'',agenda:''}, files:[], _ov:true});
   markDirty(); renderNotes();
   const ts = $('bigNotes').querySelectorAll('.bn-title');
@@ -1544,6 +1554,238 @@ function loadWeather(){
       if(curDate === todayStr()){ chip.textContent = wxCache.text; chip.classList.remove('hidden'); }
     }catch(e){ /* 날씨는 조용히 생략 */ }
   }, ()=>{}, {timeout:6000, maximumAge:600000});
+}
+
+/* ═══════════════ ⚡ 우선순위 화면 (카테고리 무시, 할 일 순서) ═══════════════ */
+let prioMode = false;
+try{ prioMode = localStorage.getItem('prioMode')==='1'; }catch(e){}
+$('prioBtn').onclick = () => {
+  prioMode = !prioMode;
+  try{ localStorage.setItem('prioMode', prioMode?'1':'0'); }catch(e){}
+  renderCats();
+};
+function prioItems(){
+  const all = [];
+  day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
+  all.sort((a,b) => {
+    const ia = day.prioOrder.indexOf(a.t.id), ib = day.prioOrder.indexOf(b.t.id);
+    return (ia<0? 9999:ia) - (ib<0? 9999:ib);
+  });
+  day.prioOrder = all.map(x=>x.t.id);      // 순서 동기화(정리)
+  return all;
+}
+function renderPrio(){
+  const box = $('prioList'); box.innerHTML = '';
+  const items = prioItems();
+  if(!items.length){
+    box.innerHTML = '<div class="empty-note">지금 처리할 미완료 업무가 없어요 🎉</div>';
+    return;
+  }
+  items.forEach(({c,t}, i) => {
+    const col = catColor(c);
+    const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
+    const overdue = t.due && t.due < todayStr();
+    const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+    const row = document.createElement('div'); row.className = 'task';
+    row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
+    row.innerHTML = `
+      <span class="pr-rank">${i+1}</span>
+      <button class="chk" style="border-color:${col}" title="완료 체크"></button>
+      <input class="task-text" value="${esc(t.text)}">
+      <div class="task-meta">
+        <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
+        <button class="status-chip ${st.cls}">${st.label}</button>
+        <span class="due-wrap">
+          <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
+          <input type="date" value="${t.due}">
+        </span>
+        <div class="ctl"><button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button></div>
+      </div>`;
+    row.querySelector('.chk').onclick = () => { t.done = true; t.status = 'done'; markDirty(); renderCats(); toast('완료! 다음 순위로 넘어가요'); };
+    row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; markDirty(); });
+    row.querySelector('.status-chip').onclick = () => {
+      const k = STATUS.findIndex(x=>x.k===t.status);
+      t.status = STATUS[(k+1)%STATUS.length].k; t.done = t.status==='done';
+      markDirty(); renderCats();
+    };
+    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; markDirty(); renderCats(); });
+    const [up,down] = row.querySelectorAll('.ctl button');
+    up.onclick = () => { if(i>0){ [day.prioOrder[i-1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i-1]]; markDirty(); renderCats(); } };
+    down.onclick = () => { if(i<items.length-1){ [day.prioOrder[i+1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i+1]]; markDirty(); renderCats(); } };
+    box.appendChild(row);
+  });
+}
+
+/* ═══════════════ 기록 탭: ✔ 완료 모아보기 (월/연 단위) ═══════════════ */
+let arcDone = false, arcDoneScope = 'month';
+$('arcDoneBtn').onclick = () => { arcDone = !arcDone; refreshArchive(); };
+function renderArcDone(yd){
+  const list = $('dayList'); list.innerHTML = '';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:14px';
+  bar.innerHTML = `
+    <button class="mini-btn ${arcDoneScope==='month'?'active':''}" data-s="month">${+arcMonth}월</button>
+    <button class="mini-btn ${arcDoneScope==='year'?'active':''}" data-s="year">${arcYear}년 전체</button>`;
+  bar.querySelectorAll('button').forEach(b => b.onclick = () => { arcDoneScope = b.dataset.s; renderArchive(); });
+  list.appendChild(bar);
+
+  const months = arcDoneScope==='month' ? [arcMonth] : Object.keys(yd).sort().reverse();
+  let total = 0; const groups = [];
+  months.forEach(mm => {
+    if(!yd[mm]) return;
+    Object.keys(yd[mm]).sort().reverse().forEach(dd => {
+      const v = normalize(yd[mm][dd]);
+      const items = [];
+      v.cats.forEach(c => c.tasks.forEach(t => { if(t.done && t.text.trim()) items.push({c,t}); }));
+      if(items.length){ total += items.length; groups.push({mm, dd, items}); }
+    });
+  });
+  const head = document.createElement('div');
+  head.className = 'empty-note'; head.style.padding = '0 0 12px';
+  head.textContent = total
+    ? `✔ ${arcDoneScope==='month'? (+arcMonth)+'월에':arcYear+'년에'} 완료한 업무 ${total}건`
+    : `${arcDoneScope==='month'? (+arcMonth)+'월에는':arcYear+'년에는'} 완료한 업무가 아직 없어요.`;
+  list.appendChild(head);
+
+  groups.forEach(g => {
+    const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
+    const card = document.createElement('div');
+    card.className = 'day-card';
+    card.style.flexDirection = 'column'; card.style.alignItems = 'stretch'; card.style.cursor = 'default';
+    const rows = g.items.map(({c,t}) => {
+      const col = catColor(c);
+      return `<div class="done-row" style="border-top:1px solid var(--rule);padding:8px 2px">
+        <span class="dr-chk">✔</span>
+        <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
+        <span class="dr-text">${esc(t.text)}</span></div>`;
+    }).join('');
+    card.innerHTML = `
+      <div class="ad-head" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding-bottom:6px">
+        <b style="color:var(--accent-deep);font-family:'Jua';font-weight:400">${+g.mm}/${+g.dd} (${DOW[dt.getDay()]})</b>
+        <span style="font-size:.8rem;color:var(--ink-soft)">${g.items.length}건 · 열기 ›</span>
+      </div>${rows}`;
+    card.querySelector('.ad-head').onclick = () => { switchTab(true); loadDay(`${arcYear}-${g.mm}-${g.dd}`); };
+    list.appendChild(card);
+  });
+}
+
+/* ═══════════════ ⚙ 설정: 당일 전체 삭제 · 일기 비밀번호 ═══════════════ */
+$('settingsBtn').onclick = () => $('settingsMenu').classList.remove('hidden');
+$('setClose').onclick = () => $('settingsMenu').classList.add('hidden');
+$('settingsMenu').addEventListener('click', e => { if(e.target.id==='settingsMenu') $('settingsMenu').classList.add('hidden'); });
+
+$('delTodayBtn').onclick = async () => {
+  const d = new Date(curDate+'T12:00:00');
+  const label = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+  if(!confirm(`${label} 내용을 전체 삭제하시겠습니까?\n업무·회의록·메모·첨부·일기가 모두 지워지며 복구할 수 없습니다.`)) return;
+  clearTimeout(saveTimer); dirty = false;
+  try{
+    await dayRef(curDate).remove();
+    delete yearCache[+curDate.slice(0,4)];
+    day = emptyDay(); renderSheet();
+    $('settingsMenu').classList.add('hidden');
+    toast(`${label} 내용을 전체 삭제했어요`);
+  }catch(e){ toast('삭제 실패: 네트워크를 확인해 주세요'); }
+};
+
+/* ═══════════════ 📖 오늘의 일기 (비밀번호 4자리) ═══════════════ */
+let pinHashCache;
+async function pinHash(p){
+  try{
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('diary-hyogi:'+p));
+    return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return 'p:'+p; }
+}
+async function getPinHash(){
+  if(pinHashCache !== undefined) return pinHashCache;
+  const s = await db.ref(`diaries/${USER.uid}/settings/diaryPin`).get();
+  pinHashCache = s.exists()? s.val() : null;
+  return pinHashCache;
+}
+$('setPinBtn').onclick = async () => {
+  const cur = await getPinHash();
+  if(cur){
+    const old = prompt('현재 비밀번호 4자리를 입력하세요');
+    if(old===null) return;
+    if(await pinHash(old) !== cur){ toast('비밀번호가 맞지 않습니다'); return; }
+  }
+  const p1 = prompt('새 비밀번호 4자리(숫자)를 입력하세요');
+  if(p1===null) return;
+  if(!/^\d{4}$/.test(p1)){ toast('숫자 4자리로 입력해 주세요'); return; }
+  const p2 = prompt('확인을 위해 한 번 더 입력해 주세요');
+  if(p1 !== p2){ toast('두 입력이 서로 달라요. 다시 시도해 주세요'); return; }
+  const h = await pinHash(p1);
+  await db.ref(`diaries/${USER.uid}/settings/diaryPin`).set(h);
+  pinHashCache = h;
+  toast('일기 비밀번호를 저장했어요');
+};
+$('diaryBtn').onclick = async () => {
+  const h = await getPinHash();
+  if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return; }
+  const d = new Date(curDate+'T12:00:00');
+  $('diaryTitle').textContent = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
+  $('diaryLock').classList.remove('hidden');
+  $('diaryBody').classList.add('hidden');
+  $('diaryPinIn').value = ''; $('diaryMsg').textContent = '';
+  $('diaryModal').classList.remove('hidden');
+  $('diaryPinIn').focus();
+};
+async function tryOpenDiary(){
+  const h = await getPinHash();
+  if(await pinHash($('diaryPinIn').value) !== h){
+    $('diaryMsg').textContent = '비밀번호가 맞지 않습니다';
+    $('diaryPinIn').value = ''; return;
+  }
+  $('diaryLock').classList.add('hidden');
+  $('diaryBody').classList.remove('hidden');
+  const ta = $('diaryText');
+  ta.value = day.diary;
+  ta.style.height='auto'; ta.style.height = Math.max(280, ta.scrollHeight)+'px';
+  ta.focus();
+}
+$('diaryOpenBtn').onclick = tryOpenDiary;
+$('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter') tryOpenDiary(); });
+$('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); });
+$('diaryClose').onclick = async () => { await flushSave(); $('diaryModal').classList.add('hidden'); };
+
+/* ═══════════════ 회의록 개요(목차) 서식: 자동 번호 이어쓰기 ═══════════════ */
+const CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
+function outlineKeydown(e){
+  if(e.key !== 'Enter' || e.isComposing) return;
+  const ta = e.target, v = ta.value, pos = ta.selectionStart;
+  const ls = v.lastIndexOf('\n', pos-1) + 1;
+  const line = v.slice(ls, pos);
+  let m, next = null;
+  if(m = line.match(/^(\s*)(\d+)\.\s/)) next = m[1] + (+m[2]+1) + '. ';
+  else if(m = line.match(/^(\s*)([①-⑮])\s/)){ const i = CIRC.indexOf(m[2]); next = m[1] + (CIRC[i+1]||CIRC[i]) + ' '; }
+  else if(m = line.match(/^(\s*)([•\-])\s/)) next = m[1] + m[2] + ' ';
+  if(next === null) return;
+  e.preventDefault();
+  if(!line.slice(m[0].length).trim()){          // 내용 없는 항목에서 엔터 → 목록 종료
+    ta.value = v.slice(0, ls) + v.slice(pos);
+    ta.selectionStart = ta.selectionEnd = ls;
+  }else{
+    ta.value = v.slice(0, pos) + '\n' + next + v.slice(pos);
+    ta.selectionStart = ta.selectionEnd = pos + 1 + next.length;
+  }
+  ta.dispatchEvent(new Event('input'));
+}
+function insertOutline(ta, kind){
+  const v = ta.value, pos = ta.selectionStart ?? v.length;
+  const ls = v.lastIndexOf('\n', pos-1) + 1;
+  let prefix = '• ';
+  if(kind === 'num'){
+    const above = v.slice(0, ls).split('\n').reverse().find(l => /^\s*\d+\.\s/.test(l));
+    prefix = above ? (+above.match(/^\s*(\d+)\./)[1] + 1) + '. ' : '1. ';
+  }else if(kind === 'circ'){
+    const above = v.slice(0, ls).split('\n').reverse().find(l => /^\s*[①-⑮]\s/.test(l));
+    const i = above ? CIRC.indexOf(above.trim()[0]) + 1 : 0;
+    prefix = (CIRC[i] || CIRC[14]) + ' ';
+  }else if(kind === 'ind') prefix = '　- ';
+  ta.value = v.slice(0, ls) + prefix + v.slice(ls);
+  ta.focus();
+  ta.selectionStart = ta.selectionEnd = pos + prefix.length;
+  ta.dispatchEvent(new Event('input'));
 }
 </script>
 </body>
