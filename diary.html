@@ -285,6 +285,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .up-row .un{font-size:.78rem;color:var(--ink-soft);margin-bottom:5px;display:flex;justify-content:space-between;gap:8px}
 .up-bar{height:8px;background:#F0E2C6;border-radius:99px;overflow:hidden}
 .up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#F0A050);transition:width .2s}
+.arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
 .diary-card{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
   border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s}
 .diary-card:hover{box-shadow:var(--shadow)}
@@ -451,7 +452,9 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       <button class="date-arrow" id="prevYear">◀</button>
       <div class="year-label" id="yearLabel">2026년</div>
       <button class="date-arrow" id="nextYear">▶</button>
-      <button class="mini-btn" id="backupBtn" style="margin-left:8px">💾 백업</button>
+    </div>
+    <div class="arc-tools">
+      <button class="mini-btn" id="backupBtn">💾 백업</button>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
     </div>
