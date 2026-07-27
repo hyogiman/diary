@@ -293,7 +293,10 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .diary-card .dh b{font-family:'Jua';font-weight:400;color:var(--accent-deep);font-size:1.05rem}
 .diary-card .dtx{font-family:'Nanum Pen Script';font-size:1.25rem;line-height:1.5;color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
-.cal-cell .dmark{position:absolute;top:3px;right:5px;font-size:.6rem}
+.cal-cell .dbook{font-size:1.15rem;line-height:1}
+.cal.diary-mode .cal-cell.has{background:transparent}
+.cal.diary-mode .cal-cell.has-diary{background:#FFF0D6}
+.cal.diary-mode .cal-cell{gap:2px}
 .cal-cell{position:relative}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.72rem;font-weight:800;color:var(--ink-soft);
   text-align:center;padding:4px 6px 10px}
@@ -1048,6 +1051,7 @@ async function renderArchive(){
 
   /* 달력 */
   const grid = $('calGrid'); grid.innerHTML = '';
+  $('monthGrid').classList.toggle('diary-mode', arcDiary);
   const firstDow = new Date(arcYear, +arcMonth-1, 1).getDay();
   const dim = new Date(arcYear, +arcMonth, 0).getDate();
   for(let i=0;i<firstDow;i++){ const sp=document.createElement('div'); sp.className='cal-cell'; grid.appendChild(sp); }
@@ -1058,16 +1062,20 @@ async function renderArchive(){
     const has = !!md[dd];
     const dow = new Date(arcYear, +arcMonth-1, d).getDay();
     const cell = document.createElement('button');
-    cell.className = 'cal-cell ' + (has?'has':'none') + (ds===tstr?' today':'') + (dow===0?' sun':'');
-    let bar = '', dmark = '';
+    const hasDiary = has && arcDiary && (normalize(md[dd]).diary||'').trim();
+    cell.className = 'cal-cell ' + (has?'has':'none') + (hasDiary?' has-diary':'') + (ds===tstr?' today':'') + (dow===0?' sun':'');
+    let mark = '';
     if(has){
       const v = normalize(md[dd]);
-      const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
-      const pct = all.length? Math.round(all.filter(t=>t.done).length/all.length*100) : 0;
-      bar = `<span class="bar"><i style="width:${pct}%"></i></span>`;
-      if(arcDiary && v.diary.trim()) dmark = '<span class="dmark">📖</span>';
+      if(arcDiary){
+        if(v.diary.trim()) mark = '<span class="dbook">📖</span>';
+      }else{
+        const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
+        const pct = all.length? Math.round(all.filter(t=>t.done).length/all.length*100) : 0;
+        mark = `<span class="bar"><i style="width:${pct}%"></i></span>`;
+      }
     }
-    cell.innerHTML = `${d}${bar}${dmark}`;
+    cell.innerHTML = `${d}${mark}`;
     cell.title = has? `${ds} 기록 열기` : `${ds} 새로 기록하기`;
     cell.onclick = () => { if(arcDiary){ openDiaryOn(ds); } else { switchTab(true); loadDay(ds); } };
     grid.appendChild(cell);
