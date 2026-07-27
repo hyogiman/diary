@@ -5,11 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>업무일지</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Pen+Script&family=Gamja+Flower&family=Gowun+Dodum&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Pen+Script&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -56,7 +57,7 @@ input:focus,textarea:focus{outline-offset:0}
 .login-card{background:var(--card);border:1.5px solid var(--rule);border-radius:20px;box-shadow:var(--shadow);
   padding:40px 32px;width:100%;max-width:380px;text-align:center}
 .login-card h1{font-family:'Jua';font-size:1.9rem;color:var(--accent);font-weight:400;letter-spacing:.5px}
-.login-card .sub{font-family:'Gamja Flower';font-size:1.35rem;color:var(--ink-soft);margin:4px 0 26px}
+.login-card .sub{font-family:'Nanum Pen Script';font-size:1.35rem;color:var(--ink-soft);margin:4px 0 26px}
 .login-card input{width:100%;padding:13px 14px;margin-bottom:10px;border:1.5px solid var(--rule);
   border-radius:10px;background:#FFFDF6;font-size:1rem}
 .btn-primary{display:block;width:100%;padding:13px;border-radius:10px;background:var(--accent);color:#fff;
@@ -82,7 +83,7 @@ input:focus,textarea:focus{outline-offset:0}
   font-size:1.05rem;color:var(--accent-deep);display:flex;align-items:center;justify-content:center}
 .date-chip{position:relative;background:var(--card);border:1.5px solid var(--rule);border-radius:14px;
   padding:8px 20px;text-align:center;cursor:pointer;min-width:210px}
-.date-chip .dow{font-family:'Gamja Flower';font-size:1.15rem;color:var(--accent);line-height:1}
+.date-chip .dow{font-family:'Nanum Pen Script';font-size:1.15rem;color:var(--accent);line-height:1}
 .date-chip .ymd{font-weight:800;font-size:1.12rem;letter-spacing:.3px}
 .date-chip input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .today-btn{font-size:.82rem;font-weight:700;color:var(--accent-deep);background:var(--card);
@@ -102,7 +103,7 @@ input:focus,textarea:focus{outline-offset:0}
 .note-wrap{flex:1;min-width:220px;display:flex;align-items:baseline;gap:8px}
 .note-label{font-family:'Jua';color:var(--accent);font-size:1.02rem;white-space:nowrap}
 #dayNote{flex:1;border:none;background:transparent;border-bottom:1.5px dashed var(--rule);
-  font-family:'Gamja Flower';font-size:1.3rem;color:var(--blue);padding:2px 4px}
+  font-family:'Nanum Pen Script';font-size:1.3rem;color:var(--blue);padding:2px 4px}
 
 .section-star{font-family:'Jua';color:var(--accent-deep);font-size:1.12rem;margin:20px 0 10px;
   display:flex;align-items:center;gap:8px}
@@ -167,7 +168,7 @@ input:focus,textarea:focus{outline-offset:0}
 #memoBox{background:#FFFBEF;border:1.5px solid var(--accent);border-radius:12px;padding:14px;min-height:120px}
 #memoText{width:100%;border:none;background:
   repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);
-  line-height:32px;font-family:'Gamja Flower';font-size:1.35rem;color:var(--ink);resize:vertical;min-height:128px}
+  line-height:32px;font-family:'Nanum Pen Script';font-size:1.35rem;color:var(--ink);resize:vertical;min-height:128px}
 #memoFiles{margin-top:12px}
 #memoFiles .thumb{width:min(240px,44vw);height:auto;aspect-ratio:4/3}
 
@@ -189,7 +190,7 @@ input:focus,textarea:focus{outline-offset:0}
 .dc-date .d{font-family:'Jua';font-size:1.5rem;color:var(--accent);line-height:1.1}
 .dc-date .w{font-size:.75rem;color:var(--ink-soft);font-weight:700}
 .dc-body{flex:1;min-width:0}
-.dc-note{font-family:'Gamja Flower';font-size:1.15rem;color:var(--blue);
+.dc-note{font-family:'Nanum Pen Script';font-size:1.15rem;color:var(--blue);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .dc-sub{font-size:.8rem;color:var(--ink-soft);margin-top:2px}
 .dc-ring{flex:none;width:46px;height:46px;border-radius:50%;display:flex;align-items:center;justify-content:center;
@@ -280,6 +281,19 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
   font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
+.up-row{width:100%;background:#fff;border:1.5px solid var(--rule);border-radius:10px;padding:9px 12px;margin-top:6px}
+.up-row .un{font-size:.78rem;color:var(--ink-soft);margin-bottom:5px;display:flex;justify-content:space-between;gap:8px}
+.up-bar{height:8px;background:#F0E2C6;border-radius:99px;overflow:hidden}
+.up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#F0A050);transition:width .2s}
+.diary-card{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s}
+.diary-card:hover{box-shadow:var(--shadow)}
+.diary-card .dh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+.diary-card .dh b{font-family:'Jua';font-weight:400;color:var(--accent-deep);font-size:1.05rem}
+.diary-card .dtx{font-family:'Nanum Pen Script';font-size:1.25rem;line-height:1.5;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.cal-cell .dmark{position:absolute;top:3px;right:5px;font-size:.6rem}
+.cal-cell{position:relative}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.72rem;font-weight:800;color:var(--ink-soft);
   text-align:center;padding:4px 6px 10px}
 .cal-dow span:first-child{color:var(--danger)}
@@ -311,7 +325,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
   font-family:"Pretendard Variable",Pretendard,sans-serif;position:relative}
 .a4 .a4-head{display:flex;align-items:flex-end;gap:16px;border-bottom:3px solid #E5762E;padding-bottom:10px}
 .a4 .a4-title{font-family:'Jua';font-size:30px;color:#E5762E}
-.a4 .a4-note{flex:1;font-family:'Gamja Flower';font-size:22px;color:#3A57C8}
+.a4 .a4-note{flex:1;font-family:'Nanum Pen Script';font-size:22px;color:#3A57C8}
 .a4 .a4-date{font-size:14px;font-weight:700;color:#8A705A}
 .a4 .a4-star{font-family:'Jua';font-size:18px;color:#C95F1D;margin:22px 0 8px}
 .a4 table{width:100%;border-collapse:collapse}
@@ -324,7 +338,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .a4 .box.on{background:#E5762E}
 .a4 .done-t{text-decoration:line-through;color:#B7A288}
 .a4 .memo-a4{border:2px solid #E5762E;border-radius:10px;min-height:170px;padding:14px;
-  font-family:'Gamja Flower';font-size:21px;line-height:1.55;white-space:pre-wrap}
+  font-family:'Nanum Pen Script';font-size:21px;line-height:1.55;white-space:pre-wrap}
 .a4 .memo-imgs{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px}
 .a4 .memo-imgs img{width:210px;border-radius:8px;border:1.5px solid #F0C9A0}
 .a4 .a4-foot{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:11px;color:#B7A288}
@@ -439,6 +453,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       <button class="date-arrow" id="nextYear">▶</button>
       <button class="mini-btn" id="backupBtn" style="margin-left:8px">💾 백업</button>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
+      <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
     </div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
@@ -511,7 +526,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
     </div>
     <div id="diaryBody" class="hidden">
       <textarea id="diaryText" placeholder="오늘 하루, 나에게만 남기는 이야기"
-        style="width:100%;min-height:280px;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);line-height:32px;font-family:'Gamja Flower';font-size:1.35rem;resize:vertical;color:var(--ink)"></textarea>
+        style="width:100%;min-height:280px;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);line-height:32px;font-family:'Nanum Pen Script';font-size:1.35rem;resize:vertical;color:var(--ink)"></textarea>
       <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
     </div>
     <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
@@ -536,6 +551,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.database();
+const storage = firebase.storage();
 
 const $ = id => document.getElementById(id);
 const DOW = ['일','월','화','수','목','금','토'];
@@ -601,7 +617,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.remove('hidden');
   }
 });
-$('logoutBtn').onclick = async () => { await flushSave(); auth.signOut(); };
+$('logoutBtn').onclick = async () => { await flushSave(); diaryUnlocked = false; arcDiary = false; auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
@@ -815,7 +831,7 @@ function taskRow(t, ctx){
     panel.querySelector('.qnote').addEventListener('input', e => { t.note = e.target.value; ctx.save();
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
-    panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }));
+    panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
     panel.querySelector('.ap-cal').onclick = () => {
       if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
       const base = (t.due || curDate).replace(/-/g,'');
@@ -892,12 +908,42 @@ function addImage(file, arr, done){
   img.onerror = () => toast('이미지를 읽지 못했어요');
   img.src = url;
 }
-function addAudio(file, arr, done){
+function addAudio(file, arr, done, hostEl){
   done = done || (()=>{ markDirty(); renderAll(); });
-  if(file.size > 8*1024*1024){ toast('녹음파일은 8MB 이하만 저장할 수 있어요'); return; }
-  const r = new FileReader();
-  r.onload = () => { arr.push({ id:uid8(), type:'audio', name:file.name, data:r.result, ts:Date.now() }); done(); toast('녹음파일을 저장했어요'); };
-  r.readAsDataURL(file);
+  if(file.size > 500*1024*1024){ toast('녹음파일은 500MB 이하만 올릴 수 있어요'); return; }
+  uploadAudio(file, arr, done, hostEl);
+}
+/* Firebase Storage 업로드 — 큰 회의 녹음도 그대로 보관 */
+function uploadAudio(file, arr, done, hostEl){
+  const id = uid8();
+  const safe = (file.name||'녹음').replace(/[^\w가-힣.\-]/g,'_').slice(-60);
+  const path = `audio/${USER.uid}/${curDate}/${id}_${safe}`;
+  const box = hostEl || $('memoFiles');
+  const ui = document.createElement('div');
+  ui.className = 'up-row';
+  ui.innerHTML = `<div class="un"><span>🎵 ${esc(file.name||'녹음')} 올리는 중…</span><span class="up-pct">0%</span></div>
+    <div class="up-bar"><i></i></div>`;
+  if(box && box.appendChild) box.appendChild(ui);
+  const task = storage.ref(path).put(file, {contentType: file.type || 'audio/mp4'});
+  task.on('state_changed',
+    sn => {
+      const p = Math.round(sn.bytesTransferred / sn.totalBytes * 100);
+      ui.querySelector('.up-pct').textContent = p + '%';
+      ui.querySelector('.up-bar i').style.width = p + '%';
+    },
+    err => { ui.remove(); toast('업로드 실패: ' + (err.code||err.message) + ' — 연결을 확인해 주세요'); },
+    async () => {
+      try{
+        const url = await task.snapshot.ref.getDownloadURL();
+        arr.push({ id, type:'audio', name:file.name||'녹음', url, path, size:file.size, ts:Date.now() });
+        ui.remove(); done();
+        toast(`녹음을 저장했어요 (${(file.size/1024/1024).toFixed(1)}MB)`);
+      }catch(e){ ui.remove(); toast('주소 확인 실패: '+e.message); }
+    });
+}
+/* 첨부 삭제 시 Storage 원본도 정리 */
+async function deleteStored(f){
+  if(f && f.path){ try{ await storage.ref(f.path).delete(); }catch(e){} }
 }
 function renderFiles(box, arr, ctx){
   const save = ctx? ctx.save : markDirty, rerender = ctx? ctx.rerender : renderAll;
@@ -911,9 +957,11 @@ function renderFiles(box, arr, ctx){
       box.appendChild(t);
     }else{
       const a = document.createElement('div'); a.className='audio-row';
-      a.innerHTML = `<span>🎵</span><audio controls preload="none" src="${f.data}"></audio>
-        <span class="audio-name">${esc(f.name)}</span><button class="file-x" style="position:static">✕</button>`;
-      a.querySelector('.file-x').onclick = () => { if(confirm('녹음을 삭제할까요?')){ arr.splice(i,1); save(); rerender(); } };
+      const src = f.url || f.data || '';
+      const sz = f.size? ` · ${(f.size/1024/1024).toFixed(1)}MB` : '';
+      a.innerHTML = `<span>🎵</span><audio controls preload="none" src="${src}"></audio>
+        <span class="audio-name">${esc(f.name)}${sz}</span><button class="file-x" style="position:static">✕</button>`;
+      a.querySelector('.file-x').onclick = async () => { if(confirm('녹음을 삭제할까요?')){ const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); } };
       box.appendChild(a);
     }
   });
@@ -942,14 +990,10 @@ async function startRecording(arr, btn){
       stream.getTracks().forEach(t=>t.stop());
       btn.classList.remove('recording'); btn.textContent = orig;
       const blob = new Blob(recChunks, {type: mediaRecorder.mimeType||'audio/mp4'});
-      if(blob.size > 8*1024*1024){ toast('녹음이 너무 길어 저장하지 못했어요(8MB 초과)'); return; }
       const ext = (mediaRecorder.mimeType||'').includes('mp4') ? 'm4a' : 'webm';
-      const r = new FileReader();
-      r.onload = () => {
-        arr.push({id:uid8(), type:'audio', name:`녹음_${curDate}_${new Date().toTimeString().slice(0,5).replace(':','')}.${ext}`, data:r.result, ts:Date.now()});
-        markDirty(); renderAll(); toast('녹음을 저장했어요');
-      };
-      r.readAsDataURL(blob);
+      const fname = `녹음_${curDate}_${new Date().toTimeString().slice(0,5).replace(':','')}.${ext}`;
+      const file = new File([blob], fname, {type: blob.type});
+      uploadAudio(file, arr, () => { markDirty(); renderAll(); });
     };
     mediaRecorder.start();
     btn.classList.add('recording'); btn.textContent = '⏹ 녹음 중… 누르면 종료';
@@ -1012,21 +1056,24 @@ async function renderArchive(){
     const dow = new Date(arcYear, +arcMonth-1, d).getDay();
     const cell = document.createElement('button');
     cell.className = 'cal-cell ' + (has?'has':'none') + (ds===tstr?' today':'') + (dow===0?' sun':'');
-    let bar = '';
+    let bar = '', dmark = '';
     if(has){
       const v = normalize(md[dd]);
       const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
       const pct = all.length? Math.round(all.filter(t=>t.done).length/all.length*100) : 0;
       bar = `<span class="bar"><i style="width:${pct}%"></i></span>`;
+      if(arcDiary && v.diary.trim()) dmark = '<span class="dmark">📖</span>';
     }
-    cell.innerHTML = `${d}${bar}`;
+    cell.innerHTML = `${d}${bar}${dmark}`;
     cell.title = has? `${ds} 기록 열기` : `${ds} 새로 기록하기`;
-    cell.onclick = () => { switchTab(true); loadDay(ds); };
+    cell.onclick = () => { if(arcDiary){ openDiaryOn(ds); } else { switchTab(true); loadDay(ds); } };
     grid.appendChild(cell);
   }
 
   $('arcDoneBtn').classList.toggle('active', arcDone);
+  $('arcDiaryBtn').classList.toggle('active', arcDiary);
   if(arcDone){ renderArcDone(yd); return; }
+  if(arcDiary){ renderArcDiary(md); return; }
 
   /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
@@ -1216,6 +1263,7 @@ function dataUrlParts(u){
 }
 function audioExt(f){
   if(/\.[a-z0-9]{2,4}$/i.test(f.name)) return '';                     // 이름에 이미 확장자
+  if(!f.data) return '.m4a';
   const m = dataUrlParts(f.data).mime;
   return m.includes('mp4')? '.m4a' : m.includes('webm')? '.webm' : m.includes('mpeg')? '.mp3' : '.audio';
 }
@@ -1266,9 +1314,19 @@ $('bkStart').onclick = async () => {
             ...data.notes.flatMap(n => n.files.map(f => ({...f, from:safeName(n.title)||'회의록'}))),
             ...data.cats.flatMap(c => c.tasks.flatMap(t => t.files.map(f => ({...f, from:safeName(t.text)||'업무'}))))
           ].filter(f => f.type==='audio');
-          files.forEach((f,i) => {
-            folder.file(`첨부/${dd}일_${f.from}_${i+1}_${safeName(f.name)}${audioExt(f)}`, dataUrlParts(f.data).b64, {base64:true});
-          });
+          for(let i=0;i<files.length;i++){
+            const f = files[i];
+            const fname = `첨부/${dd}일_${f.from}_${i+1}_${safeName(f.name)}${audioExt(f)}`;
+            if(f.url){                                   // Storage 저장분 — 내려받아 담기
+              try{
+                bkProgress(done/total*90, `${dateStr} 녹음 내려받는 중… (${i+1}/${files.length})`);
+                const resp = await fetch(f.url);
+                folder.file(fname, await resp.blob());
+              }catch(e){ folder.file(fname + '_다운로드실패.txt', f.url); }
+            }else if(f.data){                            // 예전 base64 저장분
+              folder.file(fname, dataUrlParts(f.data).b64, {base64:true});
+            }
+          }
         }
         done++;
         await new Promise(r => setTimeout(r, 20));   // 화면 갱신 양보
@@ -1605,7 +1663,7 @@ function renderNotes(){
       }
     };
     el.querySelector('.bn-img').onclick = () => pickFile('image/*', f => addImage(f, n.files));
-    el.querySelector('.bn-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, n.files));
+    el.querySelector('.bn-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, n.files, null, el.querySelector('.bn-files')));
     el.querySelector('.bn-rec').onclick = e => startRecording(n.files, e.currentTarget);
     renderFiles(el.querySelector('.bn-files'), n.files, {save:markDirty, rerender:renderAll});
     box.appendChild(el);
@@ -1707,7 +1765,7 @@ function renderPrio(){
 
 /* ═══════════════ 기록 탭: ✔ 완료 모아보기 (월/연 단위) ═══════════════ */
 let arcDone = false, arcDoneScope = 'month', arcDoneData = {groups:[], total:0};
-$('arcDoneBtn').onclick = () => { arcDone = !arcDone; refreshArchive(); };
+$('arcDoneBtn').onclick = () => { arcDone = !arcDone; if(arcDone) arcDiary = false; refreshArchive(); };
 function renderArcDone(yd){
   const list = $('dayList'); list.innerHTML = '';
   const bar = document.createElement('div');
@@ -1843,6 +1901,7 @@ async function tryOpenDiary(){
     $('diaryMsg').textContent = '비밀번호가 맞지 않습니다';
     $('diaryPinIn').value = ''; return;
   }
+  diaryUnlocked = true;
   $('diaryLock').classList.add('hidden');
   $('diaryBody').classList.remove('hidden');
   const ta = $('diaryText');
@@ -2070,6 +2129,57 @@ async function exportArcDone(kind){
       toast('PDF를 저장했어요');
     }catch(e){ $('exportStage').innerHTML=''; toast('PDF 생성 실패: '+e.message); }
   }
+}
+
+/* ═══════════════ 📖 일기 모아보기 (기록 탭) ═══════════════ */
+let arcDiary = false, diaryUnlocked = false;
+$('arcDiaryBtn').onclick = async () => {
+  if(arcDiary){ arcDiary = false; refreshArchive(); return; }
+  const h = await getPinHash();
+  if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return; }
+  if(!diaryUnlocked){
+    const p = prompt('일기 비밀번호 4자리를 입력하세요');
+    if(p === null) return;
+    if(await pinHash(p) !== h){ toast('비밀번호가 맞지 않습니다'); return; }
+    diaryUnlocked = true;                       // 이 세션 동안 유지
+  }
+  arcDiary = true; arcDone = false;
+  refreshArchive();
+};
+function renderArcDiary(md){
+  const list = $('dayList'); list.innerHTML = '';
+  const days = Object.keys(md).filter(dd => (normalize(md[dd]).diary||'').trim()).sort().reverse();
+  const head = document.createElement('div');
+  head.className = 'empty-note'; head.style.padding = '0 0 12px';
+  head.textContent = days.length
+    ? `📖 ${+arcMonth}월에 쓴 일기 ${days.length}편 — 달력의 📖 표시가 일기 쓴 날이에요`
+    : `${+arcMonth}월에 쓴 일기가 없어요. 달력 날짜를 눌러 그날의 일기를 쓸 수 있어요.`;
+  list.appendChild(head);
+  days.forEach(dd => {
+    const v = normalize(md[dd]);
+    const ds = `${arcYear}-${arcMonth}-${dd}`;
+    const dt = new Date(ds+'T12:00:00');
+    const card = document.createElement('div'); card.className = 'diary-card';
+    card.innerHTML = `
+      <div class="dh"><b>${arcYear}.${+arcMonth}.${+dd} (${DOW[dt.getDay()]})</b>
+        <span style="font-size:.72rem;color:var(--ink-soft)">${v.diary.trim().length}자 · 열기 ›</span></div>
+      <div class="dtx">${esc(v.diary.trim())}</div>`;
+    card.onclick = () => openDiaryOn(ds);
+    list.appendChild(card);
+  });
+}
+/* 특정 날짜의 일기를 바로 열기 (모아보기에서 진입) */
+async function openDiaryOn(ds){
+  await loadDay(ds);
+  switchTab(true);
+  const d = new Date(ds+'T12:00:00');
+  $('diaryTitle').textContent = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
+  $('diaryLock').classList.add('hidden');
+  $('diaryBody').classList.remove('hidden');
+  const ta = $('diaryText');
+  ta.value = day.diary;
+  ta.style.height = 'auto'; ta.style.height = Math.max(280, ta.scrollHeight) + 'px';
+  $('diaryModal').classList.remove('hidden');
 }
 </script>
 </body>
