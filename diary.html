@@ -286,6 +286,12 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .up-bar{height:8px;background:#F0E2C6;border-radius:99px;overflow:hidden}
 .up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#F0A050);transition:width .2s}
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
+.pin-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap}
+.pin-label{font-weight:800;color:var(--accent-deep);font-size:.92rem}
+.pin-in{width:120px;text-align:center;font-size:1.25rem;letter-spacing:.35em;padding:9px 8px;
+  border:1.5px solid var(--rule);border-radius:10px;background:#FFFDF6}
+.btn-primary.pin-go{width:auto;padding:10px 20px;margin:0;font-size:.95rem}
+#arcLockBtn{border-color:#E4B3AA;color:var(--danger)}
 .diary-card{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
   border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s}
 .diary-card:hover{box-shadow:var(--shadow)}
@@ -460,6 +466,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
       <button class="mini-btn" id="backupBtn">💾 백업</button>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
+      <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
     </div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
@@ -524,10 +531,11 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
   <div class="bk-card" style="max-width:520px">
     <h3 id="diaryTitle">📖 오늘의 일기</h3>
     <div id="diaryLock">
-      <p style="text-align:center;font-size:.9rem;color:var(--ink-soft);margin:12px 0">비밀번호 4자리를 입력하세요</p>
-      <input id="diaryPinIn" type="password" inputmode="numeric" maxlength="4" autocomplete="off"
-        style="width:150px;margin:0 auto 12px;display:block;text-align:center;font-size:1.4rem;letter-spacing:.4em;padding:10px;border:1.5px solid var(--rule);border-radius:10px;background:#FFFDF6">
-      <button class="btn-primary" id="diaryOpenBtn" style="max-width:200px;margin:0 auto">열기</button>
+      <div class="pin-row">
+        <span class="pin-label">비밀번호</span>
+        <input id="diaryPinIn" class="pin-in" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••">
+        <button class="btn-primary pin-go" id="diaryOpenBtn">열기</button>
+      </div>
       <div class="login-msg" id="diaryMsg" style="text-align:center"></div>
     </div>
     <div id="diaryBody" class="hidden">
@@ -623,7 +631,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.remove('hidden');
   }
 });
-$('logoutBtn').onclick = async () => { await flushSave(); diaryUnlocked = false; arcDiary = false; auth.signOut(); };
+$('logoutBtn').onclick = async () => { await flushSave(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
@@ -1010,6 +1018,7 @@ async function startRecording(arr, btn){
 $('tabToday').onclick = () => switchTab(true);
 $('tabArchive').onclick = () => switchTab(false);
 function switchTab(today){
+  if(arcDiary && today){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); if(!openingDiary) armLock(); }
   $('tabToday').classList.toggle('on', today);
   $('tabArchive').classList.toggle('on', !today);
   $('todayView').classList.toggle('hidden', !today);
@@ -1776,7 +1785,7 @@ function renderPrio(){
 
 /* ═══════════════ 기록 탭: ✔ 완료 모아보기 (월/연 단위) ═══════════════ */
 let arcDone = false, arcDoneScope = 'month', arcDoneData = {groups:[], total:0};
-$('arcDoneBtn').onclick = () => { arcDone = !arcDone; if(arcDone) arcDiary = false; refreshArchive(); };
+$('arcDoneBtn').onclick = () => { arcDone = !arcDone; if(arcDone && arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); } refreshArchive(); };
 function renderArcDone(yd){
   const list = $('dayList'); list.innerHTML = '';
   const bar = document.createElement('div');
@@ -1896,34 +1905,34 @@ $('setPinBtn').onclick = async () => {
   toast('일기 비밀번호를 저장했어요');
 };
 $('diaryBtn').onclick = async () => {
-  const h = await getPinHash();
-  if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return; }
   const d = new Date(curDate+'T12:00:00');
-  $('diaryTitle').textContent = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
-  $('diaryLock').classList.remove('hidden');
-  $('diaryBody').classList.add('hidden');
-  $('diaryPinIn').value = ''; $('diaryMsg').textContent = '';
-  $('diaryModal').classList.remove('hidden');
-  $('diaryPinIn').focus();
-};
-async function tryOpenDiary(){
-  const h = await getPinHash();
-  if(await pinHash($('diaryPinIn').value) !== h){
-    $('diaryMsg').textContent = '비밀번호가 맞지 않습니다';
-    $('diaryPinIn').value = ''; return;
+  const label = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
+  if(!diaryUnlocked){
+    const ok = await askPin(label);
+    if(!ok) return;
   }
-  diaryUnlocked = true;
+  showDiaryBody(label);
+};
+function showDiaryBody(label){
+  disarmLock();
+  $('diaryTitle').textContent = label;
   $('diaryLock').classList.add('hidden');
   $('diaryBody').classList.remove('hidden');
   const ta = $('diaryText');
   ta.value = day.diary;
   ta.style.height='auto'; ta.style.height = Math.max(280, ta.scrollHeight)+'px';
+  $('diaryModal').classList.remove('hidden');
   ta.focus();
 }
-$('diaryOpenBtn').onclick = tryOpenDiary;
-$('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter') tryOpenDiary(); });
+$('diaryOpenBtn').onclick = () => { if(pinResolver) pinResolver(); };
+$('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter' && pinResolver) pinResolver(); });
 $('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); });
-$('diaryClose').onclick = async () => { await flushSave(); $('diaryModal').classList.add('hidden'); };
+$('diaryClose').onclick = async () => {
+  await flushSave();
+  $('diaryModal').classList.add('hidden');
+  if(pinCanceler) pinCanceler();
+  if(!arcDiary) armLock();                    // 일기 화면을 벗어남 → 3분 뒤 자동 잠금
+};
 
 /* ═══════════════ 회의록 개요(목차) 서식: 자동 번호 이어쓰기 ═══════════════ */
 const CIRC = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮';
@@ -2143,18 +2152,77 @@ async function exportArcDone(kind){
 }
 
 /* ═══════════════ 📖 일기 모아보기 (기록 탭) ═══════════════ */
-let arcDiary = false, diaryUnlocked = false;
+let arcDiary = false, diaryUnlocked = false, lockTimer = null, openingDiary = false;
+const LOCK_DELAY = 60*1000;                   // 화면을 벗어난 뒤 1분
+
+/* 잠금 타이머: 일기 화면을 벗어나면 시작, 돌아오면 취소 */
+/* 일기 작성창이 열려 있는가 — 열려 있으면 어떤 경우에도 잠그지 않음 */
+function isDiaryEditorOpen(){
+  return !$('diaryModal').classList.contains('hidden') && !$('diaryBody').classList.contains('hidden');
+}
+function armLock(){
+  if(!diaryUnlocked || isDiaryEditorOpen()) return;      // 작성 중에는 타이머 자체를 걸지 않음
+  clearTimeout(lockTimer);
+  lockTimer = setTimeout(() => {
+    if(isDiaryEditorOpen()) return;                      // 타이머 만료 시점에 작성 중이면 잠그지 않음
+    diaryUnlocked = false; arcDiary = false;
+    $('arcLockBtn').classList.add('hidden');
+    if(!$('archiveView').classList.contains('hidden')) refreshArchive();
+    $('diaryModal').classList.add('hidden');
+  }, LOCK_DELAY);
+}
+function disarmLock(){ clearTimeout(lockTimer); }
+function lockDiaryNow(){
+  disarmLock();
+  diaryUnlocked = false; arcDiary = false;
+  $('arcLockBtn').classList.add('hidden');
+  $('diaryModal').classList.add('hidden');
+  refreshArchive();
+  toast('🔒 일기를 잠갔어요');
+}
+$('arcLockBtn').onclick = lockDiaryNow;
+document.addEventListener('visibilitychange', () => {   // 앱을 백그라운드로 보낼 때도 잠금 예약(단, 작성 중 제외)
+  if(document.hidden){ if(!isDiaryEditorOpen()) armLock(); }
+  else if(arcDiary || isDiaryEditorOpen()) disarmLock();
+});
+
+/* 비밀번호 게이트 — 일기장과 같은 모달 사용 */
+function askPin(titleText){
+  return new Promise(async resolve => {
+    const h = await getPinHash();
+    if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return resolve(false); }
+    $('diaryTitle').textContent = titleText;
+    $('diaryLock').classList.remove('hidden');
+    $('diaryBody').classList.add('hidden');
+    $('diaryPinIn').value = ''; $('diaryMsg').textContent = '';
+    $('diaryModal').classList.remove('hidden');
+    $('diaryPinIn').focus();
+    pinResolver = async () => {
+      if(await pinHash($('diaryPinIn').value) !== h){
+        $('diaryMsg').textContent = '비밀번호가 맞지 않습니다';
+        $('diaryPinIn').value = ''; return;
+      }
+      pinResolver = null;
+      diaryUnlocked = true; disarmLock();
+      $('diaryModal').classList.add('hidden');
+      resolve(true);
+    };
+    pinCanceler = () => { pinResolver = null; pinCanceler = null; resolve(false); };
+  });
+}
+let pinResolver = null, pinCanceler = null;
+
 $('arcDiaryBtn').onclick = async () => {
-  if(arcDiary){ arcDiary = false; refreshArchive(); return; }
-  const h = await getPinHash();
-  if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return; }
-  if(!diaryUnlocked){
-    const p = prompt('일기 비밀번호 4자리를 입력하세요');
-    if(p === null) return;
-    if(await pinHash(p) !== h){ toast('비밀번호가 맞지 않습니다'); return; }
-    diaryUnlocked = true;                       // 이 세션 동안 유지
+  if(arcDiary){                                 // 끄기(잠금은 유지, 3분 뒤 자동 잠금 예약)
+    arcDiary = false; armLock(); refreshArchive(); return;
   }
+  if(!diaryUnlocked){
+    const ok = await askPin('📖 일기 모아보기');
+    if(!ok) return;
+  }
+  disarmLock();
   arcDiary = true; arcDone = false;
+  $('arcLockBtn').classList.remove('hidden');
   refreshArchive();
 };
 function renderArcDiary(md){
@@ -2182,15 +2250,11 @@ function renderArcDiary(md){
 /* 특정 날짜의 일기를 바로 열기 (모아보기에서 진입) */
 async function openDiaryOn(ds){
   await loadDay(ds);
+  openingDiary = true;                                   // 이 전환은 '이탈'이 아님
   switchTab(true);
+  openingDiary = false;
   const d = new Date(ds+'T12:00:00');
-  $('diaryTitle').textContent = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
-  $('diaryLock').classList.add('hidden');
-  $('diaryBody').classList.remove('hidden');
-  const ta = $('diaryText');
-  ta.value = day.diary;
-  ta.style.height = 'auto'; ta.style.height = Math.max(280, ta.scrollHeight) + 'px';
-  $('diaryModal').classList.remove('hidden');
+  showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
 }
 </script>
 </body>
