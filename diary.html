@@ -1931,7 +1931,8 @@ $('diaryClose').onclick = async () => {
   await flushSave();
   $('diaryModal').classList.add('hidden');
   if(pinCanceler) pinCanceler();
-  if(!arcDiary) armLock();                    // 일기 화면을 벗어남 → 3분 뒤 자동 잠금
+  if(arcDiary){ disarmLock(); refreshArchive(); }   // 일기 목록으로 복귀 — 잠금 타이머 미가동
+  else armLock();                                   // 일기 화면을 완전히 벗어남 → 1분 뒤 자동 잠금
 };
 
 /* ═══════════════ 회의록 개요(목차) 서식: 자동 번호 이어쓰기 ═══════════════ */
@@ -2249,10 +2250,7 @@ function renderArcDiary(md){
 }
 /* 특정 날짜의 일기를 바로 열기 (모아보기에서 진입) */
 async function openDiaryOn(ds){
-  await loadDay(ds);
-  openingDiary = true;                                   // 이 전환은 '이탈'이 아님
-  switchTab(true);
-  openingDiary = false;
+  await loadDay(ds);                                     // 탭은 그대로 — 닫으면 일기 목록으로 복귀
   const d = new Date(ds+'T12:00:00');
   showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
 }
