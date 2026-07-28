@@ -788,6 +788,7 @@ async function loadDay(dateStr){
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
+    time: t.time||'', dur: t.dur||60,
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
 }
 function normalize(v){
@@ -903,7 +904,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', files:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, files:[], open:false}; }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 function focusLastTask(catEl){ const ins = catEl.querySelectorAll('.task-text'); if(ins.length) ins[ins.length-1].focus(); }
 
@@ -912,7 +913,7 @@ function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
   const overdue = t.due && !t.done && t.due < todayStr();
-  const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+  const dueLabel = (t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅') + (t.time? ' '+t.time : '');
   const row = document.createElement('div');
   row.className = 'task' + (t.done? ' done':'');
   row.style.borderLeft = `3px solid ${col}40`;
@@ -966,25 +967,30 @@ function taskRow(t, ctx){
     panel.className = 'attach-panel';
     panel.innerHTML = `
       <textarea class="qnote" placeholder="퀵메모 — 진행 상황, 상세 내용, 특이사항을 적어 두세요">${esc(t.note)}</textarea>
+      <div class="ap-head" style="margin-bottom:8px">
+        <span class="ap-title">⏰ 시간</span>
+        <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
+        <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
+          ${[30,60,90,120,180].map(m=>`<option value="${m}" ${t.dur===m?'selected':''}>${m<60? m+'분' : (m/60)+'시간'}</option>`).join('')}
+        </select>
+        ${t.time? '<button class="mini-btn ap-tclr">지우기</button>':''}
+        <button class="mini-btn ap-cal">📅 캘린더 등록</button>
+      </div>
       <div class="ap-head">
         <span class="ap-title">📎 첨부 (${t.files.length})</span>
         <button class="mini-btn ap-img">🖼 사진</button>
         <button class="mini-btn ap-aud">🎵 녹음파일</button>
-        <button class="mini-btn ap-cal">📅 캘린더 등록</button>
       </div>
       <div class="file-grid"></div>`;
     panel.querySelector('.qnote').addEventListener('input', e => { t.note = e.target.value; ctx.save();
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
+    panel.querySelector('.ap-time').addEventListener('change', e => { t.time = e.target.value; ctx.save(); ctx.rerender(); });
+    panel.querySelector('.ap-dur').addEventListener('change', e => { t.dur = +e.target.value; ctx.save(); });
+    const tclr = panel.querySelector('.ap-tclr');
+    if(tclr) tclr.onclick = () => { t.time=''; ctx.save(); ctx.rerender(); };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
     panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
-    panel.querySelector('.ap-cal').onclick = () => {
-      if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
-      const base = (t.due || curDate).replace(/-/g,'');
-      const nx = new Date((t.due||curDate)+'T12:00:00'); nx.setDate(nx.getDate()+1);
-      const nxs = `${nx.getFullYear()}${String(nx.getMonth()+1).padStart(2,'0')}${String(nx.getDate()).padStart(2,'0')}`;
-      const title = (ctx.cat && ctx.cat.name? `[${ctx.cat.name}] `:'') + t.text;
-      window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}&dates=${base}/${nxs}&details=${encodeURIComponent(t.note||'업무일지에서 등록')}`,'_blank');
-    };
+    panel.querySelector('.ap-cal').onclick = () => openCalendar(t, ctx.cat);
     renderFiles(panel.querySelector('.file-grid'), t.files, ctx);
     row.appendChild(panel);
   }
@@ -1278,7 +1284,7 @@ function buildA4(dateStr, data){
           <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span>${t.files.length? ' 📎':''}</td>
         <td style="width:10%;text-align:center;${bb}">${i+1}</td>
         <td style="width:14%;text-align:center;${bb}">${stMap[t.status]||''}</td>
-        <td style="width:18%;text-align:center;${bb}">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}</td>
+        <td style="width:18%;text-align:center;${bb}">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}${t.time? `<div style="font-size:12px;color:#8A705A">⏰ ${t.time}</div>`:''}</td>
       </tr>`;
       if(t.note.trim()) rows += `<tr><td colspan="4" style="padding:0 6px 9px 47px;color:#8A705A;font-size:12.5px">└ ${esc(t.note.trim()).replace(/\n/g,'<br>　 ')}</td></tr>`;
     });
@@ -1660,6 +1666,33 @@ function sendPrivToToday(t, idx){
   toast("'개인 용무'로 옮겼어요");
 }
 
+/* 구글 캘린더 등록 — 시간이 있으면 시간 일정, 없으면 종일 일정 */
+function calDates(t){
+  const base = t.due || curDate;
+  const p2 = n => String(n).padStart(2,'0');
+  const ymd = d => `${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}`;
+  if(t.time){
+    const [hh, mm] = t.time.split(':').map(Number);
+    const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
+    const en = new Date(st.getTime() + (t.dur||60)*60000);
+    const f = d => `${ymd(d)}T${p2(d.getHours())}${p2(d.getMinutes())}00`;
+    return `${f(st)}/${f(en)}`;
+  }
+  const d0 = new Date(base+'T12:00:00'), d1 = new Date(base+'T12:00:00');
+  d1.setDate(d1.getDate()+1);
+  return `${ymd(d0)}/${ymd(d1)}`;
+}
+function openCalendar(t, cat){
+  if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
+  const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
+  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+    + `&text=${encodeURIComponent(title)}`
+    + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}`
+    + `&details=${encodeURIComponent(t.note || '업무일지에서 등록')}`;
+  window.open(url, '_blank');
+}
+
 /* ═══════════════ 기록 검색 ═══════════════ */
 let searchQ = '', searchTimer = null;
 $('searchIn').addEventListener('input', e => {
@@ -1763,7 +1796,7 @@ function buildReport(){
     if(!ts.length && !c.name.trim()) return;
     out += `\n\n■ ${c.name.trim()||'(무제)'}`;
     ts.forEach(t => {
-      out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
+      out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)}${t.time? ' '+t.time:''})`:(t.time? ` (${t.time})`:'')}`;
       if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
     });
   });
@@ -1917,7 +1950,7 @@ function renderPrio(){
     const col = catColor(c);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
-    const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+    const dueLabel = (t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅') + (t.time? ' '+t.time : '');
     const row = document.createElement('div'); row.className = 'task';
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
