@@ -434,13 +434,13 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
         <div id="prioList" class="hidden"></div>
         <div class="empty-note hidden" id="emptyTasks">아직 기록이 없어요. 우측 하단 ＋ 버튼으로 오늘을 시작해 보세요.</div>
 
-        <div class="section-star">★ 기타 업무함 <span style="font-family:Pretendard;font-size:.72rem;font-weight:600;color:var(--ink-soft)">날짜와 무관 · 처리할 때까지 유지</span>
+        <div class="section-star" id="inboxHead" style="cursor:pointer">★ 기타 업무함 <span id="inboxArrow" style="font-size:.9rem">▸</span>
           <div class="actions">
             <button class="mini-btn" id="inboxAddBtn">＋ 업무</button>
           </div>
         </div>
-        <div class="inbox-wrap">
-          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 완료하면 그날 일지의 &#39;완료된 기타업무&#39;로 기록되고, 카테고리가 정해지면 ↥ 버튼으로 원하는 카테고리에 올릴 수 있어요.</div>
+        <div class="inbox-wrap hidden" id="inboxWrap">
+          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 완료하면 그날 일지의 &#39;기타업무(완료)&#39;로 기록되고, 카테고리가 정해지면 ↥ 버튼으로 원하는 카테고리에 올릴 수 있어요.</div>
           <div id="inboxList"></div>
         </div>
 
@@ -666,7 +666,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.remove('hidden');
   }
 });
-$('logoutBtn').onclick = async () => { await flushSave(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+$('logoutBtn').onclick = async () => { await flushSave(); detachAll(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
@@ -703,7 +703,9 @@ async function loadDay(dateStr){
     }
   }
   day = v ? normalize(v) : emptyDay();
+  curTs = (v && v.updatedAt) || 0;
   renderDate(); renderSheet();
+  attachDayListener(dateStr);
 }
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
@@ -757,6 +759,7 @@ async function saveNow(){
   if(!clean.cats.length) clean.prioOrder = [];
   const isEmpty = !clean.note && !clean.memo && !clean.diary && !clean.memoFiles.length && !clean.cats.length && !clean.notes.length;
   if(!isEmpty) clean.updatedAt = Date.now();
+  lastSelfTs = clean.updatedAt || 0; curTs = lastSelfTs;
   try{                                        // ① 서버 우선
     if(isEmpty) await dayRef(ds).remove();
     else await dayRef(ds).set(clean);
@@ -784,7 +787,7 @@ function autoGrow(el){ el.style.height='auto'; el.style.height = Math.max(128, e
 const PALETTE = ['#3A57C8','#C8503C','#2E8B57','#7B4AC8','#C87A2E','#1F8FA8','#C8567F'];
 const catColor = cat => PALETTE[(cat.color||0)%PALETTE.length];
 
-const isDoneCat = c => /^완료된 /.test(c.name.trim());
+const isDoneCat = c => /\(완료\)$/.test(c.name.trim());
 function renderCats(){
   $('prioBtn').classList.toggle('active', prioMode);
   $('prioList').classList.toggle('hidden', !prioMode);
@@ -1504,12 +1507,25 @@ async function saveInbox(){
     try{ await idbSet(inboxKey(), {__ts: ts, data: clean}); await addPending('inbox'); }catch(e2){}
   }
 }
+let inboxOpen = false;
+try{ inboxOpen = localStorage.getItem('inboxOpen')!=='0'; }catch(e){}
 function renderInbox(){
+  $('inboxWrap').classList.toggle('hidden', !inboxOpen);
+  const undoneCnt = inbox.filter(t=>!t.done && t.text.trim()).length;
+  $('inboxArrow').textContent = inboxOpen? '▾' : `▸ ${undoneCnt? '('+undoneCnt+')' : ''}`;
+  if(!inboxOpen) return;
   const box = $('inboxList'); box.innerHTML = '';
   inbox.map((t,ti)=>({t,ti})).sort((a,b)=>(a.t.done?1:0)-(b.t.done?1:0))
     .forEach(({t,ti}) => box.appendChild(taskRow(t, {arr:inbox, idx:ti, save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
 }
+$('inboxHead').onclick = e => {
+  if(e.target.closest('.actions')) return;
+  inboxOpen = !inboxOpen;
+  try{ localStorage.setItem('inboxOpen', inboxOpen?'1':'0'); }catch(e){}
+  renderInbox();
+};
 $('inboxAddBtn').onclick = () => {
+  inboxOpen = true;
   inbox.push(newTask()); markInbox(); renderInbox();
   const ins = $('inboxList').querySelectorAll('.task-text');
   if(ins.length) ins[ins.length-1].focus();
@@ -1536,8 +1552,8 @@ function sendInboxToToday(t, idx){
 
 /* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
 function completeInbox(t, idx){
-  let target = day.cats.find(c => !c.priv && c.name.trim()==='완료된 기타업무');
-  if(!target){ target = {id:uid8(), name:'완료된 기타업무', color:4, tasks:[]}; day.cats.push(target); }
+  let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
+  if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, tasks:[]}; day.cats.push(target); }
   target.tasks.push({...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate});
   inbox.splice(idx,1);
   markDirty(); markInbox(); renderAll();
@@ -1548,7 +1564,7 @@ function completeInbox(t, idx){
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
 function completePriv(t, idx){
   let target = day.cats.find(c => c.priv);
-  if(!target){ target = {id:uid8(), name:'완료된 개인용무', color:3, priv:true, tasks:[]}; day.cats.push(target); }
+  if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, tasks:[]}; day.cats.push(target); }
   target.tasks.push({...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate});
   priv.splice(idx,1);
   markDirty(); markPriv(); renderAll();
@@ -2459,6 +2475,87 @@ $('fontClose').onclick = () => $('fontModal').classList.add('hidden');
 $('fontModal').addEventListener('click', e => { if(e.target.id==='fontModal') $('fontModal').classList.add('hidden'); });
 $('fsUp').onclick   = () => { handScale = Math.min(1.4, +(handScale+0.05).toFixed(2)); applyHand(); saveHandFont(); };
 $('fsDown').onclick = () => { handScale = Math.max(0.8, +(handScale-0.05).toFixed(2)); applyHand(); saveHandFont(); };
+
+/* ═══════════════ 🔄 실시간 동기화 (다른 기기 변경 즉시 반영) ═══════════════ */
+let dayRefListening = null, dayCb = null, curTs = 0, lastSelfTs = 0, pendingRemote = null;
+let inboxCb = null, privCb = null;
+
+function isEditing(){
+  const a = document.activeElement;
+  return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA');
+}
+function detachAll(){
+  if(dayRefListening && dayCb){ dayRefListening.off('value', dayCb); }
+  dayRefListening = null; dayCb = null;
+  if(inboxCb){ db.ref(`diaries/${USER.uid}/inbox`).off('value', inboxCb); inboxCb = null; }
+  if(privCb){ db.ref(`diaries/${USER.uid}/priv`).off('value', privCb); privCb = null; }
+  pendingRemote = null;
+}
+/* 보고 있는 날짜를 실시간 구독 */
+function attachDayListener(dateStr){
+  if(dayRefListening && dayCb) dayRefListening.off('value', dayCb);
+  pendingRemote = null;
+  const ref = dayRef(dateStr);
+  dayCb = snap => {
+    if(curDate !== dateStr) return;                       // 이미 다른 날짜로 이동
+    const v = snap.exists()? snap.val() : null;
+    const ts = (v && v.updatedAt) || 0;
+    if(ts === curTs || ts === lastSelfTs) return;         // 내가 쓴 것/이미 반영된 것
+    if(dirty || isEditing()){                             // 작성 중 → 덮어쓰지 않고 알림만
+      pendingRemote = v;
+      $('saveState').innerHTML = '⟳ 다른 기기에서 이 날짜를 수정했어요 — <u>눌러서 불러오기</u>';
+      $('saveState').style.cursor = 'pointer';
+      return;
+    }
+    applyRemote(v, ts);
+  };
+  ref.on('value', dayCb);
+  dayRefListening = ref;
+  attachBoxListeners();
+}
+function applyRemote(v, ts){
+  day = v ? normalize(v) : emptyDay();
+  curTs = ts || ((v && v.updatedAt) || 0);
+  pendingRemote = null;
+  delete yearCache[+curDate.slice(0,4)];
+  renderSheet();
+  $('saveState').style.cursor = '';
+  $('saveState').textContent = '🔄 다른 기기의 변경을 반영했어요 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+}
+$('saveState').onclick = () => {
+  if(!pendingRemote && pendingRemote !== null) return;
+  if(pendingRemote === null && !dirty) return;
+  if(pendingRemote !== null){
+    if(dirty && !confirm('지금 화면의 수정 내용을 버리고 다른 기기의 최신 내용을 불러올까요?')) return;
+    dirty = false; clearTimeout(saveTimer);
+    applyRemote(pendingRemote);
+  }
+};
+/* 기타 업무함 · 개인 용무함도 실시간 구독 */
+function attachBoxListeners(){
+  if(!inboxCb){
+    inboxCb = snap => {
+      if(inboxDirty || isEditing()) return;               // 작성 중이면 건너뜀
+      const v = snap.exists()? snap.val() : [];
+      const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
+      if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(inbox.map(t=>({...t,open:0})))) return;
+      inbox = next; renderInbox();
+    };
+    db.ref(`diaries/${USER.uid}/inbox`).on('value', inboxCb);
+  }
+  if(!privCb){
+    privCb = snap => {
+      if(privDirty || isEditing()) return;
+      const v = snap.exists()? snap.val() : [];
+      const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
+      if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(priv.map(t=>({...t,open:0})))) return;
+      priv = next; renderPriv();
+    };
+    db.ref(`diaries/${USER.uid}/priv`).on('value', privCb);
+  }
+}
+/* 저장이 끝나고 편집을 멈췄는데 대기 중인 원격 변경이 있으면 알림 유지 */
+window.addEventListener('focus', () => { if(navigator.onLine) syncPending(); });
 </script>
 </body>
 </html>
