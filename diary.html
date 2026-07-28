@@ -285,6 +285,8 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .up-row .un{font-size:.78rem;color:var(--ink-soft);margin-bottom:5px;display:flex;justify-content:space-between;gap:8px}
 .up-bar{height:8px;background:#F0E2C6;border-radius:99px;overflow:hidden}
 .up-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),#F0A050);transition:width .2s}
+.priv-wrap{background:#F0F2F8;border:1.5px dashed #B9C4EE;border-radius:12px;padding:6px 10px 10px;margin-top:4px}
+.priv-wrap .inbox-hint{color:#6B7AA8}
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
 .pin-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap}
 .pin-label{font-weight:800;color:var(--accent-deep);font-size:.92rem}
@@ -428,12 +430,20 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
         <div class="section-star">★ 기타 업무함 <span style="font-family:Pretendard;font-size:.72rem;font-weight:600;color:var(--ink-soft)">날짜와 무관 · 처리할 때까지 유지</span>
           <div class="actions">
             <button class="mini-btn" id="inboxAddBtn">＋ 업무</button>
-            <button class="mini-btn" id="inboxClearBtn">✓ 완료 정리</button>
           </div>
         </div>
         <div class="inbox-wrap">
-          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 매일 따라다니다가, 카테고리가 정해지면 "↥ 오늘로" 버튼으로 오늘 일지에 올릴 수 있어요.</div>
+          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 완료하면 그날 일지의 &#39;기타 업무&#39;로 기록되고, 카테고리가 정해지면 ↥ 버튼으로 원하는 카테고리에 올릴 수 있어요.</div>
           <div id="inboxList"></div>
+        </div>
+
+        <div class="section-star" id="privHead" style="cursor:pointer">★ 개인 용무함 <span id="privArrow" style="font-size:.9rem">▸</span>
+          <span style="font-family:Pretendard;font-size:.72rem;font-weight:600;color:var(--ink-soft)">인쇄·보고 텍스트에는 나오지 않아요</span>
+          <div class="actions"><button class="mini-btn" id="privAddBtn">＋ 용무</button></div>
+        </div>
+        <div class="priv-wrap hidden" id="privWrap">
+          <div class="inbox-hint">병원 예약, 공과금, 개인 일정처럼 업무가 아닌 할 일을 여기에. 완료하면 그날 일지에 기록돼요.</div>
+          <div id="privList"></div>
         </div>
 
         <div class="section-star">★ 회의 및 기타 메모
@@ -522,6 +532,7 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
   <div class="export-card">
     <h3>⚙ 설정</h3>
     <button class="btn-line" id="setNameBtn">👤 다이어리 이름 변경</button>
+    <button class="btn-line" id="setPrivPrintBtn" style="margin-top:10px">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
     <button class="btn-line" id="setPinBtn" style="margin-top:10px">📖 일기 비밀번호 설정 · 변경</button>
     <button class="btn-line" id="delTodayBtn" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
     <button class="btn-line" id="setClose" style="margin-top:10px;border-style:dashed">닫기</button>
@@ -623,8 +634,10 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.add('hidden');
     $('appView').classList.remove('hidden');
     await loadName();
+    await loadPrivPrint();
     await syncPending();
     await loadInbox();
+    await loadPriv();
     await loadDay(curDate);
   }else{
     $('appView').classList.add('hidden');
@@ -687,7 +700,7 @@ function normalize(v){
       files: Array.isArray(n.files)? n.files : Object.values(n.files||{})
     })),
     cats: (Array.isArray(v.cats)? v.cats : Object.values(v.cats||{})).map(c => ({
-      id: c.id||uid8(), name: c.name||'', color: c.color||0,
+      id: c.id||uid8(), name: c.name||'', color: c.color||0, priv: !!c.priv,
       tasks: (Array.isArray(c.tasks)? c.tasks : Object.values(c.tasks||{})).map(normTask)
     }))
   };
@@ -733,14 +746,14 @@ async function saveNow(){
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
   }
 }
-async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); }
+async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); }
 window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 
 /* ───────── 시트 렌더 ───────── */
 function renderSheet(){
   $('dayNote').value = day.note;
   $('memoText').value = day.memo;
-  renderCats(); renderInbox(); renderNotes(); renderMemoFiles();
+  renderCats(); renderInbox(); renderPriv(); renderNotes(); renderMemoFiles();
 }
 $('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); });
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
@@ -761,8 +774,8 @@ function renderCats(){
     const el = document.createElement('div'); el.className='cat';
     el.innerHTML = `
       <div class="cat-head" style="border-bottom-color:${col}55">
-        <button class="cat-dot" title="카테고리 색 바꾸기" style="background:${col}"></button>
-        <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="카테고리 (예: 핵심인재 교육)">
+        <button class="cat-dot" title="${cat.priv? '개인 용무 (인쇄 포함 여부는 설정에서)':'카테고리 색 바꾸기'}" style="background:${col}">${cat.priv? '<span style="font-size:.5rem">🏠</span>':''}</button>
+        <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}">
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button>
           <button title="업무 추가">＋</button><button class="del" title="삭제">✕</button>
@@ -811,11 +824,20 @@ function taskRow(t, ctx){
         <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
       </div>
     </div>`;
-  row.querySelector('.chk').onclick = () => { t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status); if(ctx.inbox) t.doneAt = t.done? todayStr() : ''; ctx.save(); ctx.rerender(); };
+  row.querySelector('.chk').onclick = () => {
+    if(ctx.priv && !t.done){ completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
+    if(ctx.inbox && !ctx.priv && !t.done){ completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
+    t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
+    if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
+    ctx.save(); ctx.rerender();
+  };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.status-chip').onclick = () => {
     const i = STATUS.findIndex(s=>s.k===t.status);
-    t.status = STATUS[(i+1)%STATUS.length].k;
+    const next = STATUS[(i+1)%STATUS.length].k;
+    if(ctx.priv && next==='done'){ completePriv(t, ctx.idx); return; }
+    if(ctx.inbox && !ctx.priv && next==='done'){ completeInbox(t, ctx.idx); return; }
+    t.status = next;
     t.done = t.status==='done';
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
@@ -825,7 +847,7 @@ function taskRow(t, ctx){
   row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const ctl = row.querySelectorAll('.ctl button');
   let bi = 0;
-  if(ctx.inbox){ ctl[bi++].onclick = () => sendInboxToToday(t, ctx.idx); }
+  if(ctx.inbox){ ctl[bi++].onclick = () => ctx.priv? sendPrivToToday(t, ctx.idx) : sendInboxToToday(t, ctx.idx); }
   ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, -1, ctx.save, ctx.rerender);
   ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, 1, ctx.save, ctx.rerender);
   ctl[bi].onclick   = () => { if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); } };
@@ -876,7 +898,7 @@ $('carryBtn').onclick = async () => {
     const undone = pc.tasks.filter(t => !t.done && t.text.trim());
     if(!undone.length) return;
     let target = day.cats.find(c => c.name.trim() && c.name.trim()===pc.name.trim());
-    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, tasks:[]}; day.cats.push(target); }
+    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, priv:!!pc.priv, tasks:[]}; day.cats.push(target); }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim()===t.text.trim())) return;
       target.tasks.push({...normTask(t), id:uid8()});
@@ -980,7 +1002,7 @@ function renderFiles(box, arr, ctx){
     }
   });
 }
-function renderAll(){ renderCats(); renderInbox(); renderNotes(); renderMemoFiles(); }
+function renderAll(){ renderCats(); renderInbox(); renderPriv(); renderNotes(); renderMemoFiles(); }
 $('lightbox').onclick = () => $('lightbox').classList.add('hidden');
 
 /* 메모 첨부 (화면에 바로 표시) */
@@ -1135,6 +1157,7 @@ function buildA4(dateStr, data){
   const stMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
   let rows = '';
   data.cats.forEach(c => {
+    if(c.priv && !privPrint) return;                 // 개인 용무 — 설정에서 켰을 때만 인쇄
     const col = catColor(c);
     rows += `<tr class="cat-row"><td colspan="4" style="color:${col}">● &nbsp;${esc(c.name)||'(제목 없음)'}</td></tr>`;
     c.tasks.filter(t=>t.text.trim()).forEach((t,i) => {
@@ -1176,6 +1199,13 @@ function buildA4(dateStr, data){
         <div class="memo-a4" style="min-height:70px;font-family:Pretendard;font-size:14.5px;line-height:1.6">${esc(n.body)}</div>
         <div class="memo-imgs">${nimgs}</div>${naud}`;
     }).join('')}
+    ${(privPrint && (data.__priv||[]).length)? `<div class="a4-star">🏠 개인 용무</div>
+      <table>${(data.__priv||[]).map(t=>`<tr>
+        <td style="width:72%"><span class="box ${t.done?'on':''}" style="border-color:#5C6BC0;${t.done?'background:#5C6BC0':''}">${t.done?'✔':''}</span>
+          <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span></td>
+        <td style="width:14%;text-align:center">${stMap[t.status]||''}</td>
+        <td style="width:14%;text-align:center">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}</td>
+      </tr>`).join('')}</table>` : ''}
     <div class="a4-star">★ 회의 및 기타 메모</div>
     <div class="memo-a4">${esc(data.memo)}</div>
     <div class="memo-imgs">${imgs}</div>${audioNote}
@@ -1212,7 +1242,7 @@ async function runExport(kind){
   await flushSave();
   try{
     await document.fonts.ready;
-    const canvas = await renderDayCanvas(curDate, day);
+    const canvas = await renderDayCanvas(curDate, {...day, __priv: privPrint? priv.filter(t=>t.text.trim()) : []});
     const fname = `업무일지_${curDate}`;
     if(kind==='png'){
       const a = document.createElement('a');
@@ -1324,7 +1354,7 @@ $('bkStart').onclick = async () => {
         const dateStr = `${bkYear}-${mm}-${dd}`;
         bkProgress(done/total*90, `${dateStr} 변환 중… (${done+1}/${total}일)`);
         const data = normalize(daysObj[dd]);
-        const canvas = await renderDayCanvas(dateStr, data);
+        const canvas = await renderDayCanvas(dateStr, data);   // 개인 용무함은 날짜에 묶이지 않아 월별 백업 문서에는 미포함
         if(fmt==='png') folder.file(`업무일지_${dateStr}.png`, canvas.toDataURL('image/png').split(',')[1], {base64:true});
         else            folder.file(`업무일지_${dateStr}.pdf`, canvasToPdfBlob(canvas));
 
@@ -1455,38 +1485,6 @@ $('inboxAddBtn').onclick = () => {
   const ins = $('inboxList').querySelectorAll('.task-text');
   if(ins.length) ins[ins.length-1].focus();
 };
-$('inboxClearBtn').onclick = async () => {
-  const done = inbox.filter(t=>t.done);
-  if(!done.length){ toast('완료된 업무가 없어요'); return; }
-  if(!confirm(`완료된 업무 ${done.length}건을 각 완료일 일지의 '기타 업무' 카테고리로 옮겨 정리할까요?\n(기록·검색·완료 모아보기에 계속 남습니다)`)) return;
-  await flushSave();
-  try{
-    const byDate = {};
-    done.forEach(t => { const ds = t.doneAt || todayStr(); (byDate[ds] = byDate[ds]||[]).push(t); });
-    for(const ds of Object.keys(byDate)){
-      if(ds === curDate){
-        let target = day.cats.find(c => c.name.trim()==='기타 업무');
-        if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
-        byDate[ds].forEach(t => target.tasks.push({...normTask(t), id:uid8()}));
-        markDirty();
-      }else{
-        const [y,m,dd] = ds.split('-');
-        const ref = db.ref(`diaries/${USER.uid}/${y}/${m}/${dd}`);
-        const snap = await ref.get();
-        const dv = snap.exists()? normalize(snap.val()) : emptyDay();
-        let target = dv.cats.find(c => c.name.trim()==='기타 업무');
-        if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; dv.cats.push(target); }
-        byDate[ds].forEach(t => target.tasks.push({...normTask(t), id:uid8()}));
-        await ref.set(JSON.parse(JSON.stringify(dv, (k,v)=>(k==='open'||k==='_ov')? undefined : v)));
-        delete yearCache[+y];
-      }
-    }
-    inbox = inbox.filter(t=>!t.done);
-    markInbox(); renderAll();
-    await flushSave();
-    toast(`완료 업무 ${done.length}건을 완료일 일지로 옮겼어요`);
-  }catch(e){ toast('정리 실패: '+e.message); }
-};
 function sendInboxToToday(t, idx){
   let target = null;
   const named = day.cats.filter(c=>c.name.trim());
@@ -1505,6 +1503,36 @@ function sendInboxToToday(t, idx){
   inbox.splice(idx,1);
   markDirty(); markInbox(); renderAll();
   toast(`'${target.name.trim()||'기타 업무'}'(으)로 옮겼어요`);
+}
+
+/* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
+function completeInbox(t, idx){
+  let target = day.cats.find(c => !c.priv && c.name.trim()==='기타 업무');
+  if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
+  target.tasks.push({...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate});
+  inbox.splice(idx,1);
+  markDirty(); markInbox(); renderAll();
+  const d = new Date(curDate+'T12:00:00');
+  toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
+}
+
+/* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
+function completePriv(t, idx){
+  let target = day.cats.find(c => c.priv);
+  if(!target){ target = {id:uid8(), name:'개인 용무', color:3, priv:true, tasks:[]}; day.cats.push(target); }
+  target.tasks.push({...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate});
+  priv.splice(idx,1);
+  markDirty(); markPriv(); renderAll();
+  const d = new Date(curDate+'T12:00:00');
+  toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
+}
+function sendPrivToToday(t, idx){
+  let target = day.cats.find(c => c.name.trim()==='개인 용무');
+  if(!target){ target = {id:uid8(), name:'개인 용무', color:3, tasks:[]}; day.cats.push(target); }
+  target.tasks.push({...normTask(t), id:uid8()});
+  priv.splice(idx,1);
+  markDirty(); markPriv(); renderAll();
+  toast("'개인 용무'로 옮겼어요");
 }
 
 /* ═══════════════ 기록 검색 ═══════════════ */
@@ -1536,6 +1564,10 @@ async function doSearch(q){
     if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'기타함', h:hl(t.text,q)+(t.done?' ✔':'')});
     else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'기타함·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
   });
+  priv.forEach(t => {
+    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무', h:hl(t.text,q)+(t.done?' ✔':'')});
+    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
+  });
   const out = [];
   for(const mm of Object.keys(yd).sort().reverse()){
     for(const dd of Object.keys(yd[mm]).sort().reverse()){
@@ -1566,7 +1598,7 @@ async function doSearch(q){
   }
   if(ibLines.length){
     const ib = document.createElement('div'); ib.className = 'day-card';
-    ib.innerHTML = `<div class="dc-date"><div class="d">📥</div><div class="w">기타함</div></div>
+    ib.innerHTML = `<div class="dc-date"><div class="d">📥</div><div class="w">보관함</div></div>
       <div class="dc-body">${ibLines.slice(0,5).map(l=>`<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('')}</div>`;
     ib.onclick = () => { switchTab(true); setTimeout(()=>$('inboxList').scrollIntoView({behavior:'smooth', block:'center'}), 200); };
     list.appendChild(ib);
@@ -1601,6 +1633,7 @@ function buildReport(){
   let out = `[업무일지] ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}.(${DOW[d.getDay()]})`;
   if(day.note.trim()) out += `\n남김말: ${day.note.trim()}`;
   day.cats.forEach(c => {
+    if(c.priv && !privPrint) return;
     const ts = c.tasks.filter(t=>t.text.trim());
     if(!ts.length && !c.name.trim()) return;
     out += `\n\n■ ${c.name.trim()||'(무제)'}`;
@@ -1617,6 +1650,13 @@ function buildReport(){
     });
     if(n.body.trim()) out += `\n${n.body.trim().replace(/^/gm,'  ')}`;
   });
+  if(privPrint){
+    const ps = priv.filter(t=>t.text.trim());
+    if(ps.length){
+      out += `\n\n🏠 개인 용무`;
+      ps.forEach(t => { out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`; });
+    }
+  }
   if(day.memo.trim()) out += `\n\n※ 메모\n${day.memo.trim()}`;
   return out;
 }
@@ -1811,17 +1851,6 @@ function renderArcDone(yd){
       if(items.length){ total += items.length; groups.push({mm, dd, items}); }
     });
   });
-  /* 아직 기타함에 남아 있는 완료 업무도 완료일 기준으로 합류 */
-  inbox.forEach(t => {
-    if(!(t.done && t.text.trim())) return;
-    const ds = t.doneAt || todayStr();
-    if(!ds.startsWith(String(arcYear))) return;
-    const mm = ds.slice(5,7), dd = ds.slice(8,10);
-    if(arcDoneScope==='month' && mm !== arcMonth) return;
-    let g = groups.find(x => x.mm===mm && x.dd===dd);
-    if(!g){ g = {mm, dd, items:[]}; groups.push(g); }
-    g.items.push({c:null, t}); total++;
-  });
   groups.sort((a,b) => (b.mm+b.dd).localeCompare(a.mm+a.dd));
   arcDoneData = { groups, total };
   const head = document.createElement('div');
@@ -1836,12 +1865,12 @@ function renderArcDone(yd){
     const card = document.createElement('div');
     card.className = 'day-card';
     card.style.flexDirection = 'column'; card.style.alignItems = 'stretch'; card.style.cursor = 'default';
-    const rows = g.items.map(({c,t}) => {
-      const col = c? catColor(c) : '#B08A5A';
-      const nm = c? (c.name.trim()||'무제') : '📥 기타함';
+    const rows = g.items.map(({c,t,kind}) => {
+      const col = c? catColor(c) : (kind==='priv'? '#5C6BC0' : '#B08A5A');
+      const nm = c? ((c.priv? '🏠 ':'') + (c.name.trim()||'무제')) : (kind==='priv'? '🏠 개인 용무' : '📥 기타함');
       return `<div class="done-row" style="border-top:1px solid var(--rule);padding:8px 2px">
         <span class="dr-chk">✔</span>
-        <span class="dr-cat" style="color:${col};border:1.5px ${c?'solid':'dashed'} ${col}88">${nm==='📥 기타함'? nm : esc(nm)}</span>
+        <span class="dr-cat" style="color:${col};border:1.5px ${(c&&!c.priv)?'solid':'dashed'} ${col}88">${c? (c.priv? nm : esc(nm)) : nm}</span>
         <span class="dr-text">${esc(t.text)}</span></div>`;
     }).join('');
     card.innerHTML = `
@@ -1999,6 +2028,7 @@ async function idbDel(k){ const d = await idbOpen(); return new Promise((res, re
 
 const dayKey   = ds => `day:${USER.uid}:${ds}`;
 const inboxKey = () => `inbox:${USER.uid}`;
+const privKey  = () => `priv:${USER.uid}`;
 const pendKey  = () => `pending:${USER.uid}`;
 async function getPending(){ try{ return (await idbGet(pendKey())) || []; }catch(e){ return []; } }
 async function addPending(item){ try{ const p = await getPending(); if(!p.includes(item)){ p.push(item); await idbSet(pendKey(), p); } }catch(e){} }
@@ -2013,7 +2043,21 @@ async function syncPending(){
     let ok = 0;
     for(const key of [...pend]){
       try{
-        if(key === 'inbox'){
+        if(key === 'priv'){
+          const w = await idbGet(privKey());
+          if(w){
+            const ts = w.__ts || 0;
+            const data = w.data!==undefined? w.data : w;
+            let serverTs = 0;
+            try{ const t = await db.ref(`diaries/${USER.uid}/privTs`).get(); serverTs = t.exists()? t.val() : 0; }catch(e){}
+            if(ts >= serverTs){
+              if(data && data.length) await db.ref(`diaries/${USER.uid}/priv`).set(data);
+              else await db.ref(`diaries/${USER.uid}/priv`).remove();
+              await db.ref(`diaries/${USER.uid}/privTs`).set(ts);
+            }
+          }
+          await idbDel(privKey());
+        }else if(key === 'inbox'){
           const w = await idbGet(inboxKey());
           if(w){
             const ts = w.__ts || 0;
@@ -2093,11 +2137,12 @@ function buildDoneA4(label, groupsAsc, total){
   let rows = '';
   groupsAsc.forEach(g => {
     const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
-    g.items.forEach(({c,t}, i) => {
-      const col = c ? catColor(c) : '#B08A5A';
+    g.items.forEach(({c,t,kind}, i) => {
+      t.__kind = kind;
+      const col = c ? catColor(c) : (kind==='priv'? '#5C6BC0' : '#B08A5A');
       rows += `<tr>
         ${i===0 ? `<td rowspan="${g.items.length}" style="width:15%;font-weight:700;color:#C95F1D;vertical-align:top">${+g.mm}/${+g.dd} (${DOW[dt.getDay()]})</td>` : ''}
-        <td style="width:19%;color:${col};font-weight:700">${c ? esc(c.name.trim()||'무제') : '기타함'}</td>
+        <td style="width:19%;color:${col};font-weight:700">${c ? esc(c.name.trim()||'무제') : (t.__kind==='priv'? '개인 용무' : '기타함')}</td>
         <td style="text-align:left">✔ ${esc(t.text)}${t.note.trim()? `<div style="font-size:12px;color:#8A705A;padding-top:2px">└ ${esc(t.note.trim()).replace(/\n/g,'<br>')}</div>` : ''}</td>
       </tr>`;
     });
@@ -2124,9 +2169,9 @@ async function exportArcDone(kind){
     const rows = [['완료일','요일','카테고리','업무 내용','퀵메모','마감일']];
     asc.forEach(g => {
       const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
-      g.items.forEach(({c,t}) => rows.push([
+      g.items.forEach(({c,t,kind}) => rows.push([
         `${arcYear}-${g.mm}-${g.dd}`, DOW[dt.getDay()],
-        c ? (c.name.trim()||'무제') : '기타함',
+        c ? ((c.priv? '[개인] ':'') + (c.name.trim()||'무제')) : (kind==='priv'? '개인 용무' : '기타함'),
         t.text, t.note||'', t.due||''
       ]));
     });
@@ -2254,6 +2299,83 @@ async function openDiaryOn(ds){
   const d = new Date(ds+'T12:00:00');
   showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
 }
+
+/* ═══════════════ 🏠 개인 용무함 (업무 아님 · 인쇄/보고 제외) ═══════════════ */
+let priv = [], privTimer = null, privDirty = false, privOpen = false;
+try{ privOpen = localStorage.getItem('privOpen')==='1'; }catch(e){}
+
+async function loadPriv(){
+  const pending = (await getPending()).includes('priv');
+  let local = null;
+  if(pending){ try{ local = await idbGet(privKey()); }catch(e){} }
+  const localTs = local? (local.__ts||0) : 0;
+  const localData = local? (local.data!==undefined? local.data : local) : [];
+  let v = null, got = false;
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/priv`).get(), 5000);
+    v = snap.exists()? snap.val() : [];
+    got = true;
+  }catch(e){}
+  if(got && pending){
+    let serverTs = 0;
+    try{ const t = await db.ref(`diaries/${USER.uid}/privTs`).get(); serverTs = t.exists()? t.val() : 0; }catch(e){}
+    if(localTs > serverTs){ v = localData; syncPending(); }
+    else { try{ await idbDel(privKey()); await removePending('priv'); }catch(e){} }
+  }
+  if(!got) v = pending ? localData : [];
+  priv = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
+}
+function markPriv(){ privDirty = true; clearTimeout(privTimer); privTimer = setTimeout(savePriv, 800); }
+async function savePriv(){
+  if(!privDirty || !USER) return;
+  privDirty = false;
+  const clean = JSON.parse(JSON.stringify(priv, (k,v)=> k==='open'? undefined : v));
+  const ts = Date.now();
+  try{
+    if(clean.length) await db.ref(`diaries/${USER.uid}/priv`).set(clean);
+    else await db.ref(`diaries/${USER.uid}/priv`).remove();
+    await db.ref(`diaries/${USER.uid}/privTs`).set(ts);
+    try{ await idbDel(privKey()); await removePending('priv'); }catch(e){}
+  }catch(e){
+    try{ await idbSet(privKey(), {__ts: ts, data: clean}); await addPending('priv'); }catch(e2){}
+  }
+}
+function renderPriv(){
+  $('privWrap').classList.toggle('hidden', !privOpen);
+  const undone = priv.filter(t=>!t.done && t.text.trim()).length;
+  $('privArrow').textContent = privOpen? '▾' : `▸ ${undone? '('+undone+')' : ''}`;
+  if(!privOpen) return;
+  const box = $('privList'); box.innerHTML = '';
+  priv.forEach((t,ti) => box.appendChild(taskRow(t, {arr:priv, idx:ti, save:markPriv, rerender:renderPriv, cat:null, inbox:true, priv:true})));
+}
+$('privHead').onclick = e => {
+  if(e.target.closest('.actions')) return;
+  privOpen = !privOpen;
+  try{ localStorage.setItem('privOpen', privOpen?'1':'0'); }catch(e){}
+  renderPriv();
+};
+/* 인쇄·보고 포함 여부 (Firebase 저장) */
+let privPrint = false;
+async function loadPrivPrint(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/privPrint`).get(), 5000);
+    privPrint = snap.exists()? !!snap.val() : false;
+  }catch(e){}
+  applyPrivPrint();
+}
+function applyPrivPrint(){ $('privPrintState').textContent = privPrint? '켬' : '끔'; }
+$('setPrivPrintBtn').onclick = async () => {
+  privPrint = !privPrint;
+  applyPrivPrint();
+  try{ await db.ref(`diaries/${USER.uid}/settings/privPrint`).set(privPrint); }catch(e){}
+  toast(privPrint? '인쇄·보고에 개인 용무를 포함해요' : '인쇄·보고에서 개인 용무를 빼요');
+};
+$('privAddBtn').onclick = () => {
+  privOpen = true;
+  priv.push(newTask()); markPriv(); renderPriv();
+  const ins = $('privList').querySelectorAll('.task-text');
+  if(ins.length) ins[ins.length-1].focus();
+};
 </script>
 </body>
 </html>
