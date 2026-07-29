@@ -11,6 +11,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -281,6 +282,21 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .done-row .dr-cat{font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--surface);flex:none}
 .done-row .dr-text{flex:1;color:var(--ink);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
+#schedNav{max-width:900px;margin:18px auto 0;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+#schedList{max-width:900px;margin:0 auto 60px;padding:0 12px;display:flex;flex-direction:column;gap:8px}
+#schedState{max-width:900px;margin:0 auto;padding:0 16px 10px}
+.ev{display:flex;gap:12px;background:var(--card);border:1.5px solid var(--rule);border-radius:12px;padding:12px 14px}
+.ev.now{border-color:var(--accent);box-shadow:0 4px 14px rgba(200,110,40,.18)}
+.ev-time{flex:none;width:58px;text-align:center;font-weight:800;font-size:.86rem;color:var(--accent-deep);line-height:1.35}
+.ev-time small{display:block;font-weight:600;font-size:.72rem;color:var(--ink-soft)}
+.ev-bar{width:4px;border-radius:99px;flex:none;background:var(--accent)}
+.ev-body{flex:1;min-width:0}
+.ev-title{font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis}
+.ev-sub{font-size:.76rem;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ev.task{background:var(--paper-deep);border-style:dashed}
+.ev-gap{text-align:center;font-size:.72rem;color:var(--ink-soft);padding:2px 0}
+.sched-stale{background:#FBF2DC;border:1.5px solid #EBD3A0;color:#8A6A20;border-radius:10px;
+  padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 auto 12px;max-width:900px}
 .time-badge{font-size:.74rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
   border:1.5px solid var(--rule);border-radius:999px;padding:5px 10px;white-space:nowrap;
   font-family:inherit;line-height:1;transition:.15s}
@@ -468,6 +484,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <div class="tabs">
         <button class="tab on" id="tabToday">오늘</button>
         <button class="tab" id="tabArchive">기록</button>
+        <button class="tab" id="tabSched">일정</button>
       </div>
       <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
       <button class="icon-btn" id="diaryBtn" title="오늘의 일기">📖</button>
@@ -542,6 +559,21 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
   </div>
 
   <button id="fabCat" title="카테고리 추가">＋</button>
+
+  <div id="schedView" class="hidden">
+    <div id="schedNav">
+      <button class="date-arrow" id="schedPrev">◀</button>
+      <div class="date-chip" style="padding:10px 20px;cursor:default"><div class="ymd" id="schedYmd">—</div></div>
+      <button class="date-arrow" id="schedNext">▶</button>
+      <button class="today-btn" id="schedToday">오늘</button>
+    </div>
+    <div class="arc-tools">
+      <button class="mini-btn" id="schedConnect">🔗 구글 캘린더 연결</button>
+      <button class="mini-btn" id="schedRefresh">↻ 새로고침</button>
+    </div>
+    <div id="schedState" class="empty-note"></div>
+    <div id="schedList"></div>
+  </div>
 
   <div id="archiveView" class="hidden">
     <div class="search-bar"><input id="searchIn" placeholder="🔍 기록 검색 — 언제 무슨 일을 했는지 찾아보세요" autocomplete="off"></div>
@@ -677,6 +709,8 @@ const firebaseConfig = {
 };
 /* ═════════════════════════════════════════════════════════════════════════ */
 firebase.initializeApp(firebaseConfig);
+/* ▼ 구글 캘린더 연동용 — Google Cloud 콘솔에서 발급받은 값을 넣으세요 */
+const GOOGLE_CLIENT_ID = "1068928286903-kath6tjkkn12252cj5glopte09bo6q2v.apps.googleusercontent.com";
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
@@ -738,6 +772,7 @@ auth.onAuthStateChanged(async u => {
     $('appView').classList.remove('hidden');
     await loadName();
     await loadCalTarget();
+    setTimeout(initGoogle, 800);
     await loadTheme();
     await loadHandFont();
     await loadPrivPrint();
@@ -794,7 +829,7 @@ async function loadDay(dateStr){
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
-    time: t.time||'', dur: t.dur||60,
+    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
 }
 function normalize(v){
@@ -910,7 +945,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, files:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', files:[], open:false}; }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 function focusLastTask(catEl){ const ins = catEl.querySelectorAll('.task-text'); if(ins.length) ins[ins.length-1].focus(); }
 
@@ -983,7 +1018,11 @@ function taskRow(t, ctx){
           ${[30,60,90,120,180].map(m=>`<option value="${m}" ${t.dur===m?'selected':''}>${m<60? m+'분' : (m/60)+'시간'}</option>`).join('')}
         </select>
         <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
-        <button class="mini-btn ap-cal">📅 캘린더 등록</button>
+        <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
+          ${[[-1,'알림 없음'],[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전']]
+            .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
+        </select>
+        <button class="mini-btn ap-cal">📅 캘린더 ${t.gcalId? '수정':'등록'}</button>
       </div>
       <div class="ap-head">
         <span class="ap-title">📎 첨부 (${t.files.length})</span>
@@ -995,6 +1034,7 @@ function taskRow(t, ctx){
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
     panel.querySelector('.ap-time').addEventListener('change', e => { t.time = e.target.value; ctx.save(); ctx.rerender(); });
     panel.querySelector('.ap-dur').addEventListener('change', e => { t.dur = +e.target.value; ctx.save(); });
+    panel.querySelector('.ap-alarm').addEventListener('change', e => { t.alarm = +e.target.value; ctx.save(); });
     const tclr = panel.querySelector('.ap-tclr');
     if(tclr) tclr.onclick = () => { t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요'); };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
@@ -1161,18 +1201,24 @@ async function startRecording(arr, btn){
 }
 
 /* ───────── 탭/기록(아카이브) ───────── */
-$('tabToday').onclick = () => switchTab(true);
-$('tabArchive').onclick = () => switchTab(false);
-function switchTab(today){
-  if(arcDiary && today){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); if(!openingDiary) armLock(); }
+$('tabToday').onclick = () => switchTab('today');
+$('tabArchive').onclick = () => switchTab('archive');
+function switchTab(mode){
+  const today = (mode === true || mode === 'today');
+  const sched = (mode === 'sched');
+  const arch  = (mode === false || mode === 'archive');
+  if(arcDiary && !arch){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); if(!openingDiary) armLock(); }
   $('tabToday').classList.toggle('on', today);
-  $('tabArchive').classList.toggle('on', !today);
+  $('tabArchive').classList.toggle('on', arch);
+  $('tabSched').classList.toggle('on', sched);
   $('todayView').classList.toggle('hidden', !today);
   $('dateNav').classList.toggle('hidden', !today);
-  $('archiveView').classList.toggle('hidden', today);
+  $('archiveView').classList.toggle('hidden', !arch);
+  $('schedView').classList.toggle('hidden', !sched);
   $('fabCat').classList.toggle('hidden', !today);
   applyTheme();
-  if(!today){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
+  if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
+  if(sched){ schedDate = curDate; loadSchedule(); }
 }
 $('prevYear').onclick = () => stepMonth(-1);
 $('nextYear').onclick = () => stepMonth(1);
@@ -1691,14 +1737,53 @@ function calDates(t){
   d1.setDate(d1.getDate()+1);
   return `${ymd(d0)}/${ymd(d1)}`;
 }
-function openCalendar(t, cat){
+async function openCalendar(t, cat){
   if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
   const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
+  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
+
+  /* ① 권한이 있으면 API로 바로 등록 (알림 설정 가능) */
+  if(GOOGLE_CLIENT_ID && await ensureToken(false)){
+    try{
+      const base = t.time ? curDate : (t.due || curDate);
+      let body;
+      if(t.time){
+        const [hh, mm] = t.time.split(':').map(Number);
+        const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
+        const en = new Date(st.getTime() + (t.dur||60)*60000);
+        body = { summary:title, description:details,
+          start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz} };
+      }else{
+        const nx = new Date(base+'T12:00:00'); nx.setDate(nx.getDate()+1);
+        const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        body = { summary:title, description:details, start:{date:base}, end:{date:ymd(nx)} };
+      }
+      const al = (t.alarm===undefined? 10 : t.alarm);
+      body.reminders = al < 0 ? {useDefault:false, overrides:[]}
+                              : {useDefault:false, overrides:[{method:'popup', minutes:al}]};
+      const calId = calTarget || 'primary';
+      const isUpdate = !!t.gcalId;
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`
+                + (isUpdate? `/${encodeURIComponent(t.gcalId)}` : '');
+      const r = await fetch(url, {method: isUpdate? 'PATCH':'POST',
+        headers:{Authorization:'Bearer '+gToken, 'Content-Type':'application/json'},
+        body: JSON.stringify(body)});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const ev = await r.json();
+      t.gcalId = ev.id || t.gcalId;
+      markDirty();
+      const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
+      toast(`${isUpdate? '캘린더 일정을 수정했어요':'캘린더에 등록했어요'} · ${alTxt}`);
+      if(!$('schedView').classList.contains('hidden')) loadSchedule(true);
+      return;
+    }catch(e){ /* 실패하면 아래 링크 방식으로 */ }
+  }
+  /* ② 권한이 없으면 기존 링크 방식 (알림은 캘린더 기본값) */
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
     + `&text=${encodeURIComponent(title)}`
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}`
-    + `&details=${encodeURIComponent((t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록'))}`
+    + `&details=${encodeURIComponent(details)}`
     + (calTarget? `&src=${encodeURIComponent(calTarget)}` : '');
   window.open(url, '_blank');
 }
@@ -2754,6 +2839,158 @@ function renderThemeList(){
 $('setThemeBtn').onclick = () => { $('settingsMenu').classList.add('hidden'); renderThemeList(); $('themeModal').classList.remove('hidden'); };
 $('themeClose').onclick = () => $('themeModal').classList.add('hidden');
 $('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') $('themeModal').classList.add('hidden'); });
+
+/* ═══════════════ 📆 구글 캘린더 일정 보기 (읽기 + 캐시 완충) ═══════════════ */
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let gToken = '', gTokenExp = 0, gClient = null, schedDate = '';
+let schedCache = null, schedStale = false;
+
+const gReady = () => !!GOOGLE_CLIENT_ID && typeof google !== 'undefined' && google.accounts;
+function initGoogle(){
+  if(gClient || !gReady()) return;
+  gClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GCAL_SCOPE,
+    callback: resp => {
+      if(resp && resp.access_token){
+        gToken = resp.access_token;
+        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;   // 1분 여유
+        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
+        loadSchedule(true);
+      }
+    },
+  });
+  try{
+    const c = JSON.parse(localStorage.getItem('gTok')||'null');
+    if(c && c.e > Date.now()){ gToken = c.t; gTokenExp = c.e; }
+  }catch(e){}
+}
+/* 조용한 갱신 — 구글 세션이 살아 있으면 팝업 없이 새 토큰 */
+function ensureToken(interactive){
+  return new Promise(resolve => {
+    if(gToken && gTokenExp > Date.now()) return resolve(true);
+    if(!gReady()) return resolve(false);
+    initGoogle();
+    const done = ok => resolve(ok);
+    const prev = gClient.callback;
+    gClient.callback = resp => {
+      if(resp && resp.access_token){
+        gToken = resp.access_token;
+        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
+        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
+        gClient.callback = prev; done(true);
+      }else{ gClient.callback = prev; done(false); }
+    };
+    try{ gClient.requestAccessToken({prompt: interactive? 'consent' : ''}); }
+    catch(e){ done(false); }
+  });
+}
+$('schedConnect').onclick = async () => {
+  if(!GOOGLE_CLIENT_ID){ toast('설정에 구글 클라이언트 ID가 아직 없어요'); return; }
+  const ok = await ensureToken(true);
+  toast(ok? '구글 캘린더를 연결했어요' : '연결이 취소됐어요');
+  if(ok) loadSchedule(true);
+};
+$('schedRefresh').onclick = () => loadSchedule(true);
+$('schedPrev').onclick = () => { schedDate = shiftStr(schedDate, -1); loadSchedule(); };
+$('schedNext').onclick = () => { schedDate = shiftStr(schedDate, 1); loadSchedule(); };
+$('schedToday').onclick = () => { schedDate = todayStr(); loadSchedule(); };
+function shiftStr(ds, n){
+  const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+async function loadSchedule(force){
+  if(!schedDate) schedDate = curDate || todayStr();
+  const d = new Date(schedDate+'T12:00:00');
+  $('schedYmd').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+
+  if(!GOOGLE_CLIENT_ID){
+    $('schedState').innerHTML = '구글 캘린더를 아직 연결하지 않았어요.<br>클라이언트 ID를 넣으면 그날의 일정을 여기에서 볼 수 있어요.';
+    renderSchedule([]);   // 앱에서 정한 실행 시간만 표시
+    return;
+  }
+  const cacheKey = `sched:${USER.uid}:${schedDate}`;
+  if(!force){
+    try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; schedStale = true; renderSchedule(c.events, c.ts); } }catch(e){}
+  }
+  const ok = await ensureToken(false);
+  if(!ok){
+    try{
+      const c = await idbGet(cacheKey);
+      if(c){ schedStale = true; renderSchedule(c.events, c.ts);
+        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — 아래는 마지막으로 불러온 일정이에요. <b>🔗 연결</b>을 눌러 갱신하세요.'; }
+      else $('schedState').textContent = '구글 캘린더 연결이 필요해요. 🔗 버튼을 눌러 주세요.';
+    }catch(e){}
+    return;
+  }
+  $('schedState').textContent = '일정을 불러오는 중…';
+  try{
+    const tmin = new Date(schedDate+'T00:00:00').toISOString();
+    const tmax = new Date(schedDate+'T23:59:59').toISOString();
+    const ids = calTarget? [calTarget] : ['primary'];
+    let events = [];
+    for(const id of ids){
+      const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events`
+        + `?timeMin=${encodeURIComponent(tmin)}&timeMax=${encodeURIComponent(tmax)}&singleEvents=true&orderBy=startTime`,
+        {headers:{Authorization:'Bearer '+gToken}});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const j = await r.json();
+      events = events.concat((j.items||[]).map(e => ({
+        id:e.id, title:e.summary||'(제목 없음)', loc:e.location||'',
+        start:e.start && (e.start.dateTime||e.start.date), end:e.end && (e.end.dateTime||e.end.date),
+        allDay: !!(e.start && e.start.date), link:e.htmlLink||''
+      })));
+    }
+    schedCache = events; schedStale = false;
+    try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
+    renderSchedule(events);
+    $('schedState').textContent = '';
+  }catch(e){
+    try{ const c = await idbGet(cacheKey); if(c){ schedStale = true; renderSchedule(c.events, c.ts); } }catch(e2){}
+    $('schedState').textContent = '일정을 불러오지 못했어요 — 연결 상태를 확인해 주세요';
+  }
+}
+function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+function renderSchedule(events, cachedTs){
+  const box = $('schedList'); box.innerHTML = '';
+  if(cachedTs){
+    const w = document.createElement('div'); w.className = 'sched-stale';
+    w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
+    box.appendChild(w);
+  }
+  /* 앱에서 실행 시간을 정한 업무를 같은 타임라인에 합류 */
+  const taskItems = (schedDate === curDate ? day.cats : []).flatMap(c =>
+    c.tasks.filter(t => t.time && t.text.trim()).map(t => ({
+      task:true, title:t.text.trim(), cat:c.name.trim(), done:t.done,
+      start:`${schedDate}T${t.time}:00`, dur:t.dur||60, color: catColor(c)
+    })));
+  const items = [...(events||[]).map(e=>({...e, task:false})), ...taskItems]
+    .sort((a,b) => (a.allDay? '0':'1'+(a.start||'')).localeCompare(b.allDay? '0':'1'+(b.start||'')));
+  if(!items.length){
+    box.insertAdjacentHTML('beforeend', '<div class="empty-note">이 날짜에는 일정이 없어요.</div>');
+    return;
+  }
+  const now = new Date();
+  items.forEach(it => {
+    const el = document.createElement('div');
+    const st = it.start? new Date(it.start) : null;
+    const en = it.task ? new Date(st.getTime()+it.dur*60000) : (it.end? new Date(it.end) : null);
+    const isNow = st && en && now >= st && now <= en;
+    el.className = 'ev' + (it.task? ' task':'') + (isNow? ' now':'');
+    const timeTxt = it.allDay ? '종일' : (st? hhmm(it.start) : '—');
+    const endTxt = it.allDay ? '' : (en? `<small>${hhmm(en)}</small>` : '');
+    el.innerHTML = `
+      <div class="ev-time">${timeTxt}${endTxt}</div>
+      <div class="ev-bar" style="background:${it.task? it.color : 'var(--accent)'}"></div>
+      <div class="ev-body">
+        <div class="ev-title" style="${it.done? 'text-decoration:line-through;opacity:.6':''}">${esc(it.title)}</div>
+        <div class="ev-sub">${it.task? `📔 업무일지${it.cat? ' · '+esc(it.cat):''}` : (it.loc? '📍 '+esc(it.loc) : '📆 구글 캘린더')}</div>
+      </div>`;
+    if(!it.task && it.link) el.onclick = () => window.open(it.link,'_blank');
+    box.appendChild(el);
+  });
+}
+$('tabSched').onclick = () => switchTab('sched');
 </script>
 </body>
 </html>
