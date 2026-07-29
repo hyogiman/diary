@@ -1145,13 +1145,24 @@ function renderCats(){
     add.onclick  = () => { cat.tasks.push(newTask()); markDirty(); renderCats(); focusLastTask(el); };
     del.onclick  = () => { if(!cat.tasks.length || confirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`)){ day.cats.splice(ci,1); markDirty(); renderCats(); } };
     const list = el.querySelector('.task-list');
-    const order = cat.tasks.map((t,ti)=>({t,ti}));
-    order.sort((a,b)=> (a.t.done?1:0) - (b.t.done?1:0));           // 완료 항목은 아래로
+    const order = taskOrder(cat.tasks);
     order.forEach(({t,ti})=> list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})));
     box.appendChild(el);
   });
 }
 function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', files:[], open:false}; }
+/* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
+function taskOrder(list){
+  return list.map((t,ti)=>({t,ti})).sort((a,b)=>{
+    const ad = a.t.done?1:0, bd = b.t.done?1:0;
+    if(ad !== bd) return ad - bd;
+    const at = a.t.time || '', bt = b.t.time || '';
+    if(at && bt) return at.localeCompare(bt);
+    if(at) return -1;
+    if(bt) return 1;
+    return a.ti - b.ti;
+  });
+}
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 function focusLastTask(catEl){ const ins = catEl.querySelectorAll('.task-text'); if(ins.length) ins[ins.length-1].focus(); }
 
@@ -1179,8 +1190,7 @@ function taskRow(t, ctx){
       <button class="note-btn" title="퀵메모">📝${t.note.trim()? '<span class="dot"></span>':''}</button>
       <button class="clip-btn" title="첨부">📎${t.files.length? `<span class="cnt">${t.files.length}</span>`:''}</button>
       <div class="ctl">
-        ${ctx.inbox? '<button class="to-today" title="오늘 일지로 보내기">↥</button>':''}
-        <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
+        <button class="del" title="삭제">✕</button>
       </div>
     </div>`;
   row.querySelector('.chk').onclick = () => {
@@ -1209,12 +1219,9 @@ function taskRow(t, ctx){
   const gtag = row.querySelector('.goal-tag');
   if(gtag) gtag.onclick = () => { t.open=!t.open; ctx.rerender(); };
   row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
-  const ctl = row.querySelectorAll('.ctl button');
-  let bi = 0;
-  if(ctx.inbox){ ctl[bi++].onclick = () => { ctx.priv? sendPrivToToday(t, ctx.idx) : sendInboxToToday(t, ctx.idx); }; }
-  ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, -1, ctx.save, ctx.rerender);
-  ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, 1, ctx.save, ctx.rerender);
-  ctl[bi].onclick   = () => { if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); } };
+  row.querySelector('.ctl .del').onclick = () => {
+    if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); }
+  };
 
   if(t.open){
     const panel = document.createElement('div');
@@ -1893,7 +1900,7 @@ function renderInbox(){
   $('inboxArrow').textContent = inboxOpen? '▾' : `▸ ${undoneCnt? '('+undoneCnt+')' : ''}`;
   if(!inboxOpen) return;
   const box = $('inboxList'); box.innerHTML = '';
-  inbox.map((t,ti)=>({t,ti})).sort((a,b)=>(a.t.done?1:0)-(b.t.done?1:0))
+  taskOrder(inbox)
     .forEach(({t,ti}) => box.appendChild(taskRow(t, {arr:inbox, idx:ti, save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
 }
 $('inboxHead').onclick = e => {
@@ -1908,29 +1915,6 @@ $('inboxAddBtn').onclick = () => {
   const ins = $('inboxList').querySelectorAll('.task-text');
   if(ins.length) ins[ins.length-1].focus();
 };
-async function sendInboxToToday(t, idx){
-  let target = null;
-  const named = day.cats.filter(c=>c.name.trim() && !isDoneCat(c));
-  if(named.length){
-    const v = await askInput({
-      title:'↥ 어느 카테고리로?', desc:'버튼을 누르거나 번호를 입력하세요',
-      value:'0', type:'number',
-      quick:[...named.map((c,i)=>[i+1, c.name.trim()]), [0,'새 기타 업무']]
-    });
-    if(v === null) return;
-    const n = parseInt(v,10);
-    if(n>=1 && n<=named.length) target = named[n-1];
-  }
-  if(!target){
-    target = day.cats.find(c=>c.name.trim()==='기타 업무');
-    if(!target){ target = {id:uid8(), name:'기타 업무', color:4, tasks:[]}; day.cats.push(target); }
-  }
-  target.tasks.push({...normTask(t), id:uid8()});
-  inbox.splice(idx,1);
-  markDirty(); markInbox(); renderAll();
-  toast(`'${target.name.trim()||'기타 업무'}'(으)로 옮겼어요`);
-}
-
 /* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
 function completeInbox(t, idx){
   let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
@@ -1952,15 +1936,6 @@ function completePriv(t, idx){
   const d = new Date(curDate+'T12:00:00');
   toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
 }
-function sendPrivToToday(t, idx){
-  let target = day.cats.find(c => c.name.trim()==='개인 용무');
-  if(!target){ target = {id:uid8(), name:'개인 용무', color:3, tasks:[]}; day.cats.push(target); }
-  target.tasks.push({...normTask(t), id:uid8()});
-  priv.splice(idx,1);
-  markDirty(); markPriv(); renderAll();
-  toast("'개인 용무'로 옮겼어요");
-}
-
 /* 구글 캘린더 등록 — 시간이 있으면 시간 일정, 없으면 종일 일정 */
 function calDates(t){
   const base = t.time ? curDate : (t.due || curDate);   // 시간이 있으면 '오늘(일지 날짜)' 기준
@@ -2283,6 +2258,8 @@ $('prioBtn').onclick = () => {
 function prioItems(){
   const all = [];
   day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
+  inbox.forEach(t => { if(!t.done && t.text.trim()) all.push({c:null, t, box:'inbox'}); });
+  priv.forEach(t => { if(!t.done && t.text.trim()) all.push({c:null, t, box:'priv'}); });
   all.sort((a,b) => {
     if(a.t.time && b.t.time && a.t.time !== b.t.time) return a.t.time.localeCompare(b.t.time);
     if(a.t.time && !b.t.time) return -1;
@@ -2300,8 +2277,10 @@ function renderPrio(){
     box.innerHTML = '<div class="empty-note">지금 처리할 미완료 업무가 없어요 🎉</div>';
     return;
   }
-  items.forEach(({c,t}, i) => {
-    const col = catColor(c);
+  items.forEach(({c,t,box:bx}, i) => {
+    const col = c? catColor(c) : (bx==='priv'? '#5C6BC0' : '#B08A5A');
+    const label = c? (c.name.trim()||'무제') : (bx==='priv'? '🏠 개인' : '📥 기타함');
+    const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
     const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
@@ -2313,7 +2292,7 @@ function renderPrio(){
       <input class="task-text" value="${esc(t.text)}">
       <div class="task-meta">
         ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${t.time}</button>`:''}
-        <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
+        <span class="dr-cat" style="color:${col};border:1.5px ${c?'solid':'dashed'} ${col}88">${c? esc(label) : label}</span>
         <button class="status-chip ${st.cls}">${st.label}</button>
         <span class="due-wrap">
           <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
@@ -2321,16 +2300,26 @@ function renderPrio(){
         </span>
         <div class="ctl"><button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button></div>
       </div>`;
-    row.querySelector('.chk').onclick = () => { t.done = true; t.status = 'done'; markDirty(); renderCats(); toast('완료! 다음 순위로 넘어가요'); };
-    row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; markDirty(); });
+    row.querySelector('.chk').onclick = () => {
+      if(bx==='inbox'){ completeInbox(t, inbox.indexOf(t)); return; }
+      if(bx==='priv'){ completePriv(t, priv.indexOf(t)); return; }
+      t.done = true; t.status = 'done'; markDirty(); renderCats(); toast('완료! 다음 순위로 넘어가요');
+    };
+    row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
     row.querySelector('.status-chip').onclick = () => {
       const k = STATUS.findIndex(x=>x.k===t.status);
-      t.status = STATUS[(k+1)%STATUS.length].k; t.done = t.status==='done';
-      markDirty(); renderCats();
+      const next = STATUS[(k+1)%STATUS.length].k;
+      if(bx==='inbox' && next==='done'){ completeInbox(t, inbox.indexOf(t)); return; }
+      if(bx==='priv' && next==='done'){ completePriv(t, priv.indexOf(t)); return; }
+      t.status = next; t.done = t.status==='done';
+      save(); renderCats();
     };
-    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; markDirty(); renderCats(); });
+    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
     const ptb = row.querySelector('.time-badge');
-    if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){} t.open = true; renderCats();
+    if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
+      if(bx==='inbox') inboxOpen = true;
+      if(bx==='priv') privOpen = true;
+      t.open = true; renderAll();
       setTimeout(()=>{ const el=[...document.querySelectorAll('.task-text')].find(x=>x.value===t.text); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 60); };
     const [up,down] = row.querySelectorAll('.ctl button');
     up.onclick = () => { if(i>0){ [day.prioOrder[i-1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i-1]]; markDirty(); renderCats(); } };
@@ -2865,7 +2854,7 @@ function renderPriv(){
   $('privArrow').textContent = privOpen? '▾' : `▸ ${undone? '('+undone+')' : ''}`;
   if(!privOpen) return;
   const box = $('privList'); box.innerHTML = '';
-  priv.map((t,ti)=>({t,ti})).sort((a,b)=>(a.t.done?1:0)-(b.t.done?1:0))
+  taskOrder(priv)
     .forEach(({t,ti}) => box.appendChild(taskRow(t, {arr:priv, idx:ti, save:markPriv, rerender:renderPriv, cat:null, inbox:true, priv:true})));
 }
 $('privHead').onclick = e => {
