@@ -307,6 +307,10 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .tl-ev.done{opacity:.55}
 body[data-theme="dark"] .tl-ev.gcal{background:#2C4A46;border-color:#5FBFA9;color:#CFEDE6}
 body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;color:#F0E4CE}
+.ev-field{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ev-field label{width:44px;flex:none;font-weight:800;font-size:.85rem;color:var(--accent-deep)}
+.ev-field input,.ev-field select{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:10px;
+  background:var(--field);padding:10px 12px;font-size:.92rem}
 .tl-empty{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:26px 0}
 .sched-stale{background:#FBF2DC;border:1.5px solid #EBD3A0;color:#8A6A20;border-radius:10px;
   padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 auto 12px;max-width:900px}
@@ -578,12 +582,9 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <button class="date-arrow" id="schedPrev">◀</button>
       <div class="date-chip" style="padding:10px 20px;cursor:default"><div class="ymd" id="schedYmd">—</div></div>
       <button class="date-arrow" id="schedNext">▶</button>
-      <button class="today-btn" id="schedToday">오늘</button>
     </div>
-    <div class="arc-tools">
-      <button class="mini-btn" id="schedConnect">🔗 구글 캘린더 연결</button>
-      <button class="mini-btn" id="schedRefresh">↻ 새로고침</button>
-    </div>
+    <div class="arc-tools" style="margin-bottom:10px"><button class="today-btn" id="schedToday">오늘</button></div>
+    <div class="arc-tools"><button class="mini-btn" id="schedRefresh">↻ 새로고침</button></div>
     <div id="schedState" class="empty-note"></div>
     <div id="schedWrap">
       <div class="tl">
@@ -686,6 +687,27 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
     </div>
     <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
+  </div>
+</div>
+<div id="evModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:178;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:420px">
+    <h3 id="evTitle">일정 수정</h3>
+    <div id="evName" style="text-align:center;font-weight:700;font-size:.95rem;margin:10px 0 16px;color:var(--ink)"></div>
+    <div class="ev-field"><label>시작</label><input type="time" id="evStart"></div>
+    <div class="ev-field"><label>소요</label>
+      <select id="evDur">
+        <option value="15">15분</option><option value="30">30분</option><option value="45">45분</option>
+        <option value="60">1시간</option><option value="90">1시간 30분</option><option value="120">2시간</option>
+        <option value="180">3시간</option><option value="240">4시간</option><option value="480">8시간</option>
+      </select></div>
+    <div class="ev-field"><label>제목</label><input type="text" id="evText" placeholder="일정 제목"></div>
+    <div class="ev-field"><label>장소</label><input type="text" id="evLoc" placeholder="(선택)"></div>
+    <div class="bk-btns">
+      <button class="btn-primary" id="evSave">저장</button>
+      <button class="btn-line" id="evClose">닫기</button>
+    </div>
+    <button class="btn-line" id="evDelete" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 일정 삭제</button>
+    <button class="btn-line" id="evOpen" style="margin-top:8px;border-style:dashed">📆 구글 캘린더에서 열기</button>
   </div>
 </div>
 <div id="themeModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:175;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -2904,13 +2926,15 @@ function ensureToken(interactive){
     catch(e){ done(false); }
   });
 }
-$('schedConnect').onclick = async () => {
-  if(!GOOGLE_CLIENT_ID){ toast('설정에 구글 클라이언트 ID가 아직 없어요'); return; }
-  const ok = await ensureToken(true);
-  toast(ok? '구글 캘린더를 연결했어요' : '연결이 취소됐어요');
-  if(ok) loadSchedule(true);
+$('schedRefresh').onclick = async () => {
+  if(!GOOGLE_CLIENT_ID){ toast('구글 클라이언트 ID가 아직 없어요'); return; }
+  if(!(await ensureToken(false))){                 // 조용한 갱신 실패 → 그때만 로그인 창
+    const ok = await ensureToken(true);
+    if(!ok){ toast('구글 캘린더 연결이 취소됐어요'); return; }
+    toast('구글 캘린더를 다시 연결했어요');
+  }
+  loadSchedule(true);
 };
-$('schedRefresh').onclick = () => loadSchedule(true);
 $('schedPrev').onclick = () => { schedDate = shiftStr(schedDate, -1); loadSchedule(); };
 $('schedNext').onclick = () => { schedDate = shiftStr(schedDate, 1); loadSchedule(); };
 $('schedToday').onclick = () => { schedDate = todayStr(); loadSchedule(); };
@@ -2937,8 +2961,8 @@ async function loadSchedule(force){
     try{
       const c = await idbGet(cacheKey);
       if(c){ schedStale = true; renderSchedule(c.events, c.ts);
-        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — 아래는 마지막으로 불러온 일정이에요. <b>🔗 연결</b>을 눌러 갱신하세요.'; }
-      else $('schedState').textContent = '구글 캘린더 연결이 필요해요. 🔗 버튼을 눌러 주세요.';
+        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — 아래는 마지막으로 불러온 일정이에요. <b>↻ 새로고침</b>을 눌러 갱신하세요.'; }
+      else $('schedState').innerHTML = '구글 캘린더 연결이 필요해요 — <b>↻ 새로고침</b>을 눌러 주세요.';
     }catch(e){}
     return;
   }
@@ -2987,14 +3011,22 @@ function renderSchedule(events, cachedTs){
   /* 항목 모으기 — 캘린더에 등록된 업무는 캘린더 쪽만 표시 */
   const tasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
     c.tasks.filter(t => t.time && t.text.trim() && !t.gcalId).map(t => ({
-      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done,
+      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
       st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
       dur:(t.dur||60)
     })));
-  const evs = (events||[]).filter(e => !e.allDay).map(e => ({
-    kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
-    dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link
-  }));
+  /* 이 일정이 앱의 어느 업무에서 나온 것인지 찾아 카테고리 색을 입힘 */
+  const catOf = id => {
+    for(const c of (schedDate === curDate ? day.cats : []))
+      for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
+    return null;
+  };
+  const evs = (events||[]).filter(e => !e.allDay).map(e => {
+    const own = catOf(e.id);
+    return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
+      dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
+      color: own? catColor(own.cat) : '', catName: own? own.cat.name.trim() : '', done: own? own.task.done : false };
+  });
   const items = [...evs, ...tasks].sort((a,b)=> a.st - b.st);
 
   /* 종일 일정 */
@@ -3056,11 +3088,16 @@ function renderSchedule(events, cachedTs){
     const hgt = Math.max(26, it.dur / 60 * PXH - 3);
     const el = document.createElement('button');
     el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
-    const wpct = 100 / laneN;
     el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(52px + (100% - 60px) * ${it.lane/laneN});width:calc((100% - 60px) * ${1/laneN} - 4px);right:auto;`;
+    if(it.color){                                   // 업무일지에서 나온 일정 → 카테고리 색
+      el.style.borderLeftColor = it.color;
+      el.style.background = it.color + '22';
+      el.style.color = 'var(--ink)';
+    }
     const timeTxt = `${hhmm(it.st)}~${hhmm(it.end)}`;
     el.innerHTML = `<div class="t">${esc(it.title)}</div>`
-      + (hgt > 38 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 미등록' : (it.loc? ' · 📍'+esc(it.loc):'')}</div>` : '');
+      + (hgt > 38 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
+          : (it.catName? ' · 📔 '+esc(it.catName) : (it.loc? ' · 📍'+esc(it.loc):''))}</div>` : '');
     el.title = `${timeTxt} ${it.title}`;
     el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
     body.appendChild(el);
@@ -3075,32 +3112,65 @@ function openTaskFromTimeline(t){
     if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
   }, 80);
 }
-/* 캘린더 일정 클릭 → 시간 수정 */
-async function openEventEditor(ev){
-  const cur = `${hhmm(ev.start)}`;
-  const v = prompt(`"${ev.title}"\n\n시작 시각을 입력하세요 (예: 14:30)\n비우면 취소, 열기를 원하면 '열기' 입력`, cur);
-  if(v === null) return;
-  if(v.trim() === '열기'){ if(ev.link) window.open(ev.link,'_blank'); return; }
-  if(!/^\d{1,2}:\d{2}$/.test(v.trim())){ toast('시:분 형식으로 입력해 주세요 (예: 14:30)'); return; }
-  const dm = prompt('소요 시간을 분 단위로 입력하세요', String(Math.round((new Date(ev.end)-new Date(ev.start))/60000)));
-  if(dm === null) return;
-  const mins = parseInt(dm,10);
-  if(!(mins > 0)){ toast('분 단위 숫자를 입력해 주세요'); return; }
-  if(!await ensureToken(false)){ toast('구글 캘린더 연결이 필요해요'); return; }
+/* 캘린더 일정 클릭 → 모달로 수정·삭제 */
+let evEditing = null;
+function openEventEditor(ev){
+  evEditing = ev;
+  const st = new Date(ev.start), en = new Date(ev.end);
+  const mins = Math.max(15, Math.round((en - st)/60000));
+  $('evName').textContent = ev.title;
+  $('evText').value = ev.title;
+  $('evLoc').value = ev.loc || '';
+  $('evStart').value = `${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
+  const sel = $('evDur');
+  if(![...sel.options].some(o => +o.value === mins)){
+    const o = document.createElement('option');
+    o.value = mins; o.textContent = mins + '분'; sel.appendChild(o);
+  }
+  sel.value = String(mins);
+  $('evModal').classList.remove('hidden');
+}
+$('evClose').onclick = () => { $('evModal').classList.add('hidden'); evEditing = null; };
+$('evModal').addEventListener('click', e => { if(e.target.id==='evModal') $('evClose').onclick(); });
+$('evOpen').onclick = () => { if(evEditing && evEditing.link) window.open(evEditing.link, '_blank'); };
+$('evSave').onclick = async () => {
+  if(!evEditing) return;
+  const v = $('evStart').value, mins = +$('evDur').value, title = $('evText').value.trim();
+  if(!v){ toast('시작 시각을 입력해 주세요'); return; }
+  if(!title){ toast('제목을 입력해 주세요'); return; }
+  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요 — ↻ 새로고침을 눌러 주세요'); return; }
   try{
     const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-    const [h,m] = v.trim().split(':').map(Number);
+    const [h, m] = v.split(':').map(Number);
     const st = new Date(schedDate+'T00:00:00'); st.setHours(h, m, 0, 0);
     const en = new Date(st.getTime() + mins*60000);
     const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(ev.id)}`,
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
       {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
-       body: JSON.stringify({start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
+       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
+         start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
     if(!r.ok) throw new Error('HTTP '+r.status);
-    toast('일정 시간을 바꿨어요');
+    $('evModal').classList.add('hidden'); evEditing = null;
+    toast('일정을 수정했어요');
     loadSchedule(true);
   }catch(e){ toast('수정 실패: '+e.message); }
-}
+};
+$('evDelete').onclick = async () => {
+  if(!evEditing) return;
+  if(!confirm(`"${evEditing.title}" 일정을 구글 캘린더에서 삭제할까요?`)) return;
+  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
+  try{
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
+      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
+    if(!r.ok && r.status !== 410) throw new Error('HTTP '+r.status);
+    /* 앱 업무와 연결돼 있었다면 연결 해제 */
+    day.cats.forEach(c => c.tasks.forEach(t => { if(t.gcalId === evEditing.id){ t.gcalId = ''; markDirty(); } }));
+    $('evModal').classList.add('hidden'); evEditing = null;
+    toast('일정을 삭제했어요');
+    renderCats(); loadSchedule(true);
+  }catch(e){ toast('삭제 실패: '+e.message); }
+};
 $('tabSched').onclick = () => switchTab('sched');
 </script>
 </body>
