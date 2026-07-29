@@ -307,6 +307,33 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .tl-ev.done{opacity:.55}
 body[data-theme="dark"] .tl-ev.gcal{background:#2C4A46;border-color:#5FBFA9;color:#CFEDE6}
 body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;color:#F0E4CE}
+.goal-tabs{display:flex;gap:8px;justify-content:center;margin:18px 0 4px;flex-wrap:wrap}
+#goalNav{max-width:900px;margin:8px auto 0;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:8px}
+#goalWrap{max-width:900px;margin:14px auto 60px;padding:0 12px}
+.goal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.goal-count{flex:1;font-size:.85rem;font-weight:700;color:var(--ink-soft)}
+.goal{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:12px;padding:12px 14px;margin-bottom:9px}
+.goal.done{opacity:.62}
+.goal-row{display:flex;align-items:center;gap:9px}
+.goal-txt{flex:1;min-width:0;border:none;background:transparent;font-size:.97rem;font-weight:700;padding:3px 2px;color:var(--ink)}
+.goal.done .goal-txt{text-decoration:line-through;color:var(--done)}
+.goal-link{display:block;width:100%;border:none;background:transparent;font-size:.78rem;color:var(--ink-soft);
+  padding:5px 0 0 30px;font-family:inherit;text-align:left;cursor:pointer}
+.goal-link select{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+  padding:4px 7px;font-size:.76rem;max-width:100%}
+.goal-prog{height:6px;background:var(--paper-deep);border-radius:99px;overflow:hidden;margin:9px 0 0 30px}
+.goal-prog i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
+.goal-sub{font-size:.72rem;color:var(--ink-soft);padding:5px 0 0 30px}
+#goalPeekBox{max-width:900px;margin:10px auto 0;padding:0 16px}
+.peek{background:var(--card);border:1.5px solid var(--rule);border-radius:12px;padding:12px 14px}
+.peek h4{font-family:'Jua';font-weight:400;color:var(--accent-deep);font-size:.92rem;margin-bottom:6px}
+.peek .pg{font-size:.86rem;padding:3px 0;display:flex;gap:7px;align-items:center}
+.peek .pg i{width:15px;height:15px;border-radius:5px;border:2px solid var(--accent);flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:.6rem;color:#fff;font-style:normal}
+.peek .pg i.on{background:var(--accent)}
+.peek .pg.done span{text-decoration:line-through;color:var(--done)}
+.peek .none{font-size:.82rem;color:var(--ink-soft)}
 .ev-field{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .ev-field label{width:44px;flex:none;font-weight:800;font-size:.85rem;color:var(--accent-deep)}
 .ev-field input,.ev-field select{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:10px;
@@ -500,6 +527,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <div class="brand" id="brandName">📔 업무일지</div>
       <div class="tabs">
         <button class="tab on" id="tabToday">목록</button>
+        <button class="tab" id="tabGoal">목표</button>
         <button class="tab" id="tabArchive">기록</button>
         <button class="tab" id="tabSched">일정</button>
       </div>
@@ -513,6 +541,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 
   <div id="todayView">
     <div id="dateNav">
+      <button class="date-arrow" id="goalPeek" title="이번 주·이번 달 목표 보기">🎯</button>
       <button class="date-arrow" id="prevDay">◀</button>
       <div class="date-chip" style="padding:10px 20px">
         <div class="ymd" id="ymdText">—</div>
@@ -522,6 +551,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <button class="date-arrow" id="nextDay">▶</button>
       <button class="today-btn" id="goToday">오늘</button>
     </div>
+    <div id="goalPeekBox" class="hidden"></div>
     <div id="saveState"></div>
 
     <div id="sheet">
@@ -576,6 +606,27 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
   </div>
 
   <button id="fabCat" title="카테고리 추가">＋</button>
+
+  <div id="goalView" class="hidden">
+    <div class="goal-tabs">
+      <button class="mini-btn active" data-g="year">🗓 연간</button>
+      <button class="mini-btn" data-g="month">📅 월간</button>
+      <button class="mini-btn" data-g="week">🎯 주간</button>
+    </div>
+    <div id="goalNav">
+      <button class="date-arrow" id="goalPrev">◀</button>
+      <div class="date-chip" style="padding:10px 20px;cursor:default"><div class="ymd" id="goalLabel">—</div></div>
+      <button class="date-arrow" id="goalNext">▶</button>
+      <button class="today-btn" id="goalNow">현재</button>
+    </div>
+    <div id="goalWrap">
+      <div class="goal-head">
+        <span id="goalCount" class="goal-count"></span>
+        <button class="mini-btn" id="goalAdd">＋ 목표 추가</button>
+      </div>
+      <div id="goalList"></div>
+    </div>
+  </div>
 
   <div id="schedView" class="hidden">
     <div id="schedNav">
@@ -809,6 +860,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.add('hidden');
     $('appView').classList.remove('hidden');
     await loadName();
+    await loadGoals();
     await loadCalTarget();
     setTimeout(initGoogle, 800);
     await loadTheme();
@@ -930,7 +982,7 @@ async function saveNow(){
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
   }
 }
-async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); }
+async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); }
 window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 
 /* ───────── 시트 렌더 ───────── */
@@ -1262,19 +1314,23 @@ $('tabArchive').onclick = () => switchTab('archive');
 function switchTab(mode){
   const today = (mode === true || mode === 'today');
   const sched = (mode === 'sched');
+  const goal  = (mode === 'goal');
   const arch  = (mode === false || mode === 'archive');
   if(arcDiary && !arch){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); if(!openingDiary) armLock(); }
   $('tabToday').classList.toggle('on', today);
   $('tabArchive').classList.toggle('on', arch);
   $('tabSched').classList.toggle('on', sched);
+  $('tabGoal').classList.toggle('on', goal);
   $('todayView').classList.toggle('hidden', !today);
   $('dateNav').classList.toggle('hidden', !today);
   $('archiveView').classList.toggle('hidden', !arch);
   $('schedView').classList.toggle('hidden', !sched);
+  $('goalView').classList.toggle('hidden', !goal);
   $('fabCat').classList.toggle('hidden', !today);
   applyTheme();
   if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
   if(sched){ schedDate = curDate; loadSchedule(); }
+  if(goal){ if(!goalKey) goalKey = yearKey(curDate); renderGoals(); }
 }
 $('prevYear').onclick = () => stepMonth(-1);
 $('nextYear').onclick = () => stepMonth(1);
@@ -3219,6 +3275,166 @@ $('evDelete').onclick = async () => {
   }catch(e){ toast('삭제 실패: '+e.message); }
 };
 $('tabSched').onclick = () => switchTab('sched');
+
+/* ═══════════════ 🎯 목표 (연간 → 월간 → 주간) ═══════════════ */
+let goalScope = 'year', goalKey = '', goals = {}, goalTimer = null, goalDirty = false;
+
+/* ISO 주차 계산 — 목·월 기준 */
+function isoWeek(d){
+  const t = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  t.setDate(t.getDate() + 3 - ((t.getDay()+6)%7));           // 그 주의 목요일
+  const y = t.getFullYear();
+  const jan4 = new Date(y, 0, 4);
+  const wk = 1 + Math.round(((t - jan4)/86400000 - 3 + ((jan4.getDay()+6)%7))/7);
+  return {y, w:wk};
+}
+function weekKey(ds){ const {y,w} = isoWeek(new Date(ds+'T12:00:00')); return `${y}-W${String(w).padStart(2,'0')}`; }
+function monthKey(ds){ return ds.slice(0,7); }
+function yearKey(ds){ return ds.slice(0,4); }
+function weekRange(key){                                     // 'YYYY-Www' → 그 주 월~일
+  const [y, w] = key.split('-W').map(Number);
+  const jan4 = new Date(y, 0, 4);
+  const mon = new Date(jan4);
+  mon.setDate(jan4.getDate() - ((jan4.getDay()+6)%7) + (w-1)*7);
+  const sun = new Date(mon); sun.setDate(mon.getDate()+6);
+  return {mon, sun};
+}
+function goalLabelOf(scope, key){
+  if(scope==='year') return `${key}년`;
+  if(scope==='month') return `${+key.slice(0,4)}년 ${+key.slice(5,7)}월`;
+  const {mon, sun} = weekRange(key);
+  return `${mon.getMonth()+1}/${mon.getDate()} ~ ${sun.getMonth()+1}/${sun.getDate()}`;
+}
+const goalsOf = (scope, key) => (goals[scope] && goals[scope][key]) || [];
+
+async function loadGoals(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/goals`).get(), 5000);
+    goals = snap.exists()? (snap.val()||{}) : {};
+  }catch(e){ goals = goals || {}; }
+  ['year','month','week'].forEach(k => { if(!goals[k]) goals[k] = {}; });
+}
+function markGoals(){ goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800); }
+async function saveGoals(){
+  if(!goalDirty || !USER) return;
+  goalDirty = false;
+  try{ await db.ref(`diaries/${USER.uid}/goals`).set(JSON.parse(JSON.stringify(goals))); }
+  catch(e){ goalDirty = true; }
+}
+document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.onclick = () => {
+  goalScope = b.dataset.g;
+  goalKey = goalScope==='year'? yearKey(curDate) : goalScope==='month'? monthKey(curDate) : weekKey(curDate);
+  renderGoals();
+});
+$('goalPrev').onclick = () => shiftGoal(-1);
+$('goalNext').onclick = () => shiftGoal(1);
+$('goalNow').onclick = () => {
+  goalKey = goalScope==='year'? yearKey(todayStr()) : goalScope==='month'? monthKey(todayStr()) : weekKey(todayStr());
+  renderGoals();
+};
+function shiftGoal(dir){
+  if(goalScope==='year'){ goalKey = String(+goalKey + dir); }
+  else if(goalScope==='month'){
+    let y = +goalKey.slice(0,4), m = +goalKey.slice(5,7) + dir;
+    if(m<1){ m=12; y--; } if(m>12){ m=1; y++; }
+    goalKey = `${y}-${String(m).padStart(2,'0')}`;
+  }else{
+    const {mon} = weekRange(goalKey);
+    mon.setDate(mon.getDate() + dir*7);
+    goalKey = weekKey(`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`);
+  }
+  renderGoals();
+}
+/* 하위 목표의 달성률로 상위 목표 진척 계산 */
+function childProgress(scope, parentId){
+  const child = scope==='year'? 'month' : 'week';
+  let all = 0, done = 0;
+  Object.values(goals[child]||{}).forEach(arr => (arr||[]).forEach(g => {
+    if(g.parent === parentId){ all++; if(g.done) done++; }
+  }));
+  return {all, done, pct: all? Math.round(done/all*100) : 0};
+}
+function parentOptions(scope){
+  if(scope==='year') return [];
+  if(scope==='month') return (goals.year[goalKey.slice(0,4)]||[]).map(g=>({id:g.id, name:g.text}));
+  const {mon} = weekRange(goalKey);
+  const mk = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}`;
+  return (goals.month[mk]||[]).map(g=>({id:g.id, name:g.text}));
+}
+function renderGoals(){
+  if(!goalKey) goalKey = yearKey(curDate);
+  document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.classList.toggle('active', b.dataset.g===goalScope));
+  $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
+  const list = goalsOf(goalScope, goalKey);
+  const doneN = list.filter(g=>g.done).length;
+  $('goalCount').textContent = list.length? `${list.length}개 중 ${doneN}개 달성` : '아직 목표가 없어요';
+  const box = $('goalList'); box.innerHTML = '';
+  const opts = parentOptions(goalScope);
+  list.forEach((g, i) => {
+    const el = document.createElement('div');
+    el.className = 'goal' + (g.done? ' done':'');
+    const prog = goalScope!=='week' ? childProgress(goalScope, g.id) : null;
+    el.innerHTML = `
+      <div class="goal-row">
+        <button class="chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
+        <input class="goal-txt" value="${esc(g.text)}" placeholder="${goalScope==='year'?'올해 이루고 싶은 것':goalScope==='month'?'이 달의 목표':'이번 주 목표'}">
+        <div class="ctl">
+          <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
+        </div>
+      </div>
+      ${opts.length? `<div class="goal-link">🔗 상위 목표
+        <select><option value="">— 연결 안 함 —</option>
+        ${opts.map(o=>`<option value="${o.id}" ${g.parent===o.id?'selected':''}>${esc(o.name||'(제목 없음)')}</option>`).join('')}
+        </select></div>` : ''}
+      ${prog && prog.all? `<div class="goal-prog"><i style="width:${prog.pct}%"></i></div>
+        <div class="goal-sub">하위 목표 ${prog.done}/${prog.all} 달성 · ${prog.pct}%</div>` : ''}`;
+    el.querySelector('.chk').onclick = () => { g.done = !g.done; markGoals(); renderGoals(); };
+    el.querySelector('.goal-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
+    const sel = el.querySelector('select');
+    if(sel) sel.addEventListener('change', e => { g.parent = e.target.value; markGoals(); });
+    const [up, down, del] = el.querySelectorAll('.ctl button');
+    up.onclick = () => { if(i>0){ [list[i-1],list[i]]=[list[i],list[i-1]]; markGoals(); renderGoals(); } };
+    down.onclick = () => { if(i<list.length-1){ [list[i+1],list[i]]=[list[i],list[i+1]]; markGoals(); renderGoals(); } };
+    del.onclick = () => { if(!g.text.trim() || confirm('이 목표를 삭제할까요?')){ list.splice(i,1); markGoals(); renderGoals(); } };
+    box.appendChild(el);
+  });
+  if(!list.length) box.innerHTML = '<div class="empty-note">＋ 버튼으로 목표를 세워 보세요.</div>';
+}
+$('goalAdd').onclick = () => {
+  if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
+  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:''});
+  markGoals(); renderGoals();
+  const ins = $('goalList').querySelectorAll('.goal-txt');
+  if(ins.length) ins[ins.length-1].focus();
+};
+
+/* 목록 탭의 🎯 버튼 — 이번 주·이번 달 목표 펼쳐보기 */
+let peekOpen = false;
+$('goalPeek').onclick = () => {
+  peekOpen = !peekOpen;
+  $('goalPeekBox').classList.toggle('hidden', !peekOpen);
+  if(peekOpen) renderPeek();
+};
+function renderPeek(){
+  const wk = goalsOf('week', weekKey(curDate));
+  const mo = goalsOf('month', monthKey(curDate));
+  const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i><span>${esc(g.text||'(제목 없음)')}</span></div>`;
+  $('goalPeekBox').innerHTML = `<div class="peek">
+    <h4>🎯 이번 주 목표</h4>
+    ${wk.length? wk.map(line).join('') : '<div class="none">아직 없어요 — 목표 탭에서 세워 보세요</div>'}
+    <h4 style="margin-top:12px">📅 이번 달 목표</h4>
+    ${mo.length? mo.map(line).join('') : '<div class="none">아직 없어요</div>'}
+  </div>`;
+  $('goalPeekBox').querySelectorAll('.pg').forEach((el, idx) => {
+    el.style.cursor = 'pointer';
+    el.onclick = () => {
+      const arr = idx < wk.length ? wk : mo;
+      const g = idx < wk.length ? wk[idx] : mo[idx - wk.length];
+      g.done = !g.done; markGoals(); renderPeek();
+    };
+  });
+}
+$('tabGoal').onclick = () => switchTab('goal');
 </script>
 </body>
 </html>
