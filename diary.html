@@ -327,6 +327,11 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   padding:5px 0 0 30px;font-family:inherit;text-align:left;cursor:pointer}
 .goal-link select{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:4px 7px;font-size:.76rem;max-width:100%}
+.ask-quick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
+.ask-quick button{font-size:.82rem;font-weight:700;padding:8px 14px;border-radius:999px;
+  border:1.5px solid var(--rule);background:var(--surface);color:var(--accent-deep);transition:.15s}
+.ask-quick button:hover{background:var(--paper-deep)}
+.ask-quick button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .g-count{font-size:.78rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
   border:1.5px solid var(--rule);border-radius:999px;padding:4px 9px;flex:none}
 .rep-btn{width:30px;height:30px;border-radius:8px;font-size:.9rem;opacity:.35;flex:none;
@@ -335,6 +340,17 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .rep-btn:hover{opacity:.8}
 .g-bar{height:6px;background:var(--paper-deep);border-radius:99px;overflow:hidden;margin:9px 0 0 30px}
 .g-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.g-period{display:flex;align-items:center;gap:7px;padding:9px 0 0 30px;flex-wrap:wrap}
+.gp-label{font-size:.76rem;font-weight:800;color:var(--accent-deep)}
+.g-period input{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+  padding:5px 7px;font-size:.76rem;color:var(--ink-soft)}
+.gp-tilde{color:var(--ink-soft);font-weight:800}
+.gp-info{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+.gp-line{flex:1;min-width:60px;height:5px;background:var(--paper-deep);border-radius:99px;overflow:hidden}
+.gp-line i{display:block;height:100%;background:var(--accent);opacity:.6;border-radius:99px}
+.g-note{width:100%;margin:9px 0 0 30px;max-width:calc(100% - 30px);border:1.5px solid var(--rule);
+  border-radius:9px;background:var(--surface);padding:9px 11px;font-size:.88rem;line-height:1.5;
+  resize:vertical;min-height:70px;font-family:inherit;color:var(--ink)}
 .g-tools{display:flex;gap:6px;padding:8px 0 0 30px;flex-wrap:wrap}
 .goal-prog{height:6px;background:var(--paper-deep);border-radius:99px;overflow:hidden;margin:9px 0 0 30px}
 .goal-prog i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
@@ -636,6 +652,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     <div id="goalWrap">
       <div class="goal-head">
         <span id="goalCount" class="goal-count"></span>
+        <button class="mini-btn" id="goalPrint">🖨 출력</button>
         <button class="mini-btn" id="goalAdd">＋ 목표 추가</button>
       </div>
       <div id="goalList"></div>
@@ -752,6 +769,15 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
     </div>
     <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
+  </div>
+</div>
+<div id="askModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:190;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:400px">
+    <h3 id="askTitle">입력</h3>
+    <p id="askDesc" style="text-align:center;font-size:.83rem;color:var(--ink-soft);margin:8px 0 14px"></p>
+    <div id="askQuick" class="ask-quick"></div>
+    <input id="askInput" style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:1rem;text-align:center">
+    <div class="bk-btns"><button class="btn-primary" id="askOk">확인</button><button class="btn-line" id="askCancel">취소</button></div>
   </div>
 </div>
 <div id="evModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:178;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -1107,7 +1133,7 @@ function taskRow(t, ctx){
   row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const ctl = row.querySelectorAll('.ctl button');
   let bi = 0;
-  if(ctx.inbox){ ctl[bi++].onclick = () => ctx.priv? sendPrivToToday(t, ctx.idx) : sendInboxToToday(t, ctx.idx); }
+  if(ctx.inbox){ ctl[bi++].onclick = () => { ctx.priv? sendPrivToToday(t, ctx.idx) : sendInboxToToday(t, ctx.idx); }; }
   ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, -1, ctx.save, ctx.rerender);
   ctl[bi++].onclick = () => moveArr(ctx.arr, ctx.idx, 1, ctx.save, ctx.rerender);
   ctl[bi].onclick   = () => { if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); } };
@@ -1799,14 +1825,17 @@ $('inboxAddBtn').onclick = () => {
   const ins = $('inboxList').querySelectorAll('.task-text');
   if(ins.length) ins[ins.length-1].focus();
 };
-function sendInboxToToday(t, idx){
+async function sendInboxToToday(t, idx){
   let target = null;
-  const named = day.cats.filter(c=>c.name.trim());
+  const named = day.cats.filter(c=>c.name.trim() && !isDoneCat(c));
   if(named.length){
-    const menu = named.map((c,i)=>`${i+1}. ${c.name.trim()}`).join('\n');
-    const ans = prompt(`어느 카테고리로 보낼까요? 번호를 입력하세요.\n${menu}\n0. 새 '기타 업무' 카테고리 만들기`, '0');
-    if(ans===null) return;
-    const n = parseInt(ans,10);
+    const v = await askInput({
+      title:'↥ 어느 카테고리로?', desc:'버튼을 누르거나 번호를 입력하세요',
+      value:'0', type:'number',
+      quick:[...named.map((c,i)=>[i+1, c.name.trim()]), [0,'새 기타 업무']]
+    });
+    if(v === null) return;
+    const n = parseInt(v,10);
     if(n>=1 && n<=named.length) target = named[n-1];
   }
   if(!target){
@@ -2321,19 +2350,21 @@ async function getPinHash(){
   return pinHashCache;
 }
 $('setPinBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
   const cur = await getPinHash();
   if(cur){
-    const old = prompt('현재 비밀번호 4자리를 입력하세요');
-    if(old===null) return;
+    const old = await askInput({title:'🔒 현재 비밀번호', desc:'기존 4자리를 입력하세요', type:'password', value:''});
+    if(old === null) return;
     if(await pinHash(old) !== cur){ toast('비밀번호가 맞지 않습니다'); return; }
   }
-  const p1 = prompt('새 비밀번호 4자리(숫자)를 입력하세요');
-  if(p1===null) return;
+  const p1 = await askInput({title:'📖 새 비밀번호', desc:'숫자 4자리를 입력하세요', type:'password', value:''});
+  if(p1 === null) return;
   if(!/^\d{4}$/.test(p1)){ toast('숫자 4자리로 입력해 주세요'); return; }
-  const p2 = prompt('확인을 위해 한 번 더 입력해 주세요');
+  const p2 = await askInput({title:'📖 다시 한 번', desc:'확인을 위해 한 번 더 입력해 주세요', type:'password', value:''});
+  if(p2 === null) return;
   if(p1 !== p2){ toast('두 입력이 서로 달라요. 다시 시도해 주세요'); return; }
   const h = await pinHash(p1);
-  await db.ref(`diaries/${USER.uid}/settings/diaryPin`).set(h);
+  try{ await db.ref(`diaries/${USER.uid}/settings/diaryPin`).set(h); }catch(e){}
   pinHashCache = h;
   toast('일기 비밀번호를 저장했어요');
 };
@@ -2512,7 +2543,7 @@ async function loadName(){
     userName = snap.exists()? snap.val() : '';
   }catch(e){ userName = userName || ''; }
   if(!userName){
-    const n = prompt('다이어리에 표시할 이름을 입력해 주세요 (예: 홍길동)');
+    const n = await askInput({title:'👤 이름', desc:'다이어리에 표시할 이름을 입력해 주세요', value:''});
     if(n && n.trim()){
       userName = n.trim().slice(0, 12);
       try{ await db.ref(`diaries/${USER.uid}/settings/name`).set(userName); }catch(e){}
@@ -2526,7 +2557,8 @@ function applyName(){
   document.title = `${nm}의 업무일지`;
 }
 $('setNameBtn').onclick = async () => {
-  const n = prompt('다이어리에 표시할 이름을 입력해 주세요', userName || '');
+  $('settingsMenu').classList.add('hidden');
+  const n = await askInput({title:'👤 이름 변경', desc:'다이어리에 표시할 이름', value:userName || ''});
   if(n===null || !n.trim()) return;
   userName = n.trim().slice(0, 12);
   try{ await db.ref(`diaries/${USER.uid}/settings/name`).set(userName); toast('이름을 바꿨어요'); }
@@ -2940,370 +2972,49 @@ async function loadCalTarget(){
   }
 }
 $('setCalBtn').onclick = async () => {
-  const msg = '일정을 저장할 구글 캘린더 ID를 입력하세요.\n\n'
-    + '· 비워 두면 기본 캘린더에 저장됩니다\n'
-    + '· 확인 방법: 구글 캘린더 웹 → 왼쪽 내 캘린더 목록에서 원하는 캘린더 ⋮ → 설정 및 공유 →\n'
-    + '  "캘린더 통합" 항목의 캘린더 ID 복사\n'
-    + '· 보통 xxxxx@group.calendar.google.com 형태입니다';
-  const v = prompt(msg, calTarget || '');
+  $('settingsMenu').classList.add('hidden');
+  const v = await askInput({
+    title:'📅 캘린더 등록 대상',
+    desc:'구글 캘린더 ID를 넣으면 그 캘린더에 저장돼요. 비우면 기본 캘린더로 저장됩니다.\n(구글 캘린더 웹 → 캘린더 ⋮ → 설정 및 공유 → 캘린더 통합 → 캘린더 ID)',
+    value: calTarget || ''
+  });
   if(v === null) return;
   calTarget = v.trim();
   try{ localStorage.setItem('calTarget', calTarget); }catch(e){}
   try{ await db.ref(`diaries/${USER.uid}/settings/calTarget`).set(calTarget); }catch(e){}
   toast(calTarget? '캘린더 등록 대상을 저장했어요' : '기본 캘린더로 되돌렸어요');
-  $('settingsMenu').classList.add('hidden');
 };
 
-/* ═══════════════ 🎨 오늘 페이지 테마 ═══════════════ */
-const THEMES = [
-  {id:'',      name:'기본 크림',        desc:'지금까지의 종이 다이어리 톤',      bg:'#FBF2E1', dot:'#E5762E'},
-  {id:'dawn',  name:'차분한 새벽',      desc:'블루그레이 + 화이트, 집중형',      bg:'#EDF2F8', dot:'#3E6EA8'},
-  {id:'dark',  name:'깊은 다크',        desc:'짙은 배경 + 앰버 포인트',          bg:'#26232D', dot:'#E0A33E'},
-  {id:'white', name:'미니멀 화이트',    desc:'흰 배경 + 가는 선, 담백하게',      bg:'#FFFFFF', dot:'#D2542A'},
-  {id:'kraft', name:'진한 크래프트',    desc:'짙은 종이톤 + 딥그린',             bg:'#E9DEC6', dot:'#2F6B4F'},
-];
-let todayTheme = '';
-function applyTheme(){
-  const onToday = curDate === todayStr() && !$('todayView').classList.contains('hidden');
-  if(todayTheme && onToday) document.body.dataset.theme = todayTheme;
-  else delete document.body.dataset.theme;
-}
-async function loadTheme(){
-  try{
-    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/theme`).get(), 5000);
-    todayTheme = snap.exists()? (snap.val()||'') : '';
-  }catch(e){
-    try{ todayTheme = localStorage.getItem('todayTheme') || ''; }catch(e2){}
-  }
-  applyTheme();
-}
-function renderThemeList(){
-  const box = $('themeList'); box.innerHTML = '';
-  THEMES.forEach(t => {
-    const b = document.createElement('button');
-    b.className = 'th-opt' + (t.id===todayTheme? ' on':'');
-    b.innerHTML = `<span class="th-swatch" style="background:${t.bg}"><i style="background:${t.dot}"></i></span>
-      <span class="th-txt"><b>${t.id===todayTheme? '✓ ':''}${t.name}</b><span>${t.desc}</span></span>`;
-    b.onclick = async () => {
-      todayTheme = t.id;
-      applyTheme(); renderThemeList();
-      try{ localStorage.setItem('todayTheme', todayTheme); }catch(e){}
-      try{ await db.ref(`diaries/${USER.uid}/settings/theme`).set(todayTheme); }catch(e){}
-    };
-    box.appendChild(b);
-  });
-}
-$('setThemeBtn').onclick = () => { $('settingsMenu').classList.add('hidden'); renderThemeList(); $('themeModal').classList.remove('hidden'); };
-$('themeClose').onclick = () => $('themeModal').classList.add('hidden');
-$('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') $('themeModal').classList.add('hidden'); });
-
-/* ═══════════════ 📆 구글 캘린더 일정 보기 (읽기 + 캐시 완충) ═══════════════ */
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-let gToken = '', gTokenExp = 0, gClient = null, schedDate = '';
-let schedCache = null, schedStale = false;
-
-const gReady = () => !!GOOGLE_CLIENT_ID && typeof google !== 'undefined' && google.accounts;
-function initGoogle(){
-  if(gClient || !gReady()) return;
-  gClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: GCAL_SCOPE,
-    callback: resp => {
-      if(resp && resp.access_token){
-        gToken = resp.access_token;
-        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;   // 1분 여유
-        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
-        loadSchedule(true);
-      }
-    },
-  });
-  try{
-    const c = JSON.parse(localStorage.getItem('gTok')||'null');
-    if(c && c.e > Date.now()){ gToken = c.t; gTokenExp = c.e; }
-  }catch(e){}
-}
-/* 조용한 갱신 — 구글 세션이 살아 있으면 팝업 없이 새 토큰 */
-function ensureToken(interactive){
+/* 예쁜 입력 모달 — prompt 대체 */
+let askResolve = null;
+function askInput({title, desc, value, quick, type}){
   return new Promise(resolve => {
-    if(gToken && gTokenExp > Date.now()) return resolve(true);
-    if(!gReady()) return resolve(false);
-    initGoogle();
-    const done = ok => resolve(ok);
-    const prev = gClient.callback;
-    gClient.callback = resp => {
-      if(resp && resp.access_token){
-        gToken = resp.access_token;
-        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
-        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
-        gClient.callback = prev; done(true);
-      }else{ gClient.callback = prev; done(false); }
-    };
-    try{ gClient.requestAccessToken({prompt: interactive? 'consent' : ''}); }
-    catch(e){ done(false); }
+    askResolve = resolve;
+    $('askTitle').textContent = title;
+    $('askDesc').textContent = desc || '';
+    $('askInput').type = type || 'text';
+    $('askInput').value = value ?? '';
+    const q = $('askQuick'); q.innerHTML = '';
+    (quick||[]).forEach(([v, label]) => {
+      const b = document.createElement('button');
+      b.textContent = label;
+      if(String(v) === String(value)) b.classList.add('on');
+      b.onclick = () => { $('askInput').value = v; finishAsk(true); };
+      q.appendChild(b);
+    });
+    $('askModal').classList.remove('hidden');
+    setTimeout(()=>$('askInput').focus(), 50);
   });
 }
-$('schedRefresh').onclick = async () => {
-  if(!GOOGLE_CLIENT_ID){ toast('구글 클라이언트 ID가 아직 없어요'); return; }
-  if(!(await ensureToken(false))){                 // 조용한 갱신 실패 → 그때만 로그인 창
-    const ok = await ensureToken(true);
-    if(!ok){ toast('구글 캘린더 연결이 취소됐어요'); return; }
-    toast('구글 캘린더를 다시 연결했어요');
-  }
-  loadSchedule(true);
-};
-$('schedPrev').onclick = () => { schedDate = shiftStr(schedDate, -1); loadSchedule(); };
-$('schedNext').onclick = () => { schedDate = shiftStr(schedDate, 1); loadSchedule(); };
-$('schedToday').onclick = () => { schedDate = todayStr(); loadSchedule(); };
-function shiftStr(ds, n){
-  const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n);
-  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function finishAsk(ok){
+  $('askModal').classList.add('hidden');
+  const r = askResolve; askResolve = null;
+  if(r) r(ok ? $('askInput').value : null);
 }
-async function loadSchedule(force){
-  if(!schedDate) schedDate = curDate || todayStr();
-  const d = new Date(schedDate+'T12:00:00');
-  $('schedYmd').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
-
-  if(!GOOGLE_CLIENT_ID){
-    $('schedState').innerHTML = '구글 캘린더를 아직 연결하지 않았어요.<br>클라이언트 ID를 넣으면 그날의 일정을 여기에서 볼 수 있어요.';
-    renderSchedule([]);   // 앱에서 정한 실행 시간만 표시
-    return;
-  }
-  const cacheKey = `sched:${USER.uid}:${schedDate}`;
-  if(!force){
-    try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; schedStale = true; renderSchedule(c.events, c.ts); } }catch(e){}
-  }
-  const ok = await ensureToken(false);
-  if(!ok){
-    try{
-      const c = await idbGet(cacheKey);
-      if(c){ schedStale = true; renderSchedule(c.events, c.ts);
-        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — 아래는 마지막으로 불러온 일정이에요. <b>↻ 새로고침</b>을 눌러 갱신하세요.'; }
-      else $('schedState').innerHTML = '구글 캘린더 연결이 필요해요 — <b>↻ 새로고침</b>을 눌러 주세요.';
-    }catch(e){}
-    return;
-  }
-  $('schedState').textContent = '일정을 불러오는 중…';
-  try{
-    const tmin = new Date(schedDate+'T00:00:00').toISOString();
-    const tmax = new Date(schedDate+'T23:59:59').toISOString();
-    const ids = calTarget? [calTarget] : ['primary'];
-    let events = [];
-    for(const id of ids){
-      const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events`
-        + `?timeMin=${encodeURIComponent(tmin)}&timeMax=${encodeURIComponent(tmax)}&singleEvents=true&orderBy=startTime`,
-        {headers:{Authorization:'Bearer '+gToken}});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const j = await r.json();
-      events = events.concat((j.items||[]).map(e => ({
-        id:e.id, title:e.summary||'(제목 없음)', loc:e.location||'',
-        start:e.start && (e.start.dateTime||e.start.date), end:e.end && (e.end.dateTime||e.end.date),
-        allDay: !!(e.start && e.start.date), link:e.htmlLink||''
-      })));
-    }
-    schedCache = events; schedStale = false;
-    try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
-    renderSchedule(events);
-    $('schedState').textContent = '';
-  }catch(e){
-    try{ const c = await idbGet(cacheKey); if(c){ schedStale = true; renderSchedule(c.events, c.ts); } }catch(e2){}
-    $('schedState').textContent = '일정을 불러오지 못했어요 — 연결 상태를 확인해 주세요';
-  }
-}
-function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
-const PXH = 64;                                   // 1시간 = 64px
-function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
-
-function renderSchedule(events, cachedTs){
-  const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
-  /* 캐시 안내 */
-  const oldWarn = wrap.parentNode.querySelector('.sched-stale');
-  if(oldWarn) oldWarn.remove();
-  if(cachedTs){
-    const w = document.createElement('div'); w.className = 'sched-stale';
-    w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
-    wrap.parentNode.insertBefore(w, wrap);
-  }
-
-  /* 항목 모으기 — 캘린더에 등록된 업무는 캘린더 쪽만 표시 */
-  const tasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
-    c.tasks.filter(t => t.time && t.text.trim() && !t.gcalId).map(t => ({
-      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
-      st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
-      dur:(t.dur||60)
-    })));
-  /* 이 일정이 앱의 어느 업무에서 나온 것인지 찾아 카테고리 색을 입힘 */
-  const catOf = id => {
-    for(const c of (schedDate === curDate ? day.cats : []))
-      for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
-    return null;
-  };
-  const evs = (events||[]).filter(e => !e.allDay).map(e => {
-    const own = catOf(e.id);
-    return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
-      dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
-      color: own? catColor(own.cat) : '', catName: own? own.cat.name.trim() : '', done: own? own.task.done : false };
-  });
-  const items = [...evs, ...tasks].sort((a,b)=> a.st - b.st);
-
-  /* 종일 일정 */
-  const ads = (events||[]).filter(e => e.allDay);
-  allday.classList.toggle('hidden', !ads.length);
-  allday.innerHTML = ads.map(e=>`<span class="ad">📆 ${esc(e.title)}</span>`).join('');
-
-  /* 표시 범위: 기본 8~20시, 일정이 벗어나면 확장 */
-  let h0 = 8, h1 = 20;
-  items.forEach(it => {
-    h0 = Math.min(h0, it.st.getHours());
-    h1 = Math.max(h1, Math.ceil((minOf(it.st) + it.dur)/60));
-  });
-  h1 = Math.min(24, Math.max(h1, h0+4));
-  body.style.height = ((h1-h0)*PXH + 12) + 'px';
-  body.innerHTML = '';
-
-  /* 시간 눈금 */
-  for(let h=h0; h<=h1; h++){
-    const line = document.createElement('div');
-    line.className = 'tl-hour';
-    line.style.top = ((h-h0)*PXH) + 'px';
-    line.innerHTML = `<span>${h}시</span>`;
-    body.appendChild(line);
-    if(h < h1){
-      const half = document.createElement('div');
-      half.className = 'tl-hour half';
-      half.style.top = ((h-h0)*PXH + PXH/2) + 'px';
-      body.appendChild(half);
-    }
-  }
-  /* 현재 시각 선 */
-  const now = new Date();
-  if(schedDate === todayStr() && now.getHours() >= h0 && now.getHours() <= h1){
-    const nl = document.createElement('div');
-    nl.className = 'tl-now';
-    nl.style.top = ((minOf(now) - h0*60) / 60 * PXH) + 'px';
-    body.appendChild(nl);
-  }
-  if(!items.length){
-    const em = document.createElement('div');
-    em.className = 'tl-empty';
-    em.style.cssText += ';position:absolute;left:52px;right:8px;top:40%';
-    em.textContent = '이 날짜에는 일정이 없어요';
-    body.appendChild(em);
-    return;
-  }
-  /* 겹치는 일정은 가로로 분할 */
-  const lanes = [];
-  items.forEach(it => {
-    it.end = new Date(it.st.getTime() + it.dur*60000);
-    let li = lanes.findIndex(l => l <= it.st);
-    if(li < 0){ lanes.push(it.end); li = lanes.length-1; } else lanes[li] = it.end;
-    it.lane = li;
-  });
-  const laneN = Math.max(1, lanes.length);
-  items.forEach(it => {
-    const top = (minOf(it.st) - h0*60) / 60 * PXH;
-    const hgt = Math.max(26, it.dur / 60 * PXH - 3);
-    const el = document.createElement('button');
-    el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
-    el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(52px + (100% - 60px) * ${it.lane/laneN});width:calc((100% - 60px) * ${1/laneN} - 4px);right:auto;`;
-    if(it.color){                                   // 업무일지에서 나온 일정 → 카테고리 색
-      el.style.borderLeftColor = it.color;
-      el.style.background = it.color + '22';
-      el.style.color = 'var(--ink)';
-    }
-    const timeTxt = `${hhmm(it.st)}~${hhmm(it.end)}`;
-    el.innerHTML = `<div class="t">${esc(it.title)}</div>`
-      + (hgt > 38 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
-          : (it.catName? ' · 📔 '+esc(it.catName) : (it.loc? ' · 📍'+esc(it.loc):''))}</div>` : '');
-    el.title = `${timeTxt} ${it.title}`;
-    el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
-    body.appendChild(el);
-  });
-}
-/* 업무 블록 클릭 → 오늘 탭에서 그 업무 상세 열기 */
-function openTaskFromTimeline(t){
-  switchTab('today');
-  t.open = true; renderCats();
-  setTimeout(()=>{
-    const el = [...document.querySelectorAll('.task-text')].find(x => x.value === t.text);
-    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
-  }, 80);
-}
-/* 캘린더 일정 클릭 → 모달로 수정·삭제 */
-let evEditing = null;
-function openEventEditor(ev){
-  evEditing = ev;
-  const st = new Date(ev.start), en = new Date(ev.end);
-  const mins = Math.max(15, Math.round((en - st)/60000));
-  $('evName').textContent = ev.title;
-  $('evText').value = ev.title;
-  $('evLoc').value = ev.loc || '';
-  $('evStart').value = `${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
-  const sel = $('evDur');
-  sel.innerHTML = DURS.map(([m,l])=>`<option value="${m}">${l}</option>`).join('');
-  if(![...sel.options].some(o => +o.value === mins)){
-    const o = document.createElement('option');
-    o.value = mins; o.textContent = mins + '분'; sel.appendChild(o);
-  }
-  sel.value = String(mins);
-  $('evModal').classList.remove('hidden');
-}
-$('evClose').onclick = () => { $('evModal').classList.add('hidden'); evEditing = null; };
-$('evModal').addEventListener('click', e => { if(e.target.id==='evModal') $('evClose').onclick(); });
-$('evOpen').onclick = () => { if(evEditing && evEditing.link) window.open(evEditing.link, '_blank'); };
-$('evSave').onclick = async () => {
-  if(!evEditing) return;
-  const v = $('evStart').value, mins = +$('evDur').value, title = $('evText').value.trim();
-  if(!v){ toast('시작 시각을 입력해 주세요'); return; }
-  if(!title){ toast('제목을 입력해 주세요'); return; }
-  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요 — ↻ 새로고침을 눌러 주세요'); return; }
-  try{
-    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-    const [h, m] = v.split(':').map(Number);
-    const st = new Date(schedDate+'T00:00:00'); st.setHours(h, m, 0, 0);
-    const en = new Date(st.getTime() + mins*60000);
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
-      {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
-       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
-         start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    /* 이 일정과 연결된 업무가 있으면 목록에도 반영 */
-    let linked = false;
-    day.cats.forEach(c => c.tasks.forEach(t => {
-      if(t.gcalId && t.gcalId === evEditing.id){
-        t.time = v; t.dur = mins;
-        const pre = `[${c.name.trim()}] `;
-        t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
-        linked = true;
-      }
-    }));
-    if(linked){ markDirty(); renderCats(); }
-    $('evModal').classList.add('hidden'); evEditing = null;
-    toast(linked? '일정과 업무일지에 함께 반영했어요' : '일정을 수정했어요');
-    loadSchedule(true);
-  }catch(e){ toast('수정 실패: '+e.message); }
-};
-$('evDelete').onclick = async () => {
-  if(!evEditing) return;
-  if(!confirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`)) return;
-  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
-  try{
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
-      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
-    if(!r.ok && r.status !== 410) throw new Error('HTTP '+r.status);
-    /* 업무는 남기고 '그 시간에 하겠다'는 계획만 해제 */
-    let linked = false;
-    day.cats.forEach(c => c.tasks.forEach(t => {
-      if(t.gcalId && t.gcalId === evEditing.id){ t.gcalId = ''; t.time = ''; linked = true; }
-    }));
-    if(linked) markDirty();
-    $('evModal').classList.add('hidden'); evEditing = null;
-    toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 삭제했어요');
-    renderCats(); loadSchedule(true);
-  }catch(e){ toast('삭제 실패: '+e.message); }
-};
-$('tabSched').onclick = () => switchTab('sched');
+$('askOk').onclick = () => finishAsk(true);
+$('askCancel').onclick = () => finishAsk(false);
+$('askInput').addEventListener('keydown', e => { if(e.key==='Enter') finishAsk(true); });
+$('askModal').addEventListener('click', e => { if(e.target.id==='askModal') finishAsk(false); });
 
 /* ═══════════════ 🎯 목표 (연간 → 월간 → 주간) ═══════════════ */
 let goalScope = 'year', goalKey = '', goals = {}, goalTimer = null, goalDirty = false;
@@ -3343,6 +3054,15 @@ function ddayLabel(g){
   if(g.done) return `${+g.due.slice(5,7)}/${+g.due.slice(8,10)}`;
   const n = dday(g.due);
   return n === 0 ? 'D-DAY' : (n > 0 ? `D-${n}` : `D+${-n}`);
+}
+function periodInfo(g){
+  if(!g.start || !g.due) return '';
+  const total = Math.max(1, Math.round((new Date(g.due+'T00:00:00') - new Date(g.start+'T00:00:00'))/86400000) + 1);
+  const gone = Math.round((new Date(todayStr()+'T00:00:00') - new Date(g.start+'T00:00:00'))/86400000) + 1;
+  const pct = Math.max(0, Math.min(100, Math.round(gone/total*100)));
+  const state = gone < 1 ? '시작 전' : (gone > total ? '기간 종료' : `${gone}일차 / ${total}일`);
+  return `<span class="gp-info">${state}</span>
+    <span class="gp-line"><i style="width:${pct}%"></i></span>`;
 }
 function ddayCls(g){
   if(!g.due || g.done) return '';
@@ -3420,17 +3140,34 @@ function prevKey(scope, key){
   mon.setDate(mon.getDate() - 7);
   return weekKey(`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`);
 }
-/* 반복 목표를 이전 기간에서 이어받기 (한 번만, 사용자가 지운 건 되살리지 않음) */
+/* 기간 키 대소 비교 (문자열 정렬로 충분: YYYY / YYYY-MM / YYYY-Www) */
+function keyAfter(a, b){ return a > b; }
+/* 반복 목표 자동 생성 — 시작 기간 이후라면 어느 기간을 열든 만들어짐(건너뛰어도 OK) */
 function carryRepeats(){
+  if(goals[goalScope][goalKey] === undefined) goals[goalScope][goalKey] = [];
   const cur = goals[goalScope][goalKey];
-  if(cur !== undefined) return 0;                      // 이미 이 기간을 열어본 적 있음
-  const prev = goalsOf(goalScope, prevKey(goalScope, goalKey)).filter(g => g.repeat && g.text.trim());
-  goals[goalScope][goalKey] = prev.map(g => ({
-    id:uid8(), text:g.text, done:false, parent:g.parent||'', due:defaultGoalDue(),
-    repeat:true, target:g.target||1, count:0, from:g.id
-  }));
-  if(prev.length){ markGoals(); return prev.length; }
-  return 0;
+  const bucket = goals[goalScope] || {};
+  /* 각 반복 목표의 '원본'(seed)을 모아, 이 기간에 아직 없는 것만 생성 */
+  const seeds = {};
+  Object.keys(bucket).forEach(k => {
+    if(!keyAfter(goalKey, k)) return;                       // 이 기간보다 뒤의 것은 무시
+    (bucket[k]||[]).forEach(g => {
+      if(!g.repeat || !g.text.trim()) return;
+      const sid = g.seed || g.id;
+      if(!seeds[sid] || keyAfter(k, seeds[sid].k)) seeds[sid] = {k, g};   // 가장 최근 버전
+    });
+  });
+  const have = new Set(cur.map(g => g.seed || g.id));
+  const dropped = new Set(cur.filter(g => g.stopped).map(g => g.seed));
+  let made = 0;
+  Object.entries(seeds).forEach(([sid, {g}]) => {
+    if(have.has(sid) || dropped.has(sid)) return;
+    cur.push({id:uid8(), seed:sid, text:g.text, done:false, parent:g.parent||'', note:g.note||'',
+      start:defaultGoalStart(), due:defaultGoalDue(), repeat:true, target:g.target||1, count:0});
+    made++;
+  });
+  if(made) markGoals();
+  return made;
 }
 function renderGoals(){
   if(!goalKey) goalKey = yearKey(curDate);
@@ -3438,7 +3175,8 @@ function renderGoals(){
   if(carried) toast(`반복 목표 ${carried}건을 이어받았어요`);
   document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.classList.toggle('active', b.dataset.g===goalScope));
   $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
-  const list = goalsOf(goalScope, goalKey);
+  const all = goalsOf(goalScope, goalKey);
+  const list = all.filter(g => !g.stopped);
   const doneN = list.filter(g=>g.done).length;
   $('goalCount').textContent = list.length? `${list.length}개 중 ${doneN}개 달성` : '아직 목표가 없어요';
   const box = $('goalList'); box.innerHTML = '';
@@ -3456,16 +3194,25 @@ function renderGoals(){
           <button class="due-chip ${ddayCls(g)}" title="${g.due||'마감일 지정'}">${ddayLabel(g)}</button>
           <input type="date" value="${g.due||''}">
         </span>
+        <button class="note-btn g-memo" title="세부 내용">📝${(g.note||'').trim()? '<span class="dot"></span>':''}</button>
         <button class="rep-btn ${g.repeat?'on':''}" title="${g.repeat? '반복 켜짐 — 다음 기간에 자동 생성':'반복 끄기 상태'}">🔁</button>
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
         </div>
       </div>
       ${g.target>1? `<div class="g-bar"><i style="width:${Math.min(100,Math.round((g.count||0)/g.target*100))}%"></i></div>`:''}
+      <div class="g-period">
+        <span class="gp-label">📆 기간</span>
+        <input type="date" class="gp-start" value="${g.start||''}">
+        <span class="gp-tilde">~</span>
+        <input type="date" class="gp-end" value="${g.due||''}">
+        ${periodInfo(g)}
+      </div>
       <div class="g-tools">
         ${g.target>1? `<button class="mini-btn g-plus">＋1회 완료</button><button class="mini-btn g-minus">－1</button>`:''}
         <button class="mini-btn g-tgt">🎚 ${g.target>1? `목표 ${g.target}회` : '횟수 목표 설정'}</button>
       </div>
+      ${g.open? `<textarea class="g-note" placeholder="세부 내용 — 어떻게 달성할지, 진행 상황, 참고사항">${esc(g.note||'')}</textarea>`:''}
       ${opts.length? `<div class="goal-link">🔗 상위 목표
         <select><option value="">— 연결 안 함 —</option>
         ${opts.map(o=>`<option value="${o.id}" ${g.parent===o.id?'selected':''}>${esc(o.name||'(제목 없음)')}</option>`).join('')}
@@ -3481,6 +3228,12 @@ function renderGoals(){
     const sel = el.querySelector('select');
     if(sel) sel.addEventListener('change', e => { g.parent = e.target.value; markGoals(); });
     el.querySelector('.due-wrap input').addEventListener('change', e => { g.due = e.target.value; markGoals(); renderGoals(); });
+    el.querySelector('.gp-start').addEventListener('change', e => { g.start = e.target.value; markGoals(); renderGoals(); });
+    el.querySelector('.gp-end').addEventListener('change', e => { g.due = e.target.value; markGoals(); renderGoals(); });
+    el.querySelector('.g-memo').onclick = () => { g.open = !g.open; renderGoals(); };
+    const gn = el.querySelector('.g-note');
+    if(gn) gn.addEventListener('input', e => { g.note = e.target.value; markGoals();
+      e.target.style.height='auto'; e.target.style.height = Math.max(70, e.target.scrollHeight)+'px'; });
     el.querySelector('.rep-btn').onclick = () => {
       g.repeat = !g.repeat; markGoals(); renderGoals();
       toast(g.repeat? '반복 켬 — 다음 기간을 열면 자동으로 이어져요' : '반복을 껐어요');
@@ -3496,8 +3249,12 @@ function renderGoals(){
       if(g.count < g.target) g.done = false;
       markGoals(); renderGoals();
     };
-    el.querySelector('.g-tgt').onclick = () => {
-      const v = prompt('몇 회를 목표로 할까요? (1을 넣으면 일반 목표로 돌아갑니다)', String(g.target||1));
+    el.querySelector('.g-tgt').onclick = async () => {
+      const v = await askInput({
+        title:'🎚 횟수 목표', desc:'몇 회를 채우면 달성인가요? (1이면 일반 목표)',
+        value:String(g.target||1), type:'number',
+        quick:[[1,'일반'],[2,'2회'],[4,'4회'],[5,'5회'],[8,'8회'],[12,'12회']]
+      });
       if(v === null) return;
       const n = parseInt(v, 10);
       if(!(n >= 1)){ toast('1 이상의 숫자를 입력해 주세요'); return; }
@@ -3505,12 +3262,29 @@ function renderGoals(){
       markGoals(); renderGoals();
     };
     const [up, down, del] = el.querySelectorAll('.ctl button');
-    up.onclick = () => { if(i>0){ [list[i-1],list[i]]=[list[i],list[i-1]]; markGoals(); renderGoals(); } };
-    down.onclick = () => { if(i<list.length-1){ [list[i+1],list[i]]=[list[i],list[i+1]]; markGoals(); renderGoals(); } };
-    del.onclick = () => { if(!g.text.trim() || confirm('이 목표를 삭제할까요?')){ list.splice(i,1); markGoals(); renderGoals(); } };
+    up.onclick = () => { const j=all.indexOf(g), k=all.indexOf(list[i-1]); if(i>0){ [all[j],all[k]]=[all[k],all[j]]; markGoals(); renderGoals(); } };
+    down.onclick = () => { const j=all.indexOf(g), k=i<list.length-1? all.indexOf(list[i+1]):-1; if(k>=0){ [all[j],all[k]]=[all[k],all[j]]; markGoals(); renderGoals(); } };
+    const removeAt = () => all.splice(all.indexOf(g), 1);
+    del.onclick = () => {
+      if(g.repeat && g.text.trim()){
+        const stop = confirm(`"${g.text}"\n\n[확인] 앞으로도 반복하지 않고 삭제\n[취소] 이번 기간만 삭제(다음 기간엔 다시 나타남)`);
+        if(stop){ removeAt(); all.push({id:uid8(), seed:g.seed||g.id, stopped:true, text:'', done:false, repeat:false, target:1, count:0, due:''}); }
+        else removeAt();
+        markGoals(); renderGoals(); return;
+      }
+      if(!g.text.trim() || confirm('이 목표를 삭제할까요?')){ removeAt(); markGoals(); renderGoals(); }
+    };
     box.appendChild(el);
   });
   if(!list.length) box.innerHTML = '<div class="empty-note">＋ 버튼으로 목표를 세워 보세요.</div>';
+}
+/* 기본 시작일 = 그 기간의 첫날 */
+function defaultGoalStart(){
+  const p2 = n => String(n).padStart(2,'0');
+  if(goalScope==='year') return `${goalKey}-01-01`;
+  if(goalScope==='month') return `${goalKey}-01`;
+  const {mon} = weekRange(goalKey);
+  return `${mon.getFullYear()}-${p2(mon.getMonth()+1)}-${p2(mon.getDate())}`;
 }
 /* 기본 마감일 = 그 기간의 마지막 날 */
 function defaultGoalDue(){
@@ -3525,7 +3299,7 @@ function defaultGoalDue(){
 }
 $('goalAdd').onclick = () => {
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
-  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', due:defaultGoalDue(), repeat:false, target:1, count:0});
+  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', start:defaultGoalStart(), due:defaultGoalDue(), note:'', repeat:false, target:1, count:0});
   markGoals(); renderGoals();
   const ins = $('goalList').querySelectorAll('.goal-txt');
   if(ins.length) ins[ins.length-1].focus();
@@ -3539,8 +3313,8 @@ $('goalPeek').onclick = () => {
   if(peekOpen) renderPeek();
 };
 function renderPeek(){
-  const wk = goalsOf('week', weekKey(curDate));
-  const mo = goalsOf('month', monthKey(curDate));
+  const wk = goalsOf('week', weekKey(curDate)).filter(g=>!g.stopped);
+  const mo = goalsOf('month', monthKey(curDate)).filter(g=>!g.stopped);
   const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i>
     <span style="flex:1">${esc(g.text||'(제목 없음)')}${g.target>1? ` <b style="color:var(--accent-deep)">${g.count||0}/${g.target}</b>`:''}</span>
     ${g.due? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>`:''}</div>`;
@@ -3568,6 +3342,68 @@ function renderPeek(){
   });
 }
 $('tabGoal').onclick = () => switchTab('goal');
+
+/* ═══════════════ 🖨 목표 전용 출력 (업무일지와 별도) ═══════════════ */
+function buildGoalA4(){
+  const scopeName = {year:'연간', month:'월간', week:'주간'}[goalScope];
+  const list = goalsOf(goalScope, goalKey).filter(g => !g.stopped && (g.text||'').trim());
+  const el = document.createElement('div');
+  el.className = 'a4';
+  const rows = list.map((g, i) => {
+    const period = (g.start && g.due)
+      ? `${g.start.replace(/-/g,'.').slice(2)} ~ ${g.due.replace(/-/g,'.').slice(2)}`
+      : (g.due? `~ ${g.due.replace(/-/g,'.').slice(2)}` : '');
+    const cnt = g.target>1 ? `${g.count||0}/${g.target}회` : '';
+    const dd = g.due && !g.done ? ddayLabel(g) : (g.done? '달성' : '');
+    return `<tr>
+        <td style="width:52%;${g.note? 'border-bottom:none;':''}">
+          <span class="box ${g.done?'on':''}">${g.done?'✔':''}</span>
+          <span class="${g.done?'done-t':''}">${esc(g.text)}</span>${g.repeat? ' <span style="font-size:11px;color:#8A705A">🔁반복</span>':''}</td>
+        <td style="width:24%;text-align:center;font-size:12.5px;${g.note? 'border-bottom:none;':''}">${period}</td>
+        <td style="width:12%;text-align:center;${g.note? 'border-bottom:none;':''}">${cnt}</td>
+        <td style="width:12%;text-align:center;font-weight:700;color:#C95F1D;${g.note? 'border-bottom:none;':''}">${dd}</td>
+      </tr>`
+      + (g.note? `<tr><td colspan="4" style="padding:0 6px 10px 40px;color:#8A705A;font-size:12.5px">└ ${esc(g.note.trim()).replace(/\n/g,'<br>　 ')}</td></tr>` : '');
+  }).join('');
+  const doneN = list.filter(g=>g.done).length;
+  el.innerHTML = `
+    <div class="a4-head" style="justify-content:space-between">
+      <div class="a4-title">🎯 ${scopeName} 목표</div>
+      <div class="a4-date">${goalLabelOf(goalScope, goalKey)}</div>
+    </div>
+    <div class="a4-note" style="padding:12px 2px 0">전체 ${list.length}개 · 달성 ${doneN}개 (${list.length? Math.round(doneN/list.length*100):0}%)</div>
+    <div class="a4-star">★ 목표 목록</div>
+    <table>
+      <tr><th style="text-align:left;padding-left:14px">목표</th><th>기간</th><th>횟수</th><th>D-Day</th></tr>
+      ${rows || '<tr><td colspan="4" style="text-align:center;color:#B7A288;padding:24px">등록된 목표가 없습니다</td></tr>'}
+    </table>
+    <div class="a4-foot">${goalLabelOf(goalScope, goalKey)} · ${esc(userName||'나')}의 목표</div>`;
+  return el;
+}
+$('goalPrint').onclick = async () => {
+  const fmt = await askInput({title:'🖨 목표 출력', desc:'저장할 형식을 골라 주세요',
+    value:'pdf', quick:[['pdf','📄 PDF'],['png','🖼 이미지']]});
+  if(fmt === null) return;
+  toast('문서를 만드는 중…');
+  try{
+    await document.fonts.ready;
+    await saveGoals();
+    const stage = $('exportStage'); stage.innerHTML = '';
+    const node = buildGoalA4(); stage.appendChild(node);
+    await new Promise(r => setTimeout(r, 300));
+    const canvas = await html2canvas(node, {scale:2, backgroundColor:'#FBF2E1'});
+    stage.innerHTML = '';
+    const name = `목표_${goalLabelOf(goalScope, goalKey).replace(/[ ~\/]/g,'')}`;
+    if(fmt === 'png'){
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png'); a.download = name+'.png'; a.click();
+      toast('이미지를 저장했어요');
+    }else{
+      downloadBlob(canvasToPdfBlob(canvas), name+'.pdf');
+      toast('PDF를 저장했어요');
+    }
+  }catch(e){ $('exportStage').innerHTML=''; toast('출력 실패: '+e.message); }
+};
 </script>
 </body>
 </html>
