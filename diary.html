@@ -702,7 +702,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <button class="btn-primary" id="evSave">저장</button>
       <button class="btn-line" id="evClose">닫기</button>
     </div>
-    <button class="btn-line" id="evDelete" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 일정 삭제</button>
+    <button class="btn-line" id="evDelete" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 시간 계획 취소 (업무는 유지)</button>
     <button class="btn-line" id="evOpen" style="margin-top:8px;border-style:dashed">📆 구글 캘린더에서 열기</button>
   </div>
 </div>
@@ -1022,6 +1022,7 @@ function taskRow(t, ctx){
     ctx.save(); ctx.rerender();
   };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
+  row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
   row.querySelector('.status-chip').onclick = () => {
     const i = STATUS.findIndex(s=>s.k===t.status);
     const next = STATUS[(i+1)%STATUS.length].k;
@@ -1070,11 +1071,28 @@ function taskRow(t, ctx){
       <div class="file-grid"></div>`;
     panel.querySelector('.qnote').addEventListener('input', e => { t.note = e.target.value; ctx.save();
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
-    panel.querySelector('.ap-time').addEventListener('change', e => { t.time = e.target.value; ctx.save(); ctx.rerender(); });
-    panel.querySelector('.ap-dur').addEventListener('change', e => { t.dur = +e.target.value; ctx.save(); });
-    panel.querySelector('.ap-alarm').addEventListener('change', e => { t.alarm = +e.target.value; ctx.save(); });
+    panel.querySelector('.ap-time').addEventListener('change', e => {
+      t.time = e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
+    panel.querySelector('.ap-dur').addEventListener('change', e => {
+      t.dur = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
+    panel.querySelector('.ap-alarm').addEventListener('change', e => {
+      t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
-    if(tclr) tclr.onclick = () => { t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요'); };
+    if(tclr) tclr.onclick = async () => {
+      if(t.gcalId){
+        if(!confirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다. 진행할까요?')) return;
+        try{
+          if(await ensureToken(false)){
+            const calId = calTarget || 'primary';
+            await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(t.gcalId)}`,
+              {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
+          }
+        }catch(e){}
+        t.gcalId = '';
+        if(!$('schedView').classList.contains('hidden')) loadSchedule(true);
+      }
+      t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요');
+    };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
     panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
     panel.querySelector('.ap-cal').onclick = () => openCalendar(t, ctx.cat, ctx.rerender);
@@ -1775,56 +1793,71 @@ function calDates(t){
   d1.setDate(d1.getDate()+1);
   return `${ymd(d0)}/${ymd(d1)}`;
 }
-async function openCalendar(t, cat, ctxRerender){
-  if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
+function calBody(t, cat){
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
   const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
   const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
-
-  /* ① 권한이 있으면 API로 바로 등록 (알림 설정 가능) */
+  const base = t.time ? curDate : (t.due || curDate);
+  let body;
+  if(t.time){
+    const [hh, mm] = t.time.split(':').map(Number);
+    const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
+    const en = new Date(st.getTime() + (t.dur||60)*60000);
+    body = { summary:title, description:details,
+      start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz} };
+  }else{
+    const nx = new Date(base+'T12:00:00'); nx.setDate(nx.getDate()+1);
+    const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    body = { summary:title, description:details, start:{date:base}, end:{date:ymd(nx)} };
+  }
+  const al = (t.alarm===undefined? 10 : t.alarm);
+  body.reminders = al < 0 ? {useDefault:false, overrides:[]}
+                          : {useDefault:false, overrides:[{method:'popup', minutes:al}]};
+  return body;
+}
+async function openCalendar(t, cat, ctxRerender){
+  if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
   if(GOOGLE_CLIENT_ID && await ensureToken(false)){
     try{
-      const base = t.time ? curDate : (t.due || curDate);
-      let body;
-      if(t.time){
-        const [hh, mm] = t.time.split(':').map(Number);
-        const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
-        const en = new Date(st.getTime() + (t.dur||60)*60000);
-        body = { summary:title, description:details,
-          start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz} };
-      }else{
-        const nx = new Date(base+'T12:00:00'); nx.setDate(nx.getDate()+1);
-        const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        body = { summary:title, description:details, start:{date:base}, end:{date:ymd(nx)} };
-      }
-      const al = (t.alarm===undefined? 10 : t.alarm);
-      body.reminders = al < 0 ? {useDefault:false, overrides:[]}
-                              : {useDefault:false, overrides:[{method:'popup', minutes:al}]};
-      const calId = calTarget || 'primary';
       const isUpdate = !!t.gcalId;
+      const calId = calTarget || 'primary';
       const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`
                 + (isUpdate? `/${encodeURIComponent(t.gcalId)}` : '');
       const r = await fetch(url, {method: isUpdate? 'PATCH':'POST',
         headers:{Authorization:'Bearer '+gToken, 'Content-Type':'application/json'},
-        body: JSON.stringify(body)});
+        body: JSON.stringify(calBody(t, cat))});
       if(!r.ok) throw new Error('HTTP '+r.status);
       const ev = await r.json();
       t.gcalId = ev.id || t.gcalId;
       markDirty();
+      const al = (t.alarm===undefined? 10 : t.alarm);
       const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
       toast(`${isUpdate? '캘린더 일정을 수정했어요':'캘린더에 등록했어요'} · ${alTxt}`);
       if(ctxRerender) ctxRerender();
       if(!$('schedView').classList.contains('hidden')) loadSchedule(true);
       return;
-    }catch(e){ /* 실패하면 아래 링크 방식으로 */ }
+    }catch(e){ /* 실패 시 링크 방식 */ }
   }
-  /* ② 권한이 없으면 기존 링크 방식 (알림은 캘린더 기본값) */
-  const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
-    + `&text=${encodeURIComponent(title)}`
-    + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}`
-    + `&details=${encodeURIComponent(details)}`
-    + (calTarget? `&src=${encodeURIComponent(calTarget)}` : '');
-  window.open(url, '_blank');
+  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
+  const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
+  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
+  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}`
+    + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}&details=${encodeURIComponent(details)}`
+    + (calTarget? `&src=${encodeURIComponent(calTarget)}` : ''), '_blank');
+}
+/* 목록에서 시간·소요·알림·제목을 고치면 캘린더에도 조용히 반영 */
+async function syncTaskToCalendar(t, cat){
+  if(!t.gcalId || !GOOGLE_CLIENT_ID) return;
+  if(!(await ensureToken(false))) return;
+  try{
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(t.gcalId)}`,
+      {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
+       body: JSON.stringify(calBody(t, cat))});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    toast('캘린더 일정에도 반영했어요');
+    if(!$('schedView').classList.contains('hidden')) loadSchedule(true);
+  }catch(e){ toast('캘린더 반영 실패 — 일정 탭에서 새로고침해 주세요'); }
 }
 
 /* ═══════════════ 기록 검색 ═══════════════ */
@@ -3149,24 +3182,39 @@ $('evSave').onclick = async () => {
        body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
          start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
     if(!r.ok) throw new Error('HTTP '+r.status);
+    /* 이 일정과 연결된 업무가 있으면 목록에도 반영 */
+    let linked = false;
+    day.cats.forEach(c => c.tasks.forEach(t => {
+      if(t.gcalId && t.gcalId === evEditing.id){
+        t.time = v; t.dur = mins;
+        const pre = `[${c.name.trim()}] `;
+        t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
+        linked = true;
+      }
+    }));
+    if(linked){ markDirty(); renderCats(); }
     $('evModal').classList.add('hidden'); evEditing = null;
-    toast('일정을 수정했어요');
+    toast(linked? '일정과 업무일지에 함께 반영했어요' : '일정을 수정했어요');
     loadSchedule(true);
   }catch(e){ toast('수정 실패: '+e.message); }
 };
 $('evDelete').onclick = async () => {
   if(!evEditing) return;
-  if(!confirm(`"${evEditing.title}" 일정을 구글 캘린더에서 삭제할까요?`)) return;
+  if(!confirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`)) return;
   if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
   try{
     const calId = calTarget || 'primary';
     const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
       {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
     if(!r.ok && r.status !== 410) throw new Error('HTTP '+r.status);
-    /* 앱 업무와 연결돼 있었다면 연결 해제 */
-    day.cats.forEach(c => c.tasks.forEach(t => { if(t.gcalId === evEditing.id){ t.gcalId = ''; markDirty(); } }));
+    /* 업무는 남기고 '그 시간에 하겠다'는 계획만 해제 */
+    let linked = false;
+    day.cats.forEach(c => c.tasks.forEach(t => {
+      if(t.gcalId && t.gcalId === evEditing.id){ t.gcalId = ''; t.time = ''; linked = true; }
+    }));
+    if(linked) markDirty();
     $('evModal').classList.add('hidden'); evEditing = null;
-    toast('일정을 삭제했어요');
+    toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 삭제했어요');
     renderCats(); loadSchedule(true);
   }catch(e){ toast('삭제 실패: '+e.message); }
 };
