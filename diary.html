@@ -282,7 +282,9 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .done-row .dr-text{flex:1;color:var(--ink);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
 .time-badge{font-size:.74rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
-  border:1.5px solid var(--rule);border-radius:999px;padding:4px 9px;white-space:nowrap}
+  border:1.5px solid var(--rule);border-radius:999px;padding:5px 10px;white-space:nowrap;
+  font-family:inherit;line-height:1;transition:.15s}
+.time-badge:hover{border-color:var(--accent);background:var(--card)}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
   font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
@@ -924,7 +926,7 @@ function taskRow(t, ctx){
     <button class="chk" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
     <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요">
     <div class="task-meta">
-      ${t.time? `<span class="time-badge" title="이 날짜에 할 시각">⏰ ${t.time}</span>`:''}
+      ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${t.time}</button>`:''}
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <span class="due-wrap">
         <button class="due-chip ${overdue?'over':''}" title="${t.due||'마감일 지정'}">${dueLabel}</button>
@@ -957,6 +959,8 @@ function taskRow(t, ctx){
   };
   row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); });
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
+  const tb = row.querySelector('.time-badge');
+  if(tb) tb.onclick = () => { t.open=!t.open; ctx.rerender(); };
   row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const ctl = row.querySelectorAll('.ctl button');
   let bi = 0;
@@ -1964,7 +1968,7 @@ function renderPrio(){
       <button class="chk" style="border-color:${col}" title="완료 체크"></button>
       <input class="task-text" value="${esc(t.text)}">
       <div class="task-meta">
-        ${t.time? `<span class="time-badge">⏰ ${t.time}</span>`:''}
+        ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${t.time}</button>`:''}
         <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
         <button class="status-chip ${st.cls}">${st.label}</button>
         <span class="due-wrap">
@@ -1981,6 +1985,9 @@ function renderPrio(){
       markDirty(); renderCats();
     };
     row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; markDirty(); renderCats(); });
+    const ptb = row.querySelector('.time-badge');
+    if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){} t.open = true; renderCats();
+      setTimeout(()=>{ const el=[...document.querySelectorAll('.task-text')].find(x=>x.value===t.text); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 60); };
     const [up,down] = row.querySelectorAll('.ctl button');
     up.onclick = () => { if(i>0){ [day.prioOrder[i-1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i-1]]; markDirty(); renderCats(); } };
     down.onclick = () => { if(i<items.length-1){ [day.prioOrder[i+1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i+1]]; markDirty(); renderCats(); } };
