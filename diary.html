@@ -83,12 +83,17 @@ input:focus,textarea:focus{outline-offset:0}
 .icon-btn:hover{background:#EFDCB8}
 
 /* ───────── 날짜 내비 ───────── */
-#dateNav{max-width:900px;margin:18px auto 0;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:8px;position:relative}
+#dateNav{max-width:900px;margin:18px auto 0;padding:0 16px;display:flex;align-items:center;justify-content:center;gap:8px}
 .date-arrow{width:40px;height:40px;border-radius:50%;background:var(--card);border:1.5px solid var(--rule);
   font-size:1.05rem;color:var(--accent-deep);display:flex;align-items:center;justify-content:center}
+.dn-side{flex:1 1 0;min-width:0;display:flex;gap:8px;align-items:center}
+.dn-left{justify-content:flex-end}
+.dn-right{justify-content:flex-start}
+.dn-side>button{flex:none}
 .date-chip{position:relative;background:var(--card);border:1.5px solid var(--rule);border-radius:14px;
-  padding:8px 20px;text-align:center;cursor:pointer;min-width:210px}
-.date-chip .ymd{font-weight:800;font-size:1.12rem;letter-spacing:.3px}
+  padding:10px 22px;text-align:center;cursor:pointer;flex:none;max-width:60vw}
+#wxChip{font-size:.8rem;font-weight:700;color:var(--ink-soft);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.date-chip .ymd{font-weight:800;font-size:1.12rem;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .date-chip input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .today-btn{font-size:.82rem;font-weight:700;color:var(--accent-deep);background:var(--card);
   border:1.5px solid var(--rule);border-radius:999px;padding:8px 13px}
@@ -287,6 +292,13 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .done-row .dr-cat{font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--surface);flex:none}
 .done-row .dr-text{flex:1;color:var(--ink);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
+#schedOpen{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:110;
+  background:var(--card);border:1.5px solid var(--rule);border-right:none;
+  border-radius:12px 0 0 12px;padding:14px 7px;box-shadow:-3px 0 12px rgba(120,80,40,.16);
+  display:flex;flex-direction:column;align-items:center;gap:5px;transition:.15s}
+#schedOpen:hover{background:var(--paper-deep);padding-right:10px}
+#schedOpen .sh-arrow{font-size:1.15rem;font-weight:800;color:var(--accent);line-height:1}
+#schedOpen .sh-txt{writing-mode:vertical-rl;font-size:.72rem;font-weight:800;color:var(--accent-deep);letter-spacing:.08em}
 #schedDrawer{position:fixed;inset:0;z-index:120}
 #schedBackdrop{position:absolute;inset:0;background:rgba(40,25,10,.35);opacity:0;transition:opacity .25s}
 #schedDrawer.on #schedBackdrop{opacity:1}
@@ -486,11 +498,18 @@ body[data-theme="kraft"] .inbox-wrap{background:#E2D5B7;border-color:#BFA97E}
 body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 
 @media (max-width:640px){
+  #dateNav{gap:6px;padding:0 10px}
+  .date-chip{min-width:0;flex:1 1 auto;max-width:none;padding:9px 10px!important;overflow:hidden}
+  .date-chip .ymd{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #wxChip{font-size:.7rem}
+  .date-arrow{width:36px;height:36px;flex:none}
+  .today-btn{padding:7px 10px;font-size:.78rem;flex:none}
+  #schedOpen{padding:11px 6px}
+  #schedOpen .sh-txt{font-size:.68rem}
   .paper{padding:20px 14px 24px;border-radius:12px}
   .sheet-title{font-size:1.45rem}
   .task-meta{width:100%;justify-content:flex-end;padding-left:29px}
   .attach-panel{margin-left:0}
-  .date-chip{min-width:0;flex:1}
   .brand{font-size:1.1rem}
   .tab{padding:7px 12px;font-size:.84rem}
 }
@@ -531,16 +550,19 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 
   <div id="todayView">
     <div id="dateNav">
-      <button class="date-arrow" id="goalPeek" title="이번 주·이번 달 목표 보기">🎯</button>
-      <button class="date-arrow" id="prevDay">◀</button>
-      <div class="date-chip" style="padding:10px 20px">
+      <div class="dn-side dn-left">
+        <button class="date-arrow" id="goalPeek" title="이번 주·이번 달 목표 보기">🎯</button>
+        <button class="date-arrow" id="prevDay">◀</button>
+      </div>
+      <div class="date-chip">
         <div class="ymd" id="ymdText">—</div>
-        <div id="wxChip" class="hidden" style="font-size:.8rem;font-weight:700;color:var(--ink-soft);margin-top:3px"></div>
+        <div id="wxChip" class="hidden"></div>
         <input type="date" id="datePick">
       </div>
-      <button class="date-arrow" id="nextDay">▶</button>
-      <button class="today-btn" id="goToday">오늘</button>
-      <button class="date-arrow" id="schedOpen" title="이 날짜의 시간표" style="margin-left:auto">🗂</button>
+      <div class="dn-side dn-right">
+        <button class="date-arrow" id="nextDay">▶</button>
+        <button class="today-btn" id="goToday">오늘</button>
+      </div>
     </div>
     <div id="goalPeekBox" class="hidden"></div>
     <div id="saveState"></div>
@@ -620,7 +642,10 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     </div>
   </div>
 
-  <div id="schedDrawer" class="hidden">
+  <button id="schedOpen" title="이 날짜의 시간표" aria-label="시간표 열기">
+  <span class="sh-arrow">‹</span><span class="sh-txt">시간표</span>
+</button>
+<div id="schedDrawer" class="hidden">
     <div id="schedBackdrop"></div>
     <aside id="schedPanel">
       <div class="sd-head">
@@ -1330,6 +1355,7 @@ function switchTab(mode){
   $('archiveView').classList.toggle('hidden', !arch);
   $('goalView').classList.toggle('hidden', !goal);
   $('fabCat').classList.toggle('hidden', !today);
+  $('schedOpen').classList.toggle('hidden', !today);
   applyTheme();
   if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
   if(goal){ if(!goalKey) goalKey = yearKey(curDate); renderGoals(); }
