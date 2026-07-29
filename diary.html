@@ -437,6 +437,7 @@ body[data-theme="dark"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .font-opt .fprev{font-size:1.3rem;color:var(--ink);line-height:1.4}
 .priv-wrap{background:#F0F2F8;border:1.5px dashed #B9C4EE;border-radius:12px;padding:6px 10px 10px;margin-top:4px}
 .priv-wrap .inbox-hint{color:#6B7AA8}
+#inboxArrow,#privArrow{font-size:.76rem;font-weight:700;color:var(--ink-soft);font-family:Pretendard,sans-serif}
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
 .pin-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap}
 .pin-label{font-weight:800;color:var(--accent-deep);font-size:.92rem}
@@ -1018,7 +1019,7 @@ async function loadDay(dateStr){
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
-    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'',
+    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio,
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
 }
 function normalize(v){
@@ -1150,7 +1151,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', files:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, files:[], open:false}; }
 /* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
 function taskOrder(list){
   return list.map((t,ti)=>({t,ti})).sort((a,b)=>{
@@ -1190,6 +1191,7 @@ function taskRow(t, ctx){
       <button class="note-btn" title="퀵메모">📝${t.note.trim()? '<span class="dot"></span>':''}</button>
       <button class="clip-btn" title="첨부">📎${t.files.length? `<span class="cnt">${t.files.length}</span>`:''}</button>
       <div class="ctl">
+        ${(ctx.inbox && t.offPrio)? '<button class="on-prio" title="우선순위로 올리기">↑</button>':''}
         <button class="del" title="삭제">✕</button>
       </div>
     </div>`;
@@ -1219,6 +1221,12 @@ function taskRow(t, ctx){
   const gtag = row.querySelector('.goal-tag');
   if(gtag) gtag.onclick = () => { t.open=!t.open; ctx.rerender(); };
   row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
+  const onBtn = row.querySelector('.on-prio');
+  if(onBtn) onBtn.onclick = () => {
+    t.offPrio = false; ctx.save();
+    renderCats(); renderInbox(); renderPriv();
+    toast('우선순위로 올렸어요');
+  };
   row.querySelector('.ctl .del').onclick = () => {
     if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); }
   };
@@ -1895,13 +1903,18 @@ async function saveInbox(){
 let inboxOpen = false;
 try{ inboxOpen = localStorage.getItem('inboxOpen')!=='0'; }catch(e){}
 function renderInbox(){
-  $('inboxWrap').classList.toggle('hidden', !inboxOpen);
-  const undoneCnt = inbox.filter(t=>!t.done && t.text.trim()).length;
-  $('inboxArrow').textContent = inboxOpen? '▾' : `▸ ${undoneCnt? '('+undoneCnt+')' : ''}`;
-  if(!inboxOpen) return;
+  const list = prioMode ? inbox.filter(t => t.offPrio && !t.done) : inbox;
+  const hide = prioMode && !list.length;
+  $('inboxHead').classList.toggle('hidden', hide);
+  $('inboxWrap').classList.toggle('hidden', hide || (!prioMode && !inboxOpen));
+  if(hide) return;
+  const undoneCnt = list.filter(t=>!t.done && t.text.trim()).length;
+  $('inboxArrow').textContent = prioMode ? '▾ 우선순위에서 내린 업무'
+    : (inboxOpen ? '▾' : `▸ ${undoneCnt? '('+undoneCnt+')' : ''}`);
+  if(!prioMode && !inboxOpen) return;
   const box = $('inboxList'); box.innerHTML = '';
-  taskOrder(inbox)
-    .forEach(({t,ti}) => box.appendChild(taskRow(t, {arr:inbox, idx:ti, save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
+  taskOrder(list).forEach(({t}) =>
+    box.appendChild(taskRow(t, {arr:inbox, idx:inbox.indexOf(t), save:markInbox, rerender:renderInbox, cat:null, inbox:true})));
 }
 $('inboxHead').onclick = e => {
   if(e.target.closest('.actions')) return;
@@ -2253,13 +2266,13 @@ try{ prioMode = localStorage.getItem('prioMode')==='1'; }catch(e){}
 $('prioBtn').onclick = () => {
   prioMode = !prioMode;
   try{ localStorage.setItem('prioMode', prioMode?'1':'0'); }catch(e){}
-  renderCats();
+  renderCats(); renderInbox(); renderPriv();
 };
 function prioItems(){
   const all = [];
   day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
-  inbox.forEach(t => { if(!t.done && t.text.trim()) all.push({c:null, t, box:'inbox'}); });
-  priv.forEach(t => { if(!t.done && t.text.trim()) all.push({c:null, t, box:'priv'}); });
+  inbox.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'inbox'}); });
+  priv.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'priv'}); });
   all.sort((a,b) => {
     if(a.t.time && b.t.time && a.t.time !== b.t.time) return a.t.time.localeCompare(b.t.time);
     if(a.t.time && !b.t.time) return -1;
@@ -2279,7 +2292,7 @@ function renderPrio(){
   }
   items.forEach(({c,t,box:bx}, i) => {
     const col = c? catColor(c) : (bx==='priv'? '#5C6BC0' : '#B08A5A');
-    const label = c? (c.name.trim()||'무제') : (bx==='priv'? '🏠 개인' : '📥 기타함');
+    const label = c? (c.name.trim()||'무제') : (bx==='priv'? '개인용무' : '기타업무');
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
@@ -2298,7 +2311,7 @@ function renderPrio(){
           <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
           <input type="date" value="${t.due}">
         </span>
-        <div class="ctl"><button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button></div>
+        <div class="ctl">${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>':''}<button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button></div>
       </div>`;
     row.querySelector('.chk').onclick = () => {
       if(bx==='inbox'){ completeInbox(t, inbox.indexOf(t)); return; }
@@ -2321,7 +2334,14 @@ function renderPrio(){
       if(bx==='priv') privOpen = true;
       t.open = true; renderAll();
       setTimeout(()=>{ const el=[...document.querySelectorAll('.task-text')].find(x=>x.value===t.text); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 60); };
-    const [up,down] = row.querySelectorAll('.ctl button');
+    const offBtn = row.querySelector('.off-prio');
+    if(offBtn) offBtn.onclick = () => {
+      t.offPrio = true; save();
+      if(bx==='inbox') inboxOpen = true; else privOpen = true;
+      renderCats(); renderInbox(); renderPriv();
+      toast(`${bx==='priv'? '개인용무' : '기타업무'} 칸으로 내렸어요`);
+    };
+    const [up,down] = [...row.querySelectorAll('.ctl button')].filter(b => !b.classList.contains('off-prio'));
     up.onclick = () => { if(i>0){ [day.prioOrder[i-1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i-1]]; markDirty(); renderCats(); } };
     down.onclick = () => { if(i<items.length-1){ [day.prioOrder[i+1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i+1]]; markDirty(); renderCats(); } };
     box.appendChild(row);
@@ -2849,13 +2869,18 @@ async function savePriv(){
   }
 }
 function renderPriv(){
-  $('privWrap').classList.toggle('hidden', !privOpen);
-  const undone = priv.filter(t=>!t.done && t.text.trim()).length;
-  $('privArrow').textContent = privOpen? '▾' : `▸ ${undone? '('+undone+')' : ''}`;
-  if(!privOpen) return;
+  const list = prioMode ? priv.filter(t => t.offPrio && !t.done) : priv;
+  const hide = prioMode && !list.length;
+  $('privHead').classList.toggle('hidden', hide);
+  $('privWrap').classList.toggle('hidden', hide || (!prioMode && !privOpen));
+  if(hide) return;
+  const undone = list.filter(t=>!t.done && t.text.trim()).length;
+  $('privArrow').textContent = prioMode ? '▾ 우선순위에서 내린 용무'
+    : (privOpen ? '▾' : `▸ ${undone? '('+undone+')' : ''}`);
+  if(!prioMode && !privOpen) return;
   const box = $('privList'); box.innerHTML = '';
-  taskOrder(priv)
-    .forEach(({t,ti}) => box.appendChild(taskRow(t, {arr:priv, idx:ti, save:markPriv, rerender:renderPriv, cat:null, inbox:true, priv:true})));
+  taskOrder(list).forEach(({t}) =>
+    box.appendChild(taskRow(t, {arr:priv, idx:priv.indexOf(t), save:markPriv, rerender:renderPriv, cat:null, inbox:true, priv:true})));
 }
 $('privHead').onclick = e => {
   if(e.target.closest('.actions')) return;
