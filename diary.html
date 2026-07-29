@@ -281,6 +281,8 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .done-row .dr-cat{font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--surface);flex:none}
 .done-row .dr-text{flex:1;color:var(--ink);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
+.time-badge{font-size:.74rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
+  border:1.5px solid var(--rule);border-radius:999px;padding:4px 9px;white-space:nowrap}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
   font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
@@ -913,7 +915,7 @@ function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
   const overdue = t.due && !t.done && t.due < todayStr();
-  const dueLabel = (t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅') + (t.time? ' '+t.time : '');
+  const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
   const row = document.createElement('div');
   row.className = 'task' + (t.done? ' done':'');
   row.style.borderLeft = `3px solid ${col}40`;
@@ -922,6 +924,7 @@ function taskRow(t, ctx){
     <button class="chk" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
     <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요">
     <div class="task-meta">
+      ${t.time? `<span class="time-badge" title="이 날짜에 할 시각">⏰ ${t.time}</span>`:''}
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <span class="due-wrap">
         <button class="due-chip ${overdue?'over':''}" title="${t.due||'마감일 지정'}">${dueLabel}</button>
@@ -968,12 +971,12 @@ function taskRow(t, ctx){
     panel.innerHTML = `
       <textarea class="qnote" placeholder="퀵메모 — 진행 상황, 상세 내용, 특이사항을 적어 두세요">${esc(t.note)}</textarea>
       <div class="ap-head" style="margin-bottom:8px">
-        <span class="ap-title">⏰ 시간</span>
+        <span class="ap-title">⏰ 실행 시간 <span style="font-weight:600;color:var(--ink-soft)">(이 날짜에 할 시각)</span></span>
         <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
         <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
           ${[30,60,90,120,180].map(m=>`<option value="${m}" ${t.dur===m?'selected':''}>${m<60? m+'분' : (m/60)+'시간'}</option>`).join('')}
         </select>
-        ${t.time? '<button class="mini-btn ap-tclr">지우기</button>':''}
+        <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
         <button class="mini-btn ap-cal">📅 캘린더 등록</button>
       </div>
       <div class="ap-head">
@@ -987,7 +990,7 @@ function taskRow(t, ctx){
     panel.querySelector('.ap-time').addEventListener('change', e => { t.time = e.target.value; ctx.save(); ctx.rerender(); });
     panel.querySelector('.ap-dur').addEventListener('change', e => { t.dur = +e.target.value; ctx.save(); });
     const tclr = panel.querySelector('.ap-tclr');
-    if(tclr) tclr.onclick = () => { t.time=''; ctx.save(); ctx.rerender(); };
+    if(tclr) tclr.onclick = () => { t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요'); };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
     panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
     panel.querySelector('.ap-cal').onclick = () => openCalendar(t, ctx.cat);
@@ -1016,7 +1019,7 @@ $('carryBtn').onclick = async () => {
     if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, priv:!!pc.priv, tasks:[]}; day.cats.push(target); }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim()===t.text.trim())) return;
-      target.tasks.push({...normTask(t), id:uid8()});
+      target.tasks.push({...normTask(t), id:uid8(), time:''});   // 실행 시간은 그날그날 새로
       moved++;
     });
   });
@@ -1281,10 +1284,10 @@ function buildA4(dateStr, data){
       const bb = t.note.trim()? 'border-bottom:none;' : '';
       rows += `<tr>
         <td style="width:58%;${bb}"><span class="box ${t.done?'on':''}" style="border-color:${col};${t.done?`background:${col}`:''}">${t.done?'✔':''}</span>
-          <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span>${t.files.length? ' 📎':''}</td>
+          <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span>${t.time? ` <span style="font-size:12.5px;color:#C95F1D;font-weight:700">⏰${t.time}</span>`:''}${t.files.length? ' 📎':''}</td>
         <td style="width:10%;text-align:center;${bb}">${i+1}</td>
         <td style="width:14%;text-align:center;${bb}">${stMap[t.status]||''}</td>
-        <td style="width:18%;text-align:center;${bb}">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}${t.time? `<div style="font-size:12px;color:#8A705A">⏰ ${t.time}</div>`:''}</td>
+        <td style="width:18%;text-align:center;${bb}">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}</td>
       </tr>`;
       if(t.note.trim()) rows += `<tr><td colspan="4" style="padding:0 6px 9px 47px;color:#8A705A;font-size:12.5px">└ ${esc(t.note.trim()).replace(/\n/g,'<br>　 ')}</td></tr>`;
     });
@@ -1668,7 +1671,7 @@ function sendPrivToToday(t, idx){
 
 /* 구글 캘린더 등록 — 시간이 있으면 시간 일정, 없으면 종일 일정 */
 function calDates(t){
-  const base = t.due || curDate;
+  const base = t.time ? curDate : (t.due || curDate);   // 시간이 있으면 '오늘(일지 날짜)' 기준
   const p2 = n => String(n).padStart(2,'0');
   const ymd = d => `${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}`;
   if(t.time){
@@ -1689,7 +1692,7 @@ function openCalendar(t, cat){
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
     + `&text=${encodeURIComponent(title)}`
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}`
-    + `&details=${encodeURIComponent(t.note || '업무일지에서 등록')}`;
+    + `&details=${encodeURIComponent((t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록'))}`;
   window.open(url, '_blank');
 }
 
@@ -1796,7 +1799,7 @@ function buildReport(){
     if(!ts.length && !c.name.trim()) return;
     out += `\n\n■ ${c.name.trim()||'(무제)'}`;
     ts.forEach(t => {
-      out += `\n - [${stMap[t.status]}] ${t.text.trim()}${t.due? ` (~${+t.due.slice(5,7)}/${+t.due.slice(8,10)}${t.time? ' '+t.time:''})`:(t.time? ` (${t.time})`:'')}`;
+      out += `\n - [${stMap[t.status]}] ${t.time? `${t.time} `:''}${t.text.trim()}${t.due? ` (마감 ~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
       if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
     });
   });
@@ -1933,6 +1936,9 @@ function prioItems(){
   const all = [];
   day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
   all.sort((a,b) => {
+    if(a.t.time && b.t.time && a.t.time !== b.t.time) return a.t.time.localeCompare(b.t.time);
+    if(a.t.time && !b.t.time) return -1;
+    if(!a.t.time && b.t.time) return 1;
     const ia = day.prioOrder.indexOf(a.t.id), ib = day.prioOrder.indexOf(b.t.id);
     return (ia<0? 9999:ia) - (ib<0? 9999:ib);
   });
@@ -1950,7 +1956,7 @@ function renderPrio(){
     const col = catColor(c);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
-    const dueLabel = (t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅') + (t.time? ' '+t.time : '');
+    const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
     const row = document.createElement('div'); row.className = 'task';
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
@@ -1958,6 +1964,7 @@ function renderPrio(){
       <button class="chk" style="border-color:${col}" title="완료 체크"></button>
       <input class="task-text" value="${esc(t.text)}">
       <div class="task-meta">
+        ${t.time? `<span class="time-badge">⏰ ${t.time}</span>`:''}
         <span class="dr-cat" style="color:${col};border:1.5px solid ${col}55">${esc(c.name.trim()||'무제')}</span>
         <button class="status-chip ${st.cls}">${st.label}</button>
         <span class="due-wrap">
