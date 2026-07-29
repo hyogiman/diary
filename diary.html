@@ -499,7 +499,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     <div class="topbar-in">
       <div class="brand" id="brandName">📔 업무일지</div>
       <div class="tabs">
-        <button class="tab on" id="tabToday">오늘</button>
+        <button class="tab on" id="tabToday">목록</button>
         <button class="tab" id="tabArchive">기록</button>
         <button class="tab" id="tabSched">일정</button>
       </div>
@@ -582,8 +582,8 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <button class="date-arrow" id="schedPrev">◀</button>
       <div class="date-chip" style="padding:10px 20px;cursor:default"><div class="ymd" id="schedYmd">—</div></div>
       <button class="date-arrow" id="schedNext">▶</button>
+      <button class="today-btn" id="schedToday">오늘</button>
     </div>
-    <div class="arc-tools" style="margin-bottom:10px"><button class="today-btn" id="schedToday">오늘</button></div>
     <div class="arc-tools"><button class="mini-btn" id="schedRefresh">↻ 새로고침</button></div>
     <div id="schedState" class="empty-note"></div>
     <div id="schedWrap">
@@ -695,11 +695,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     <div id="evName" style="text-align:center;font-weight:700;font-size:.95rem;margin:10px 0 16px;color:var(--ink)"></div>
     <div class="ev-field"><label>시작</label><input type="time" id="evStart"></div>
     <div class="ev-field"><label>소요</label>
-      <select id="evDur">
-        <option value="15">15분</option><option value="30">30분</option><option value="45">45분</option>
-        <option value="60">1시간</option><option value="90">1시간 30분</option><option value="120">2시간</option>
-        <option value="180">3시간</option><option value="240">4시간</option><option value="480">8시간</option>
-      </select></div>
+      <select id="evDur"></select></div>
     <div class="ev-field"><label>제목</label><input type="text" id="evText" placeholder="일정 제목"></div>
     <div class="ev-field"><label>장소</label><input type="text" id="evLoc" placeholder="(선택)"></div>
     <div class="bk-btns">
@@ -763,6 +759,8 @@ const STATUS = [
   {k:'hold', label:'보류',   cls:'st-hold'},
   {k:'done', label:'완료',   cls:'st-done'},
 ];
+const DURS = [[15,'15분'],[30,'30분'],[45,'45분'],[60,'1시간'],[90,'1시간 30분'],[120,'2시간'],
+  [180,'3시간'],[240,'4시간'],[360,'6시간'],[480,'8시간']];
 const uid8 = () => Math.random().toString(36).slice(2,10);
 const esc = s => (s??'').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -1055,7 +1053,7 @@ function taskRow(t, ctx){
         <span class="ap-title">⏰ 실행 시간 <span style="font-weight:600;color:var(--ink-soft)">(이 날짜에 할 시각)</span></span>
         <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
         <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
-          ${[30,60,90,120,180].map(m=>`<option value="${m}" ${t.dur===m?'selected':''}>${m<60? m+'분' : (m/60)+'시간'}</option>`).join('')}
+          ${DURS.map(([m,l])=>`<option value="${m}" ${t.dur===m?'selected':''}>${l}</option>`).join('')}
         </select>
         <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
         <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
@@ -3123,6 +3121,7 @@ function openEventEditor(ev){
   $('evLoc').value = ev.loc || '';
   $('evStart').value = `${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
   const sel = $('evDur');
+  sel.innerHTML = DURS.map(([m,l])=>`<option value="${m}">${l}</option>`).join('');
   if(![...sel.options].some(o => +o.value === mins)){
     const o = document.createElement('option');
     o.value = mins; o.textContent = mins + '분'; sel.appendChild(o);
