@@ -2938,8 +2938,9 @@ function attachBoxListeners(){
   if(!goalCb){
     goalCb = snap => {
       if(goalDirty || isEditing()) return;
-      const v = snap.exists()? (snap.val()||{}) : {};
-      ['year','month','week'].forEach(k => { if(!v[k]) v[k] = {}; });
+      let v = snap.exists()? (snap.val()||{}) : {};
+      if(typeof v !== 'object' || Array.isArray(v)) v = {};
+      ['year','month','week'].forEach(k => { if(!v[k] || typeof v[k] !== 'object') v[k] = {}; });
       if(JSON.stringify(v) === JSON.stringify(goals)) return;
       goals = v;
       if(!$('goalView').classList.contains('hidden')) renderGoals();
@@ -2984,6 +2985,325 @@ $('setCalBtn').onclick = async () => {
   try{ await db.ref(`diaries/${USER.uid}/settings/calTarget`).set(calTarget); }catch(e){}
   toast(calTarget? '캘린더 등록 대상을 저장했어요' : '기본 캘린더로 되돌렸어요');
 };
+
+
+/* ═══════════════ 🎨 오늘 페이지 테마 ═══════════════ */
+const THEMES = [
+  {id:'',      name:'기본 크림',     desc:'지금까지의 종이 다이어리 톤', bg:'#FBF2E1', dot:'#E5762E'},
+  {id:'dawn',  name:'차분한 새벽',   desc:'블루그레이 + 화이트, 집중형', bg:'#EDF2F8', dot:'#3E6EA8'},
+  {id:'dark',  name:'깊은 다크',     desc:'짙은 배경 + 앰버 포인트',     bg:'#26232D', dot:'#E0A33E'},
+  {id:'white', name:'미니멀 화이트', desc:'흰 배경 + 가는 선, 담백하게', bg:'#FFFFFF', dot:'#D2542A'},
+  {id:'kraft', name:'진한 크래프트', desc:'짙은 종이톤 + 딥그린',        bg:'#E9DEC6', dot:'#2F6B4F'},
+];
+let todayTheme = '';
+function applyTheme(){
+  const onToday = curDate === todayStr() && !$('todayView').classList.contains('hidden');
+  if(todayTheme && onToday) document.body.dataset.theme = todayTheme;
+  else delete document.body.dataset.theme;
+}
+async function loadTheme(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/theme`).get(), 5000);
+    todayTheme = snap.exists()? (snap.val()||'') : '';
+  }catch(e){ try{ todayTheme = localStorage.getItem('todayTheme') || ''; }catch(e2){} }
+  applyTheme();
+}
+function renderThemeList(){
+  const box = $('themeList'); box.innerHTML = '';
+  THEMES.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'th-opt' + (t.id===todayTheme? ' on':'');
+    b.innerHTML = `<span class="th-swatch" style="background:${t.bg}"><i style="background:${t.dot}"></i></span>
+      <span class="th-txt"><b>${t.id===todayTheme? '✓ ':''}${t.name}</b><span>${t.desc}</span></span>`;
+    b.onclick = async () => {
+      todayTheme = t.id; applyTheme(); renderThemeList();
+      try{ localStorage.setItem('todayTheme', todayTheme); }catch(e){}
+      try{ await db.ref(`diaries/${USER.uid}/settings/theme`).set(todayTheme); }catch(e){}
+    };
+    box.appendChild(b);
+  });
+}
+$('setThemeBtn').onclick = () => { $('settingsMenu').classList.add('hidden'); renderThemeList(); $('themeModal').classList.remove('hidden'); };
+$('themeClose').onclick = () => $('themeModal').classList.add('hidden');
+$('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') $('themeModal').classList.add('hidden'); });
+
+/* ═══════════════ 📆 구글 캘린더 일정 (읽기 + 캐시 완충) ═══════════════ */
+const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+let gToken = '', gTokenExp = 0, gClient = null, schedDate = '';
+let schedCache = null, schedStale = false;
+
+const gReady = () => !!GOOGLE_CLIENT_ID && typeof google !== 'undefined' && google.accounts;
+function initGoogle(){
+  if(gClient || !gReady()) return;
+  gClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID, scope: GCAL_SCOPE,
+    callback: resp => {
+      if(resp && resp.access_token){
+        gToken = resp.access_token;
+        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
+        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
+        loadSchedule(true);
+      }
+    },
+  });
+  try{
+    const c = JSON.parse(localStorage.getItem('gTok')||'null');
+    if(c && c.e > Date.now()){ gToken = c.t; gTokenExp = c.e; }
+  }catch(e){}
+}
+function ensureToken(interactive){
+  return new Promise(resolve => {
+    if(gToken && gTokenExp > Date.now()) return resolve(true);
+    if(!gReady()) return resolve(false);
+    initGoogle();
+    if(!gClient) return resolve(false);
+    const prev = gClient.callback;
+    gClient.callback = resp => {
+      if(resp && resp.access_token){
+        gToken = resp.access_token;
+        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
+        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
+        gClient.callback = prev; resolve(true);
+      }else{ gClient.callback = prev; resolve(false); }
+    };
+    try{ gClient.requestAccessToken({prompt: interactive? 'consent' : ''}); }
+    catch(e){ resolve(false); }
+  });
+}
+$('schedRefresh').onclick = async () => {
+  if(!GOOGLE_CLIENT_ID){ toast('구글 클라이언트 ID가 아직 없어요'); return; }
+  if(!(await ensureToken(false))){
+    const ok = await ensureToken(true);
+    if(!ok){ toast('구글 캘린더 연결이 취소됐어요'); return; }
+    toast('구글 캘린더를 다시 연결했어요');
+  }
+  loadSchedule(true);
+};
+$('schedPrev').onclick = () => { schedDate = shiftStr(schedDate, -1); loadSchedule(); };
+$('schedNext').onclick = () => { schedDate = shiftStr(schedDate, 1); loadSchedule(); };
+$('schedToday').onclick = () => { schedDate = todayStr(); loadSchedule(); };
+function shiftStr(ds, n){
+  const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+async function loadSchedule(force){
+  if(!schedDate) schedDate = curDate || todayStr();
+  const d = new Date(schedDate+'T12:00:00');
+  $('schedYmd').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+  if(!GOOGLE_CLIENT_ID){
+    $('schedState').textContent = '구글 캘린더 연결이 설정되지 않았어요.';
+    renderSchedule([]); return;
+  }
+  const cacheKey = `sched:${USER.uid}:${schedDate}`;
+  if(!force){
+    try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; renderSchedule(c.events, c.ts); } }catch(e){}
+  }
+  if(!(await ensureToken(false))){
+    try{
+      const c = await idbGet(cacheKey);
+      if(c){ renderSchedule(c.events, c.ts);
+        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — <b>↻ 새로고침</b>을 눌러 갱신하세요.'; }
+      else $('schedState').innerHTML = '구글 캘린더 연결이 필요해요 — <b>↻ 새로고침</b>을 눌러 주세요.';
+    }catch(e){}
+    return;
+  }
+  $('schedState').textContent = '일정을 불러오는 중…';
+  try{
+    const tmin = new Date(schedDate+'T00:00:00').toISOString();
+    const tmax = new Date(schedDate+'T23:59:59').toISOString();
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`
+      + `?timeMin=${encodeURIComponent(tmin)}&timeMax=${encodeURIComponent(tmax)}&singleEvents=true&orderBy=startTime`,
+      {headers:{Authorization:'Bearer '+gToken}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    const events = (j.items||[]).map(e => ({
+      id:e.id, title:e.summary||'(제목 없음)', loc:e.location||'',
+      start:e.start && (e.start.dateTime||e.start.date), end:e.end && (e.end.dateTime||e.end.date),
+      allDay: !!(e.start && e.start.date), link:e.htmlLink||''
+    }));
+    schedCache = events;
+    try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
+    renderSchedule(events);
+    $('schedState').textContent = '';
+  }catch(e){
+    try{ const c = await idbGet(cacheKey); if(c) renderSchedule(c.events, c.ts); }catch(e2){}
+    $('schedState').textContent = '일정을 불러오지 못했어요 — 연결 상태를 확인해 주세요';
+  }
+}
+function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
+const PXH = 64;
+function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
+function renderSchedule(events, cachedTs){
+  const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
+  const oldWarn = wrap.parentNode.querySelector('.sched-stale');
+  if(oldWarn) oldWarn.remove();
+  if(cachedTs){
+    const w = document.createElement('div'); w.className = 'sched-stale';
+    w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
+    wrap.parentNode.insertBefore(w, wrap);
+  }
+  const tasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
+    c.tasks.filter(t => t.time && t.text.trim() && !t.gcalId).map(t => ({
+      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
+      st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
+      dur:(t.dur||60)
+    })));
+  const catOf = id => {
+    for(const c of (schedDate === curDate ? day.cats : []))
+      for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
+    return null;
+  };
+  const evs = (events||[]).filter(e => !e.allDay).map(e => {
+    const own = catOf(e.id);
+    return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
+      dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
+      color: own? catColor(own.cat) : '', catName: own? own.cat.name.trim() : '', done: own? own.task.done : false };
+  });
+  const items = [...evs, ...tasks].sort((a,b)=> a.st - b.st);
+  const ads = (events||[]).filter(e => e.allDay);
+  allday.classList.toggle('hidden', !ads.length);
+  allday.innerHTML = ads.map(e=>`<span class="ad">📆 ${esc(e.title)}</span>`).join('');
+  let h0 = 8, h1 = 20;
+  items.forEach(it => {
+    h0 = Math.min(h0, it.st.getHours());
+    h1 = Math.max(h1, Math.ceil((minOf(it.st) + it.dur)/60));
+  });
+  h1 = Math.min(24, Math.max(h1, h0+4));
+  body.style.height = ((h1-h0)*PXH + 12) + 'px';
+  body.innerHTML = '';
+  for(let h=h0; h<=h1; h++){
+    const line = document.createElement('div');
+    line.className = 'tl-hour'; line.style.top = ((h-h0)*PXH) + 'px';
+    line.innerHTML = `<span>${h}시</span>`;
+    body.appendChild(line);
+    if(h < h1){
+      const half = document.createElement('div');
+      half.className = 'tl-hour half'; half.style.top = ((h-h0)*PXH + PXH/2) + 'px';
+      body.appendChild(half);
+    }
+  }
+  const now = new Date();
+  if(schedDate === todayStr() && now.getHours() >= h0 && now.getHours() <= h1){
+    const nl = document.createElement('div');
+    nl.className = 'tl-now';
+    nl.style.top = ((minOf(now) - h0*60) / 60 * PXH) + 'px';
+    body.appendChild(nl);
+  }
+  if(!items.length){
+    const em = document.createElement('div');
+    em.className = 'tl-empty';
+    em.style.cssText += ';position:absolute;left:52px;right:8px;top:40%';
+    em.textContent = '이 날짜에는 일정이 없어요';
+    body.appendChild(em);
+    return;
+  }
+  const lanes = [];
+  items.forEach(it => {
+    it.end = new Date(it.st.getTime() + it.dur*60000);
+    let li = lanes.findIndex(l => l <= it.st);
+    if(li < 0){ lanes.push(it.end); li = lanes.length-1; } else lanes[li] = it.end;
+    it.lane = li;
+  });
+  const laneN = Math.max(1, lanes.length);
+  items.forEach(it => {
+    const top = (minOf(it.st) - h0*60) / 60 * PXH;
+    const hgt = Math.max(26, it.dur / 60 * PXH - 3);
+    const el = document.createElement('button');
+    el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
+    el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(52px + (100% - 60px) * ${it.lane/laneN});width:calc((100% - 60px) * ${1/laneN} - 4px);right:auto;`;
+    if(it.color){ el.style.borderLeftColor = it.color; el.style.background = it.color + '22'; el.style.color = 'var(--ink)'; }
+    const timeTxt = `${hhmm(it.st)}~${hhmm(it.end)}`;
+    el.innerHTML = `<div class="t">${esc(it.title)}</div>`
+      + (hgt > 38 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
+          : (it.catName? ' · 📔 '+esc(it.catName) : (it.loc? ' · 📍'+esc(it.loc):''))}</div>` : '');
+    el.title = `${timeTxt} ${it.title}`;
+    el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
+    body.appendChild(el);
+  });
+}
+function openTaskFromTimeline(t){
+  switchTab('today');
+  t.open = true; renderCats();
+  setTimeout(()=>{
+    const el = [...document.querySelectorAll('.task-text')].find(x => x.value === t.text);
+    if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+  }, 80);
+}
+/* 캘린더 일정 클릭 → 모달로 수정·삭제 */
+let evEditing = null;
+function openEventEditor(ev){
+  evEditing = ev;
+  const st = new Date(ev.start), en = new Date(ev.end);
+  const mins = Math.max(15, Math.round((en - st)/60000));
+  $('evName').textContent = ev.title;
+  $('evText').value = ev.title;
+  $('evLoc').value = ev.loc || '';
+  $('evStart').value = `${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
+  const sel = $('evDur');
+  sel.innerHTML = DURS.map(([m,l])=>`<option value="${m}">${l}</option>`).join('');
+  if(![...sel.options].some(o => +o.value === mins)){
+    const o = document.createElement('option');
+    o.value = mins; o.textContent = mins + '분'; sel.appendChild(o);
+  }
+  sel.value = String(mins);
+  $('evModal').classList.remove('hidden');
+}
+$('evClose').onclick = () => { $('evModal').classList.add('hidden'); evEditing = null; };
+$('evModal').addEventListener('click', e => { if(e.target.id==='evModal') $('evClose').onclick(); });
+$('evOpen').onclick = () => { if(evEditing && evEditing.link) window.open(evEditing.link, '_blank'); };
+$('evSave').onclick = async () => {
+  if(!evEditing) return;
+  const v = $('evStart').value, mins = +$('evDur').value, title = $('evText').value.trim();
+  if(!v){ toast('시작 시각을 입력해 주세요'); return; }
+  if(!title){ toast('제목을 입력해 주세요'); return; }
+  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요 — ↻ 새로고침을 눌러 주세요'); return; }
+  try{
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
+    const [h, m] = v.split(':').map(Number);
+    const st = new Date(schedDate+'T00:00:00'); st.setHours(h, m, 0, 0);
+    const en = new Date(st.getTime() + mins*60000);
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
+      {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
+       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
+         start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    let linked = false;
+    day.cats.forEach(c => c.tasks.forEach(t => {
+      if(t.gcalId && t.gcalId === evEditing.id){
+        t.time = v; t.dur = mins;
+        const pre = `[${c.name.trim()}] `;
+        t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
+        linked = true;
+      }
+    }));
+    if(linked){ markDirty(); renderCats(); }
+    $('evModal').classList.add('hidden'); evEditing = null;
+    toast(linked? '일정과 업무일지에 함께 반영했어요' : '일정을 수정했어요');
+    loadSchedule(true);
+  }catch(e){ toast('수정 실패: '+e.message); }
+};
+$('evDelete').onclick = async () => {
+  if(!evEditing) return;
+  if(!confirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`)) return;
+  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
+  try{
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
+      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
+    if(!r.ok && r.status !== 410) throw new Error('HTTP '+r.status);
+    let linked = false;
+    day.cats.forEach(c => c.tasks.forEach(t => {
+      if(t.gcalId && t.gcalId === evEditing.id){ t.gcalId = ''; t.time = ''; linked = true; }
+    }));
+    if(linked) markDirty();
+    $('evModal').classList.add('hidden'); evEditing = null;
+    toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 삭제했어요');
+    renderCats(); loadSchedule(true);
+  }catch(e){ toast('삭제 실패: '+e.message); }
+};
+$('tabSched').onclick = () => switchTab('sched');
 
 /* 예쁜 입력 모달 — prompt 대체 */
 let askResolve = null;
@@ -3069,14 +3389,18 @@ function ddayCls(g){
   const n = dday(g.due);
   return n < 0 ? 'over' : (n <= 3 ? 'soon' : '');
 }
-const goalsOf = (scope, key) => (goals[scope] && goals[scope][key]) || [];
+function ensureGoals(){
+  if(!goals || typeof goals !== 'object' || Array.isArray(goals)) goals = {};
+  ['year','month','week'].forEach(k => { if(!goals[k] || typeof goals[k] !== 'object') goals[k] = {}; });
+}
+const goalsOf = (scope, key) => (goals && goals[scope] && goals[scope][key]) || [];
 
 async function loadGoals(){
   try{
     const snap = await withTimeout(db.ref(`diaries/${USER.uid}/goals`).get(), 5000);
     goals = snap.exists()? (snap.val()||{}) : {};
   }catch(e){ goals = goals || {}; }
-  ['year','month','week'].forEach(k => { if(!goals[k]) goals[k] = {}; });
+  ensureGoals();
 }
 function markGoals(){
   goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800);
@@ -3144,6 +3468,7 @@ function prevKey(scope, key){
 function keyAfter(a, b){ return a > b; }
 /* 반복 목표 자동 생성 — 시작 기간 이후라면 어느 기간을 열든 만들어짐(건너뛰어도 OK) */
 function carryRepeats(){
+  ensureGoals();
   if(goals[goalScope][goalKey] === undefined) goals[goalScope][goalKey] = [];
   const cur = goals[goalScope][goalKey];
   const bucket = goals[goalScope] || {};
@@ -3298,6 +3623,7 @@ function defaultGoalDue(){
   return `${sun.getFullYear()}-${p2(sun.getMonth()+1)}-${p2(sun.getDate())}`;
 }
 $('goalAdd').onclick = () => {
+  ensureGoals();
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
   goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', start:defaultGoalStart(), due:defaultGoalDue(), note:'', repeat:false, target:1, count:0});
   markGoals(); renderGoals();
