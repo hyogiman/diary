@@ -218,7 +218,9 @@ input:focus,textarea:focus{outline-offset:0}
 .export-card{background:var(--card);border-radius:20px 20px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));
   width:100%;max-width:480px}
 .export-card h3{font-family:'Jua';color:var(--accent-deep);font-weight:400;margin-bottom:14px;text-align:center}
-.export-card .btn-primary{margin-bottom:10px}
+.export-card .btn-primary{margin-bottom:0}
+.set-list{display:flex;flex-direction:column;gap:10px}
+.set-list .btn-line,.set-list .btn-primary{margin:0}
 .btn-line{display:block;width:100%;padding:13px;border-radius:10px;border:1.5px solid var(--rule);
   background:var(--surface);font-weight:700;color:var(--accent-deep)}
 #exportStage{position:fixed;left:-3000px;top:0}
@@ -325,10 +327,10 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .tl-hour.half{border-top-style:dotted;opacity:.5}
 .tl-now{position:absolute;left:40px;right:0;height:0;border-top:2px solid var(--danger);z-index:5}
 .tl-now::before{content:'';position:absolute;left:-6px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--danger)}
-.tl-ev{position:absolute;left:42px;right:6px;border-radius:9px;padding:6px 9px;overflow:hidden;
+.tl-ev{position:absolute;left:42px;right:6px;border-radius:9px;padding:7px 10px;overflow:hidden;
   border-left:4px solid;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
 .tl-ev:hover{filter:brightness(.97)}
-.tl-ev .t{font-weight:700;font-size:.84rem;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-ev .t{font-weight:700;font-size:.85rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl-ev .s{font-size:.68rem;opacity:.75;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .tl-ev.gcal{background:#CFEDE6;border-color:#4FA894;color:#1F4A42}
 .tl-ev.task{background:#FFF0D6;border-color:var(--accent);color:var(--ink)}
@@ -754,10 +756,12 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 <div id="exportMenu" class="hidden">
   <div class="export-card">
     <h3>A4로 내보내기</h3>
-    <button class="btn-primary" id="expPdf">📄 PDF로 저장</button>
-    <button class="btn-line" id="expPng">🖼 이미지(PNG)로 저장</button>
-    <button class="btn-line" id="expCopy" style="margin-top:10px">📋 텍스트로 복사 (메신저 보고용)</button>
-    <button class="btn-line" id="expClose" style="margin-top:10px;border-style:dashed">닫기</button>
+    <div class="set-list">
+      <button class="btn-primary" id="expPdf">📄 PDF로 저장</button>
+      <button class="btn-line" id="expPng">🖼 이미지(PNG)로 저장</button>
+      <button class="btn-line" id="expCopy">📋 텍스트로 복사 (메신저 보고용)</button>
+      <button class="btn-line" id="expClose" style="border-style:dashed">닫기</button>
+    </div>
   </div>
 </div>
 <div id="backupModal" class="hidden">
@@ -795,14 +799,16 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 <div id="settingsMenu" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.45);z-index:155;display:flex;align-items:flex-end;justify-content:center">
   <div class="export-card">
     <h3>⚙ 설정</h3>
-    <button class="btn-line" id="setNameBtn">👤 다이어리 이름 변경</button>
-    <button class="btn-line" id="setCalBtn">📅 캘린더 등록 대상 설정</button>
-    <button class="btn-line" id="setThemeBtn" style="margin-top:10px">🎨 오늘 페이지 테마</button>
-    <button class="btn-line" id="setFontBtn" style="margin-top:10px">✒️ 손글씨 글꼴 바꾸기</button>
-    <button class="btn-line" id="setPrivPrintBtn" style="margin-top:10px">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
-    <button class="btn-line" id="setPinBtn" style="margin-top:10px">📖 일기 비밀번호 설정 · 변경</button>
-    <button class="btn-line" id="delTodayBtn" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
-    <button class="btn-line" id="setClose" style="margin-top:10px;border-style:dashed">닫기</button>
+    <div class="set-list">
+      <button class="btn-line" id="setNameBtn">👤 다이어리 이름 변경</button>
+      <button class="btn-line" id="setCalBtn">📅 캘린더 등록 대상 설정</button>
+      <button class="btn-line" id="setThemeBtn">🎨 오늘 페이지 테마</button>
+      <button class="btn-line" id="setFontBtn">✒️ 손글씨 글꼴 바꾸기</button>
+      <button class="btn-line" id="setPrivPrintBtn">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
+      <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
+      <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
+      <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
+    </div>
   </div>
 </div>
 <div id="diaryModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.55);z-index:170;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -3219,7 +3225,7 @@ async function loadSchedule(force){
   }
 }
 function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
-const PXH = 64;
+const PXH = 120;                                   // 1시간 = 120px (15분 일정도 글씨가 들어가도록)
 function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
 function renderSchedule(events, cachedTs){
   const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
@@ -3295,14 +3301,14 @@ function renderSchedule(events, cachedTs){
   const laneN = Math.max(1, lanes.length);
   items.forEach(it => {
     const top = (minOf(it.st) - h0*60) / 60 * PXH;
-    const hgt = Math.max(26, it.dur / 60 * PXH - 3);
+    const hgt = Math.max(34, it.dur / 60 * PXH - 4);
     const el = document.createElement('button');
     el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
     el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(52px + (100% - 60px) * ${it.lane/laneN});width:calc((100% - 60px) * ${1/laneN} - 4px);right:auto;`;
     if(it.color){ el.style.borderLeftColor = it.color; el.style.background = it.color + '22'; el.style.color = 'var(--ink)'; }
     const timeTxt = `${hhmm(it.st)}~${hhmm(it.end)}`;
     el.innerHTML = `<div class="t">${esc(it.title)}</div>`
-      + (hgt > 38 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
+      + (hgt > 52 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
           : (it.catName? ' · 📔 '+esc(it.catName) : (it.loc? ' · 📍'+esc(it.loc):''))}</div>` : '');
     el.title = `${timeTxt} ${it.title}`;
     el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
