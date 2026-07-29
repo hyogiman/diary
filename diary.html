@@ -252,7 +252,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
   box-shadow:0 6px 18px rgba(200,110,40,.45);transition:.15s;display:flex;align-items:center;justify-content:center}
 #fabCat:hover{background:var(--accent-deep);transform:scale(1.06)}
 .due-wrap{position:relative;flex:none}
-.due-chip{min-width:52px;padding:5px 9px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+.due-chip{min-width:52px;padding:5px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   font-size:.78rem;font-weight:700;color:var(--ink-soft)}
 .due-chip.over{color:#fff;background:var(--danger);border-color:var(--danger)}
 .due-chip.soon{color:#fff;background:var(--amber);border-color:var(--amber)}
@@ -327,6 +327,15 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   padding:5px 0 0 30px;font-family:inherit;text-align:left;cursor:pointer}
 .goal-link select{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:4px 7px;font-size:.76rem;max-width:100%}
+.g-count{font-size:.78rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
+  border:1.5px solid var(--rule);border-radius:999px;padding:4px 9px;flex:none}
+.rep-btn{width:30px;height:30px;border-radius:8px;font-size:.9rem;opacity:.35;flex:none;
+  display:flex;align-items:center;justify-content:center;transition:.15s}
+.rep-btn.on{opacity:1;background:var(--paper-deep)}
+.rep-btn:hover{opacity:.8}
+.g-bar{height:6px;background:var(--paper-deep);border-radius:99px;overflow:hidden;margin:9px 0 0 30px}
+.g-bar i{display:block;height:100%;background:var(--accent);border-radius:99px;transition:width .3s}
+.g-tools{display:flex;gap:6px;padding:8px 0 0 30px;flex-wrap:wrap}
 .goal-prog{height:6px;background:var(--paper-deep);border-radius:99px;overflow:hidden;margin:9px 0 0 30px}
 .goal-prog i{display:block;height:100%;background:var(--green);border-radius:99px;transition:width .3s}
 .goal-sub{font-size:.72rem;color:var(--ink-soft);padding:5px 0 0 30px}
@@ -3330,7 +3339,7 @@ function dday(dueStr){
   return Math.round((b - a)/86400000);
 }
 function ddayLabel(g){
-  if(!g.due) return '📅';
+  if(!g.due) return '📅 D-Day';
   if(g.done) return `${+g.due.slice(5,7)}/${+g.due.slice(8,10)}`;
   const n = dday(g.due);
   return n === 0 ? 'D-DAY' : (n > 0 ? `D-${n}` : `D+${-n}`);
@@ -3399,8 +3408,34 @@ function parentOptions(scope){
   const mk = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}`;
   return (goals.month[mk]||[]).map(g=>({id:g.id, name:g.text}));
 }
+/* 이전 기간 키 */
+function prevKey(scope, key){
+  if(scope==='year') return String(+key - 1);
+  if(scope==='month'){
+    let y = +key.slice(0,4), m = +key.slice(5,7) - 1;
+    if(m < 1){ m = 12; y--; }
+    return `${y}-${String(m).padStart(2,'0')}`;
+  }
+  const {mon} = weekRange(key);
+  mon.setDate(mon.getDate() - 7);
+  return weekKey(`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`);
+}
+/* 반복 목표를 이전 기간에서 이어받기 (한 번만, 사용자가 지운 건 되살리지 않음) */
+function carryRepeats(){
+  const cur = goals[goalScope][goalKey];
+  if(cur !== undefined) return 0;                      // 이미 이 기간을 열어본 적 있음
+  const prev = goalsOf(goalScope, prevKey(goalScope, goalKey)).filter(g => g.repeat && g.text.trim());
+  goals[goalScope][goalKey] = prev.map(g => ({
+    id:uid8(), text:g.text, done:false, parent:g.parent||'', due:defaultGoalDue(),
+    repeat:true, target:g.target||1, count:0, from:g.id
+  }));
+  if(prev.length){ markGoals(); return prev.length; }
+  return 0;
+}
 function renderGoals(){
   if(!goalKey) goalKey = yearKey(curDate);
+  const carried = carryRepeats();
+  if(carried) toast(`반복 목표 ${carried}건을 이어받았어요`);
   document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.classList.toggle('active', b.dataset.g===goalScope));
   $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
   const list = goalsOf(goalScope, goalKey);
@@ -3416,13 +3451,20 @@ function renderGoals(){
       <div class="goal-row">
         <button class="chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
         <input class="goal-txt" value="${esc(g.text)}" placeholder="${goalScope==='year'?'올해 이루고 싶은 것':goalScope==='month'?'이 달의 목표':'이번 주 목표'}">
+        ${g.target>1? `<span class="g-count">${g.count||0}/${g.target}</span>`:''}
         <span class="due-wrap">
           <button class="due-chip ${ddayCls(g)}" title="${g.due||'마감일 지정'}">${ddayLabel(g)}</button>
           <input type="date" value="${g.due||''}">
         </span>
+        <button class="rep-btn ${g.repeat?'on':''}" title="${g.repeat? '반복 켜짐 — 다음 기간에 자동 생성':'반복 끄기 상태'}">🔁</button>
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
         </div>
+      </div>
+      ${g.target>1? `<div class="g-bar"><i style="width:${Math.min(100,Math.round((g.count||0)/g.target*100))}%"></i></div>`:''}
+      <div class="g-tools">
+        ${g.target>1? `<button class="mini-btn g-plus">＋1회 완료</button><button class="mini-btn g-minus">－1</button>`:''}
+        <button class="mini-btn g-tgt">🎚 ${g.target>1? `목표 ${g.target}회` : '횟수 목표 설정'}</button>
       </div>
       ${opts.length? `<div class="goal-link">🔗 상위 목표
         <select><option value="">— 연결 안 함 —</option>
@@ -3430,11 +3472,38 @@ function renderGoals(){
         </select></div>` : ''}
       ${prog && prog.all? `<div class="goal-prog"><i style="width:${prog.pct}%"></i></div>
         <div class="goal-sub">하위 목표 ${prog.done}/${prog.all} 달성 · ${prog.pct}%</div>` : ''}`;
-    el.querySelector('.chk').onclick = () => { g.done = !g.done; markGoals(); renderGoals(); };
+    el.querySelector('.chk').onclick = () => {
+      g.done = !g.done;
+      if(g.target > 1) g.count = g.done ? g.target : 0;
+      markGoals(); renderGoals();
+    };
     el.querySelector('.goal-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
     const sel = el.querySelector('select');
     if(sel) sel.addEventListener('change', e => { g.parent = e.target.value; markGoals(); });
     el.querySelector('.due-wrap input').addEventListener('change', e => { g.due = e.target.value; markGoals(); renderGoals(); });
+    el.querySelector('.rep-btn').onclick = () => {
+      g.repeat = !g.repeat; markGoals(); renderGoals();
+      toast(g.repeat? '반복 켬 — 다음 기간을 열면 자동으로 이어져요' : '반복을 껐어요');
+    };
+    const plus = el.querySelector('.g-plus'), minus = el.querySelector('.g-minus');
+    if(plus) plus.onclick = () => {
+      g.count = (g.count||0) + 1;
+      if(g.count >= g.target) g.done = true;
+      markGoals(); renderGoals();
+    };
+    if(minus) minus.onclick = () => {
+      g.count = Math.max(0, (g.count||0) - 1);
+      if(g.count < g.target) g.done = false;
+      markGoals(); renderGoals();
+    };
+    el.querySelector('.g-tgt').onclick = () => {
+      const v = prompt('몇 회를 목표로 할까요? (1을 넣으면 일반 목표로 돌아갑니다)', String(g.target||1));
+      if(v === null) return;
+      const n = parseInt(v, 10);
+      if(!(n >= 1)){ toast('1 이상의 숫자를 입력해 주세요'); return; }
+      g.target = n; if(n <= 1){ g.count = 0; }
+      markGoals(); renderGoals();
+    };
     const [up, down, del] = el.querySelectorAll('.ctl button');
     up.onclick = () => { if(i>0){ [list[i-1],list[i]]=[list[i],list[i-1]]; markGoals(); renderGoals(); } };
     down.onclick = () => { if(i<list.length-1){ [list[i+1],list[i]]=[list[i],list[i+1]]; markGoals(); renderGoals(); } };
@@ -3456,7 +3525,7 @@ function defaultGoalDue(){
 }
 $('goalAdd').onclick = () => {
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
-  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', due:defaultGoalDue()});
+  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', due:defaultGoalDue(), repeat:false, target:1, count:0});
   markGoals(); renderGoals();
   const ins = $('goalList').querySelectorAll('.goal-txt');
   if(ins.length) ins[ins.length-1].focus();
@@ -3473,7 +3542,7 @@ function renderPeek(){
   const wk = goalsOf('week', weekKey(curDate));
   const mo = goalsOf('month', monthKey(curDate));
   const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i>
-    <span style="flex:1">${esc(g.text||'(제목 없음)')}</span>
+    <span style="flex:1">${esc(g.text||'(제목 없음)')}${g.target>1? ` <b style="color:var(--accent-deep)">${g.count||0}/${g.target}</b>`:''}</span>
     ${g.due? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>`:''}</div>`;
   $('goalPeekBox').innerHTML = `<div class="peek">
     <h4>🎯 이번 주 목표</h4>
@@ -3486,7 +3555,14 @@ function renderPeek(){
     el.onclick = () => {
       const arr = idx < wk.length ? wk : mo;
       const g = idx < wk.length ? wk[idx] : mo[idx - wk.length];
-      g.done = !g.done; markGoals(); renderPeek();
+      if(g.target > 1 && !g.done){
+        g.count = (g.count||0) + 1;
+        if(g.count >= g.target) g.done = true;
+      }else{
+        g.done = !g.done;
+        if(g.target > 1) g.count = g.done ? g.target : 0;
+      }
+      markGoals(); renderPeek();
       if(!$('goalView').classList.contains('hidden')) renderGoals();
     };
   });
