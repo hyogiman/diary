@@ -610,7 +610,8 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
   <div class="export-card">
     <h3>⚙ 설정</h3>
     <button class="btn-line" id="setNameBtn">👤 다이어리 이름 변경</button>
-    <button class="btn-line" id="setThemeBtn">🎨 오늘 페이지 테마</button>
+    <button class="btn-line" id="setCalBtn">📅 캘린더 등록 대상 설정</button>
+    <button class="btn-line" id="setThemeBtn" style="margin-top:10px">🎨 오늘 페이지 테마</button>
     <button class="btn-line" id="setFontBtn" style="margin-top:10px">✒️ 손글씨 글꼴 바꾸기</button>
     <button class="btn-line" id="setPrivPrintBtn" style="margin-top:10px">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
     <button class="btn-line" id="setPinBtn" style="margin-top:10px">📖 일기 비밀번호 설정 · 변경</button>
@@ -736,6 +737,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.add('hidden');
     $('appView').classList.remove('hidden');
     await loadName();
+    await loadCalTarget();
     await loadTheme();
     await loadHandFont();
     await loadPrivPrint();
@@ -1696,7 +1698,8 @@ function openCalendar(t, cat){
   const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
     + `&text=${encodeURIComponent(title)}`
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}`
-    + `&details=${encodeURIComponent((t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록'))}`;
+    + `&details=${encodeURIComponent((t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록'))}`
+    + (calTarget? `&src=${encodeURIComponent(calTarget)}` : '');
   window.open(url, '_blank');
 }
 
@@ -2683,6 +2686,31 @@ function attachBoxListeners(){
 }
 /* 저장이 끝나고 편집을 멈췄는데 대기 중인 원격 변경이 있으면 알림 유지 */
 window.addEventListener('focus', () => { if(navigator.onLine) syncPending(); });
+
+/* ═══════════════ 📅 캘린더 등록 대상 ═══════════════ */
+let calTarget = '';
+async function loadCalTarget(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/calTarget`).get(), 5000);
+    calTarget = snap.exists()? (snap.val()||'') : '';
+  }catch(e){
+    try{ calTarget = localStorage.getItem('calTarget') || ''; }catch(e2){}
+  }
+}
+$('setCalBtn').onclick = async () => {
+  const msg = '일정을 저장할 구글 캘린더 ID를 입력하세요.\n\n'
+    + '· 비워 두면 기본 캘린더에 저장됩니다\n'
+    + '· 확인 방법: 구글 캘린더 웹 → 왼쪽 내 캘린더 목록에서 원하는 캘린더 ⋮ → 설정 및 공유 →\n'
+    + '  "캘린더 통합" 항목의 캘린더 ID 복사\n'
+    + '· 보통 xxxxx@group.calendar.google.com 형태입니다';
+  const v = prompt(msg, calTarget || '');
+  if(v === null) return;
+  calTarget = v.trim();
+  try{ localStorage.setItem('calTarget', calTarget); }catch(e){}
+  try{ await db.ref(`diaries/${USER.uid}/settings/calTarget`).set(calTarget); }catch(e){}
+  toast(calTarget? '캘린더 등록 대상을 저장했어요' : '기본 캘린더로 되돌렸어요');
+  $('settingsMenu').classList.add('hidden');
+};
 
 /* ═══════════════ 🎨 오늘 페이지 테마 ═══════════════ */
 const THEMES = [
