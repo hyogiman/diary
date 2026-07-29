@@ -255,6 +255,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .due-chip{min-width:52px;padding:5px 9px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   font-size:.78rem;font-weight:700;color:var(--ink-soft)}
 .due-chip.over{color:#fff;background:var(--danger);border-color:var(--danger)}
+.due-chip.soon{color:#fff;background:var(--amber);border-color:var(--amber)}
+.pk-d{font-size:.72rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
+  border-radius:999px;padding:3px 8px;flex:none}
+.pk-d.soon{background:var(--amber);color:#fff}
+.pk-d.over{background:var(--danger);color:#fff}
 .due-wrap input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
 .note-btn{position:relative;width:30px;height:30px;border-radius:8px;font-size:1rem;color:var(--ink-soft);
   display:flex;align-items:center;justify-content:center}
@@ -952,6 +957,7 @@ function renderDate(){
   const d = new Date(curDate+'T12:00:00');
   $('ymdText').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
   $('datePick').value = curDate;
+  if(peekOpen) renderPeek();
   applyTheme();
   loadWeather();
 }
@@ -1331,6 +1337,7 @@ function switchTab(mode){
   if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
   if(sched){ schedDate = curDate; loadSchedule(); }
   if(goal){ if(!goalKey) goalKey = yearKey(curDate); renderGoals(); }
+  if(today && peekOpen) renderPeek();
 }
 $('prevYear').onclick = () => stepMonth(-1);
 $('nextYear').onclick = () => stepMonth(1);
@@ -2821,7 +2828,7 @@ $('fsDown').onclick = () => { handScale = Math.max(0.8, +(handScale-0.05).toFixe
 
 /* ═══════════════ 🔄 실시간 동기화 (다른 기기 변경 즉시 반영) ═══════════════ */
 let dayRefListening = null, dayCb = null, curTs = 0, lastSelfTs = 0, pendingRemote = null;
-let inboxCb = null, privCb = null;
+let inboxCb = null, privCb = null, goalCb = null;
 
 function isEditing(){
   const a = document.activeElement;
@@ -2832,6 +2839,7 @@ function detachAll(){
   dayRefListening = null; dayCb = null;
   if(inboxCb){ db.ref(`diaries/${USER.uid}/inbox`).off('value', inboxCb); inboxCb = null; }
   if(privCb){ db.ref(`diaries/${USER.uid}/priv`).off('value', privCb); privCb = null; }
+  if(goalCb){ db.ref(`diaries/${USER.uid}/goals`).off('value', goalCb); goalCb = null; }
   pendingRemote = null;
 }
 /* 보고 있는 날짜를 실시간 구독 */
@@ -2885,6 +2893,18 @@ function attachBoxListeners(){
       inbox = next; renderInbox();
     };
     db.ref(`diaries/${USER.uid}/inbox`).on('value', inboxCb);
+  }
+  if(!goalCb){
+    goalCb = snap => {
+      if(goalDirty || isEditing()) return;
+      const v = snap.exists()? (snap.val()||{}) : {};
+      ['year','month','week'].forEach(k => { if(!v[k]) v[k] = {}; });
+      if(JSON.stringify(v) === JSON.stringify(goals)) return;
+      goals = v;
+      if(!$('goalView').classList.contains('hidden')) renderGoals();
+      if(peekOpen) renderPeek();
+    };
+    db.ref(`diaries/${USER.uid}/goals`).on('value', goalCb);
   }
   if(!privCb){
     privCb = snap => {
@@ -3305,6 +3325,21 @@ function goalLabelOf(scope, key){
   const {mon, sun} = weekRange(key);
   return `${mon.getMonth()+1}/${mon.getDate()} ~ ${sun.getMonth()+1}/${sun.getDate()}`;
 }
+function dday(dueStr){
+  const a = new Date(todayStr()+'T00:00:00'), b = new Date(dueStr+'T00:00:00');
+  return Math.round((b - a)/86400000);
+}
+function ddayLabel(g){
+  if(!g.due) return '📅';
+  if(g.done) return `${+g.due.slice(5,7)}/${+g.due.slice(8,10)}`;
+  const n = dday(g.due);
+  return n === 0 ? 'D-DAY' : (n > 0 ? `D-${n}` : `D+${-n}`);
+}
+function ddayCls(g){
+  if(!g.due || g.done) return '';
+  const n = dday(g.due);
+  return n < 0 ? 'over' : (n <= 3 ? 'soon' : '');
+}
 const goalsOf = (scope, key) => (goals[scope] && goals[scope][key]) || [];
 
 async function loadGoals(){
@@ -3314,7 +3349,10 @@ async function loadGoals(){
   }catch(e){ goals = goals || {}; }
   ['year','month','week'].forEach(k => { if(!goals[k]) goals[k] = {}; });
 }
-function markGoals(){ goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800); }
+function markGoals(){
+  goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800);
+  if(peekOpen) renderPeek();                        // 목록 탭 🎯 내용도 즉시 갱신
+}
 async function saveGoals(){
   if(!goalDirty || !USER) return;
   goalDirty = false;
@@ -3378,6 +3416,10 @@ function renderGoals(){
       <div class="goal-row">
         <button class="chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
         <input class="goal-txt" value="${esc(g.text)}" placeholder="${goalScope==='year'?'올해 이루고 싶은 것':goalScope==='month'?'이 달의 목표':'이번 주 목표'}">
+        <span class="due-wrap">
+          <button class="due-chip ${ddayCls(g)}" title="${g.due||'마감일 지정'}">${ddayLabel(g)}</button>
+          <input type="date" value="${g.due||''}">
+        </span>
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
         </div>
@@ -3392,6 +3434,7 @@ function renderGoals(){
     el.querySelector('.goal-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
     const sel = el.querySelector('select');
     if(sel) sel.addEventListener('change', e => { g.parent = e.target.value; markGoals(); });
+    el.querySelector('.due-wrap input').addEventListener('change', e => { g.due = e.target.value; markGoals(); renderGoals(); });
     const [up, down, del] = el.querySelectorAll('.ctl button');
     up.onclick = () => { if(i>0){ [list[i-1],list[i]]=[list[i],list[i-1]]; markGoals(); renderGoals(); } };
     down.onclick = () => { if(i<list.length-1){ [list[i+1],list[i]]=[list[i],list[i+1]]; markGoals(); renderGoals(); } };
@@ -3400,9 +3443,20 @@ function renderGoals(){
   });
   if(!list.length) box.innerHTML = '<div class="empty-note">＋ 버튼으로 목표를 세워 보세요.</div>';
 }
+/* 기본 마감일 = 그 기간의 마지막 날 */
+function defaultGoalDue(){
+  const p2 = n => String(n).padStart(2,'0');
+  if(goalScope==='year') return `${goalKey}-12-31`;
+  if(goalScope==='month'){
+    const y = +goalKey.slice(0,4), m = +goalKey.slice(5,7);
+    return `${y}-${p2(m)}-${p2(new Date(y, m, 0).getDate())}`;
+  }
+  const {sun} = weekRange(goalKey);
+  return `${sun.getFullYear()}-${p2(sun.getMonth()+1)}-${p2(sun.getDate())}`;
+}
 $('goalAdd').onclick = () => {
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
-  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:''});
+  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', due:defaultGoalDue()});
   markGoals(); renderGoals();
   const ins = $('goalList').querySelectorAll('.goal-txt');
   if(ins.length) ins[ins.length-1].focus();
@@ -3418,7 +3472,9 @@ $('goalPeek').onclick = () => {
 function renderPeek(){
   const wk = goalsOf('week', weekKey(curDate));
   const mo = goalsOf('month', monthKey(curDate));
-  const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i><span>${esc(g.text||'(제목 없음)')}</span></div>`;
+  const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i>
+    <span style="flex:1">${esc(g.text||'(제목 없음)')}</span>
+    ${g.due? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>`:''}</div>`;
   $('goalPeekBox').innerHTML = `<div class="peek">
     <h4>🎯 이번 주 목표</h4>
     ${wk.length? wk.map(line).join('') : '<div class="none">아직 없어요 — 목표 탭에서 세워 보세요</div>'}
@@ -3431,6 +3487,7 @@ function renderPeek(){
       const arr = idx < wk.length ? wk : mo;
       const g = idx < wk.length ? wk[idx] : mo[idx - wk.length];
       g.done = !g.done; markGoals(); renderPeek();
+      if(!$('goalView').classList.contains('hidden')) renderGoals();
     };
   });
 }
