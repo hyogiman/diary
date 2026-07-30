@@ -176,6 +176,48 @@ input:focus,textarea:focus{outline-offset:0}
 #memoFiles{margin-top:12px}
 #memoFiles .thumb{width:min(240px,44vw);height:auto;aspect-ratio:4/3}
 
+
+/* ───────── 달력 (기록 탭) ───────── */
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.95rem;font-weight:800;color:var(--ink-soft);
+  text-align:center;padding:12px 0 10px}
+.cal-dow span{padding:2px 0;border-right:1px solid var(--rule)}
+.cal-dow span:last-child{border-right:none}
+.cal-dow span:first-child{color:var(--danger)}
+.cal-dow span:last-child{color:#3A6BC8}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:0;border-top:1.5px solid var(--rule)}
+.cal-cell{min-height:82px;padding:7px 4px 6px;background:transparent;font-family:inherit;
+  border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;text-align:center}
+.cal-cell:nth-child(7n){border-right:none}
+.cal-cell.pad{cursor:default}
+.cal-d{font-size:1.15rem;font-weight:800;line-height:1.1;color:var(--ink-soft)}
+.cal-cell.has{background:var(--paper-deep)}
+.cal-cell.has .cal-d{color:var(--accent-deep)}
+.cal-cell.sat .cal-d{color:#3A6BC8}
+.cal-cell.holi .cal-d{color:var(--danger)}
+.cal-cell.holi{background:#FBEBE6}
+.cal-cell.holi.has{background:#F7DED4}
+.cal-cell.today{box-shadow:inset 0 0 0 2.5px var(--accent);border-radius:4px}
+.cal-cell.has:hover,.cal-cell.none:hover{background:#FFE9C4}
+.cal-line{font-size:.74rem;font-weight:700;line-height:1.25;width:100%;
+  overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.cal-holi-name{color:var(--danger)}
+.cal-evt{color:var(--ink)}
+.cal-vac{color:#2E7D5B}
+.cal-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.cal.evt-mode .cal-cell.none,.cal.evt-mode .cal-cell.has{cursor:cell;outline:1px dashed var(--rule);outline-offset:-2px}
+.evt-hint{text-align:center;font-size:.8rem;font-weight:700;color:var(--accent-deep);padding:0 0 10px}
+.evt-icons{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 12px}
+.evt-icons button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--rule);
+  background:var(--surface);font-size:1.2rem;transition:.15s}
+.evt-icons button.on{border-color:var(--accent);background:var(--paper-deep);transform:scale(1.06)}
+body[data-theme="dark"] .cal-cell.holi,
+body[data-theme="forest"] .cal-cell.holi,
+body[data-theme="plum"] .cal-cell.holi{background:#4A2E2E}
+body[data-theme="dark"] .cal-cell.holi.has,
+body[data-theme="forest"] .cal-cell.holi.has,
+body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
+
 /* ───────── 기록(아카이브) ───────── */
 #archiveView{max-width:900px;margin:16px auto 60px;padding:0 26px}
 .year-row{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:14px}
@@ -523,41 +565,7 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .diary-card .dh b{font-family:'Jua';font-weight:400;color:var(--accent-deep);font-size:1.05rem}
 .diary-card .dtx{font-family:var(--hand);font-size:calc(1.25rem * var(--hand-size));line-height:1.5;color:var(--ink);
   display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
-.cal-cell .dbook{font-size:1.15rem;line-height:1}
-.cal.diary-mode .cal-cell.has{background:transparent}
-.cal.diary-mode .cal-cell.has-diary{background:var(--paper-deep)}
-.cal.diary-mode .cal-cell{gap:2px}
-.cal-cell{position:relative}
-.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.9rem;font-weight:800;color:var(--ink-soft);
-  text-align:center;padding:10px 6px 9px;border-bottom:1.5px solid var(--rule);margin-bottom:6px}
-.cal-dow span{padding:2px 0;border-right:1px solid var(--rule)}
-.cal-dow span:last-child{border-right:none}
-.cal-dow span:first-child{color:var(--danger)}
-.cal-dow span:last-child{color:#3A6BC8}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 6px 10px}
-.cal-cell{aspect-ratio:1;border:none;border-radius:10px;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:2px;font-weight:700;font-size:.92rem;color:#C7B49B;background:transparent;
-  font-family:inherit;position:relative}
-.cal-ring{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
-.cal-ring i{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-  font-style:normal;font-weight:800;font-size:.86rem;background:var(--card)}
-.cal-num{line-height:1}
-.cal-cnt{font-size:.6rem;font-weight:800;opacity:.75;line-height:1}
-.cal-holi{position:absolute;top:2px;left:3px;right:3px;font-size:.52rem;font-weight:800;color:var(--danger);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
-.cal-cell.sat{color:#3A6BC8}
-.cal-cell.holi{color:var(--danger)}
-.cal-cell.holi.has{background:#FBE7E2}
-.cal-cell.vac{box-shadow:inset 0 0 0 2px #4FA894}
-.cal-vac{position:absolute;bottom:2px;font-size:.55rem;font-weight:800;color:#2E7D5B}
-.cal-cell.none{color:var(--ink-soft);cursor:pointer}
-.cal-cell.has{background:var(--paper-deep);color:var(--accent-deep);cursor:pointer}
-.cal-cell.has:hover,.cal-cell.none:hover{background:#FFE9C4}
-.cal-cell.today{outline:2.5px solid var(--accent);outline-offset:-2px}
-.cal-cell.sun{color:#D9958A}.cal-cell.has.sun{color:var(--danger)}
-.cal-cell .bar{width:62%;height:4px;border-radius:99px;background:var(--paper-deep);overflow:hidden}
-.cal-cell .bar i{display:block;height:100%;background:var(--green)}
-.bignote{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+.cal-cell.sun{color:#D9958A}.bignote{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
   border-radius:12px;padding:14px;margin-bottom:12px}
 .bn-head{display:flex;gap:8px;align-items:center;margin-bottom:10px}
 .bn-title{flex:1;border:none;background:transparent;font-family:'Jua';font-size:1.15rem;color:var(--accent-deep);
@@ -914,12 +922,14 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     </div>
     <div class="arc-tools arc-tools-row">
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
+      <button class="mini-btn" id="evtBtn">🎂 이벤트</button>
       <span class="at-spacer"></span>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
     </div>
+    <div class="evt-hint hidden" id="evtHint">🎂 이벤트 모드 — 날짜를 누르면 배지와 메모를 넣을 수 있어요</div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
       <div class="cal-grid" id="calGrid"></div>
@@ -1032,6 +1042,19 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         </div>
       </div>
     </div>
+  </div>
+</div>
+<div id="evtModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:177;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:400px">
+    <h3 id="evtTitle">🎂 이벤트</h3>
+    <div class="evt-icons" id="evtIcons"></div>
+    <input id="evtText" placeholder="예: 와이프 생일"
+      style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:.98rem;text-align:center">
+    <div class="bk-btns">
+      <button class="btn-primary" id="evtSave">저장</button>
+      <button class="btn-line" id="evtClose">닫기</button>
+    </div>
+    <button class="btn-line" id="evtDel" style="margin-top:10px;color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 이벤트 삭제</button>
   </div>
 </div>
 <div id="vacModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:176;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -1191,6 +1214,7 @@ auth.onAuthStateChanged(async u => {
     await loadGoals();
     await loadBank();
     await loadVacs();
+    await loadEvents();
     await loadCalTarget();
     setTimeout(initGoogle, 800);
     await loadTheme();
@@ -1314,7 +1338,7 @@ async function saveNow(){
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
   }
 }
-async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); clearTimeout(vacTimer); await saveVacs(); }
+async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); clearTimeout(vacTimer); await saveVacs(); clearTimeout(evtTimer); await saveEvents(); }
 window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 
 /* ───────── 시트 렌더 ───────── */
@@ -1807,45 +1831,42 @@ async function renderArchive(){
   /* 달력 */
   const grid = $('calGrid'); grid.innerHTML = '';
   $('monthGrid').classList.toggle('diary-mode', arcDiary);
+  $('monthGrid').classList.toggle('evt-mode', evtMode);
   const firstDow = new Date(arcYear, +arcMonth-1, 1).getDay();
   const dim = new Date(arcYear, +arcMonth, 0).getDate();
-  for(let i=0;i<firstDow;i++){ const sp=document.createElement('div'); sp.className='cal-cell'; grid.appendChild(sp); }
+  for(let i=0;i<firstDow;i++){ const sp=document.createElement('div'); sp.className='cal-cell pad'; grid.appendChild(sp); }
   const tstr = todayStr();
   for(let d=1;d<=dim;d++){
     const dd = String(d).padStart(2,'0');
     const ds = `${arcYear}-${arcMonth}-${dd}`;
     const has = !!md[dd];
     const dow = new Date(arcYear, +arcMonth-1, d).getDay();
-    const holi = holidayOf(ds);                        // 공휴일 이름 or ''
-    const vac  = vacationOf(ds);                       // 휴가 라벨 or ''
+    const holi = holidayOf(ds);
+    const vac  = vacationOf(ds);
+    const evt  = eventOf(ds);
     const cell = document.createElement('button');
-    const isSun = dow===0, isSat = dow===6;
     cell.className = 'cal-cell ' + (has?'has':'none')
-      + (ds===tstr?' today':'') + (isSun||holi?' holi':'') + (isSat?' sat':'')
-      + (vac?' vac':'');
-    let inner = '';
-    if(arcDiary){
-      const v = normalize(md[dd]||{});
-      inner = `<span class="cal-num">${d}</span>` + (has && v.diary.trim()? '<span class="dbook">📖</span>':'');
-    }else if(has){
-      const v = normalize(md[dd]);
-      const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
-      const done = all.filter(t=>t.done).length;
-      const pct = all.length? Math.round(done/all.length*100) : 0;
-      const ringCol = pct===100? 'var(--green)' : (pct>0? 'var(--accent)' : 'var(--rule)');
-      inner = `<span class="cal-ring" style="background:conic-gradient(${ringCol} ${pct*3.6}deg, var(--paper-deep) 0)">
-          <i>${d}</i></span>`
-        + (all.length? `<span class="cal-cnt">${done}/${all.length}</span>` : '');
-    }else{
-      inner = `<span class="cal-num">${d}</span>`;
-    }
-    cell.innerHTML = (holi? `<span class="cal-holi">${esc(holi)}</span>`:'')
-      + inner
-      + (vac? `<span class="cal-vac">${esc(vac)}</span>`:'');
-    cell.title = [ds, holi, vac].filter(Boolean).join(' · ');
-    cell.onclick = () => { if(arcDiary){ openDiaryOn(ds); } else { switchTab('today'); loadDay(ds); } };
+      + (ds===tstr?' today':'') + (dow===0||holi?' holi':'') + (dow===6?' sat':'');
+    /* 아래 줄: 공휴일 → 내 이벤트 → 휴가 (최대 2줄까지 자동 말줄임) */
+    const lines = [];
+    if(holi) lines.push(`<span class="cal-line cal-holi-name">${esc(holi)}</span>`);
+    if(evt)  lines.push(`<span class="cal-line cal-evt">${esc((evt.icon||'') + (evt.icon&&evt.text? ' ':'') + (evt.text||''))}</span>`);
+    if(vac)  lines.push(`<span class="cal-line cal-vac">🏖 ${esc(vac)}</span>`);
+    if(arcDiary && has && normalize(md[dd]).diary.trim()) lines.push('<span class="cal-line">📖 일기</span>');
+    cell.innerHTML = `<span class="cal-d">${d}</span>` + lines.slice(0,2).join('')
+      + (has? '<span class="cal-dot"></span>':'');
+    cell.title = [ds, holi, evt? ((evt.icon||'')+' '+(evt.text||'')).trim() : '', vac? '휴가: '+vac : '']
+      .filter(Boolean).join(' · ');
+    cell.onclick = () => {
+      if(evtMode){ openEventEditor2(ds); return; }
+      if(arcDiary){ openDiaryOn(ds); return; }
+      switchTab('today'); loadDay(ds);
+    };
     grid.appendChild(cell);
   }
+
+  const rest = (7 - ((firstDow + dim) % 7)) % 7;
+  for(let i=0;i<rest;i++){ const sp=document.createElement('div'); sp.className='cal-cell pad'; grid.appendChild(sp); }
 
   /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
@@ -4493,6 +4514,71 @@ function renderVacList(){
     toast('휴가를 삭제했어요');
   });
 }
+
+/* ═══════════════ 🎂 달력 이벤트 (배지 + 한 줄 메모) ═══════════════ */
+const EVT_ICONS = ['🎂','🎉','🎁','❤️','💍','✈️','🏖','🏥','💊','🎓','🍽','☕','🚗','🏃','⚠️','📌','🔔','💰','🐶','🌸'];
+let dayEvents = {}, evtMode = false, evtDirty = false, evtTimer = null, evtDate = '', evtIcon = '🎂';
+
+const eventOf = ds => dayEvents[ds] || null;
+
+async function loadEvents(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/dayEvents`).get(), 5000);
+    dayEvents = snap.exists()? (snap.val()||{}) : {};
+  }catch(e){ dayEvents = dayEvents || {}; }
+}
+function markEvents(){ evtDirty = true; clearTimeout(evtTimer); evtTimer = setTimeout(saveEvents, 600); }
+async function saveEvents(){
+  if(!evtDirty || !USER) return;
+  evtDirty = false;
+  try{
+    if(Object.keys(dayEvents).length) await db.ref(`diaries/${USER.uid}/dayEvents`).set(JSON.parse(JSON.stringify(dayEvents)));
+    else await db.ref(`diaries/${USER.uid}/dayEvents`).remove();
+  }catch(e){ evtDirty = true; }
+}
+$('evtBtn').onclick = () => {
+  evtMode = !evtMode;
+  $('evtBtn').classList.toggle('active', evtMode);
+  $('evtHint').classList.toggle('hidden', !evtMode);
+  refreshArchive();
+};
+function renderEvtIcons(){
+  const box = $('evtIcons'); box.innerHTML = '';
+  EVT_ICONS.forEach(ic => {
+    const b = document.createElement('button');
+    b.textContent = ic;
+    if(ic === evtIcon) b.classList.add('on');
+    b.onclick = () => { evtIcon = ic; renderEvtIcons(); };
+    box.appendChild(b);
+  });
+}
+function openEventEditor2(ds){
+  evtDate = ds;
+  const cur = dayEvents[ds];
+  evtIcon = (cur && cur.icon) || '🎂';
+  const d = new Date(ds+'T12:00:00');
+  $('evtTitle').textContent = `🎂 ${d.getMonth()+1}월 ${d.getDate()}일 이벤트`;
+  $('evtText').value = (cur && cur.text) || '';
+  renderEvtIcons();
+  $('evtModal').classList.remove('hidden');
+  setTimeout(()=>$('evtText').focus(), 60);
+}
+$('evtClose').onclick = () => $('evtModal').classList.add('hidden');
+$('evtModal').addEventListener('click', e => { if(e.target.id==='evtModal') $('evtModal').classList.add('hidden'); });
+$('evtText').addEventListener('keydown', e => { if(e.key==='Enter') $('evtSave').click(); });
+$('evtSave').onclick = () => {
+  const txt = $('evtText').value.trim();
+  if(!txt && !evtIcon){ toast('내용을 입력해 주세요'); return; }
+  dayEvents[evtDate] = {icon:evtIcon, text:txt};
+  markEvents(); $('evtModal').classList.add('hidden');
+  refreshArchive(); toast('이벤트를 저장했어요');
+};
+$('evtDel').onclick = () => {
+  if(!dayEvents[evtDate]){ $('evtModal').classList.add('hidden'); return; }
+  delete dayEvents[evtDate];
+  markEvents(); $('evtModal').classList.add('hidden');
+  refreshArchive(); toast('이벤트를 삭제했어요');
+};
 </script>
 </body>
 </html>
