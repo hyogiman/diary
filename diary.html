@@ -213,6 +213,7 @@ input:focus,textarea:focus{outline-offset:0}
 .evt-icons button{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--rule);
   background:var(--surface);font-size:1.15rem;transition:.15s;display:flex;align-items:center;justify-content:center}
 .evt-icons button.on{border-color:var(--accent);background:var(--paper-deep);transform:scale(1.06)}
+.evt-icons button.custom-slot{border-style:dashed;border-color:var(--accent)}
 body[data-theme="dark"] .cal-cell.holi,
 body[data-theme="forest"] .cal-cell.holi,
 body[data-theme="plum"] .cal-cell.holi{background:#4A2E2E}
@@ -1219,6 +1220,7 @@ auth.onAuthStateChanged(async u => {
     await loadBank();
     await loadVacs();
     await loadEvents();
+    await loadCustomIcon();
     await loadCalTarget();
     setTimeout(initGoogle, 800);
     await loadTheme();
@@ -4556,9 +4558,20 @@ const EVT_ICONS = [
   ['🎣','낚시'], ['🚗','드라이브·나들이'], ['🌸','꽃놀이·산책'],
   /* 3줄 — 여가·생활 */
   ['🎬','영화·공연'], ['🎨','전시·박물관'], ['⚽','운동 경기'], ['🏃','운동·훈련'],
-  ['🏥','병원·검진'], ['🛠','수리·정비'], ['⚠️','중요·주의'],
+  ['🏥','병원·검진'], ['🛠','수리·정비'], ['__custom__','직접 입력'],
 ];
 let dayEvents = {}, evtDirty = false, evtTimer = null, evtDate = '', evtIcon = '🎂';
+let customIcon = '';                                  /* 사용자가 직접 넣은 배지 */
+async function loadCustomIcon(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/customEvtIcon`).get(), 5000);
+    customIcon = snap.exists()? (snap.val()||'') : '';
+  }catch(e){ try{ customIcon = localStorage.getItem('customEvtIcon') || ''; }catch(e2){} }
+}
+async function saveCustomIcon(){
+  try{ localStorage.setItem('customEvtIcon', customIcon); }catch(e){}
+  try{ await db.ref(`diaries/${USER.uid}/settings/customEvtIcon`).set(customIcon); }catch(e){}
+}
 
 const eventOf = ds => dayEvents[ds] || null;
 
@@ -4581,16 +4594,34 @@ function renderEvtIcons(){
   const box = $('evtIcons'); box.innerHTML = '';
   EVT_ICONS.forEach(([ic, label]) => {
     const b = document.createElement('button');
-    b.textContent = ic;
-    b.title = label;
-    if(ic === evtIcon) b.classList.add('on');
-    b.onclick = () => { evtIcon = ic; $('evtLabel').textContent = `${ic} ${label}`;
+    const isCustom = ic === '__custom__';
+    const shown = isCustom ? (customIcon || '✏️') : ic;
+    b.textContent = shown;
+    b.title = isCustom ? (customIcon? `직접 입력한 배지 (${customIcon}) — 누르면 변경` : '직접 입력 — 원하는 이모지를 넣으세요') : label;
+    if(isCustom) b.classList.add('custom-slot');
+    if(!isCustom && ic === evtIcon) b.classList.add('on');
+    if(isCustom && customIcon && evtIcon === customIcon) b.classList.add('on');
+    b.onclick = async () => {
+      if(isCustom){
+        const v = await askInput({
+          title:'✏️ 직접 입력', desc:'달력에 쓸 이모지나 기호를 넣어 주세요 (예: ⚠️ 🍺 ★)',
+          value: customIcon || ''
+        });
+        if(v === null) return;
+        const t = [...v.trim()].slice(0,4).join('');
+        if(!t){ toast('이모지나 기호를 입력해 주세요'); return; }
+        customIcon = t; evtIcon = t; saveCustomIcon();
+        renderEvtIcons(); return;
+      }
+      evtIcon = ic;
       if(!$('evtText').value.trim()) $('evtText').placeholder = `예: ${label}`;
-      renderEvtIcons(); };
+      renderEvtIcons();
+    };
     box.appendChild(b);
   });
   const cur = EVT_ICONS.find(([ic]) => ic === evtIcon);
-  $('evtLabel').textContent = cur? `${cur[0]} ${cur[1]}` : '';
+  $('evtLabel').textContent = cur ? `${cur[0]} ${cur[1]}`
+    : (evtIcon? `${evtIcon} 직접 입력한 배지` : '');
 }
 function openEventEditor2(ds){
   evtDate = ds;
