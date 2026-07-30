@@ -660,11 +660,9 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       </div>
       <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
       <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
-      <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
       <button class="icon-btn" id="diaryBtn" title="오늘의 일기">📖</button>
       <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
       <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
-      <button class="icon-btn" id="logoutBtn" title="잠그기">🔒</button>
     </div>
   </div>
 
@@ -861,6 +859,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       <button class="btn-line" id="setPrivPrintBtn">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
       <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
+      <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
     </div>
   </div>
@@ -1052,7 +1051,7 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.remove('hidden');
   }
 });
-$('logoutBtn').onclick = async () => { await flushSave(); detachAll(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+$('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden'); await flushSave(); detachAll(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
