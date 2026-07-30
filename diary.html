@@ -627,6 +627,79 @@ body[data-theme="kraft"] .paper::before{background:repeating-linear-gradient(180
 body[data-theme="kraft"] .inbox-wrap{background:#E2D5B7;border-color:#BFA97E}
 body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 
+/* ⑥ 민트 브리즈 */
+body[data-theme="mint"]{
+  --paper:#E9F5F1; --paper-deep:#D6EBE4; --card:#F6FCFA; --field:#FFFFFF; --surface:#FFFFFF;
+  --ink:#204A42; --ink-soft:#5F8A80; --accent:#1F8A76; --accent-deep:#166A5A;
+  --rule:#BFDDD5; --blue:#1F6E8A; --done:#93B5AD; --gray:#8FADA6;
+  background:radial-gradient(1200px 600px at 80% -10%, #DDF0EA 0%, transparent 60%),linear-gradient(#E6F3EF,#DAEBE5);
+}
+body[data-theme="mint"] .paper{border-color:#BFDDD5}
+body[data-theme="mint"] .paper::before{background:repeating-linear-gradient(180deg,#1F8A76 0 14px,transparent 14px 26px);opacity:.3}
+body[data-theme="mint"] .priv-wrap{background:#EAF0FA;border-color:#BCCBE8}
+
+/* ⑦ 로즈 코랄 */
+body[data-theme="rose"]{
+  --paper:#FCEEEA; --paper-deep:#F6DCD5; --card:#FFF7F5; --field:#FFFFFF; --surface:#FFFFFF;
+  --ink:#4E2E2A; --ink-soft:#8F6A64; --accent:#C85A52; --accent-deep:#A6423B;
+  --rule:#EDCCC4; --blue:#7A5AC8; --done:#C0A29C; --gray:#B09A95;
+  background:radial-gradient(1200px 600px at 80% -10%, #FBE2DB 0%, transparent 60%),linear-gradient(#FBEBE6,#F6DFD8);
+}
+body[data-theme="rose"] .paper{border-color:#EDCCC4}
+body[data-theme="rose"] .paper::before{background:repeating-linear-gradient(180deg,#C85A52 0 14px,transparent 14px 26px);opacity:.32}
+
+/* ⑧ 먹빛 한지 */
+body[data-theme="ink"]{
+  --paper:#F5F2EA; --paper-deep:#E7E2D5; --card:#FBF9F4; --field:#FFFFFF; --surface:#FFFFFF;
+  --ink:#2E2E2C; --ink-soft:#6F6E68; --accent:#3A3A38; --accent-deep:#1F1F1E;
+  --rule:#D8D3C6; --blue:#3D5A80; --done:#A8A49A; --gray:#98948B;
+  background:linear-gradient(#F6F3EB,#EFEBE0);
+}
+body[data-theme="ink"] .paper{border-color:#D8D3C6;box-shadow:0 8px 24px rgba(60,55,40,.10)}
+body[data-theme="ink"] .paper::before{background:repeating-linear-gradient(180deg,#3A3A38 0 14px,transparent 14px 26px);opacity:.22}
+
+/* ⑨ 딥 포레스트 */
+body[data-theme="forest"]{
+  --paper:#23302A; --paper-deep:#2E3E36; --card:#293830; --field:#1D2822; --surface:#2E3E36;
+  --ink:#E4EFE2; --ink-soft:#9CB79A; --accent:#8FCB7A; --accent-deep:#6FAE5C;
+  --rule:#3D4F44; --blue:#8FC0E8; --done:#7A8E78; --gray:#8AA188;
+  background:radial-gradient(1200px 600px at 80% -10%, #2C3E33 0%, transparent 60%),linear-gradient(#202C26,#1A241F);
+}
+body[data-theme="forest"] .paper{border-color:#3D4F44}
+body[data-theme="forest"] .paper::before{background:repeating-linear-gradient(180deg,#8FCB7A 0 14px,transparent 14px 26px);opacity:.3}
+body[data-theme="forest"] .st-wait{color:#9CB79A;border-color:#44574B;background:#2E3E36}
+body[data-theme="forest"] .st-doing{color:#A9CDEF;border-color:#3A5570;background:#28394A}
+body[data-theme="forest"] .st-hold{color:#EBCB84;border-color:#5E5330;background:#3B3826}
+body[data-theme="forest"] .st-done{color:#9BDCA6;border-color:#33613D;background:#25392B}
+body[data-theme="forest"] .inbox-wrap{background:#2C3B33;border-color:#556B5A}
+body[data-theme="forest"] .priv-wrap{background:#2E2E3C;border-color:#5A5080}
+body[data-theme="forest"] .priv-wrap .inbox-hint{color:#B5A6DC}
+body[data-theme="forest"] .tl-ev.gcal{background:#2C4A46;border-color:#5FBFA9;color:#CFEDE6}
+body[data-theme="forest"] .tl-ev.task{background:#3B4A2E;border-color:#8FCB7A;color:#E4EFE2}
+body[data-theme="forest"] ::placeholder{color:#6E8570}
+body[data-theme="forest"] #wxChip{color:#9CB79A}
+
+/* ⑩ 플럼 나이트 */
+body[data-theme="plum"]{
+  --paper:#2C2333; --paper-deep:#3A2F44; --card:#332941; --field:#241D2B; --surface:#3A2F44;
+  --ink:#F0E4EE; --ink-soft:#B79FB4; --accent:#E0A0B8; --accent-deep:#C67E99;
+  --rule:#4C3D57; --blue:#A9B4F0; --done:#8A7A90; --gray:#9C8AA2;
+  background:radial-gradient(1200px 600px at 80% -10%, #3C2C48 0%, transparent 60%),linear-gradient(#281F30,#201826);
+}
+body[data-theme="plum"] .paper{border-color:#4C3D57}
+body[data-theme="plum"] .paper::before{background:repeating-linear-gradient(180deg,#E0A0B8 0 14px,transparent 14px 26px);opacity:.3}
+body[data-theme="plum"] .st-wait{color:#B79FB4;border-color:#524262;background:#3A2F44}
+body[data-theme="plum"] .st-doing{color:#B9C2F5;border-color:#42497A;background:#2E3355}
+body[data-theme="plum"] .st-hold{color:#EEC79A;border-color:#63503A;background:#3F3428}
+body[data-theme="plum"] .st-done{color:#A5DCB6;border-color:#3A6148;background:#283C31}
+body[data-theme="plum"] .inbox-wrap{background:#382D42;border-color:#63527A}
+body[data-theme="plum"] .priv-wrap{background:#332A46;border-color:#6A5490}
+body[data-theme="plum"] .priv-wrap .inbox-hint{color:#C4AADC}
+body[data-theme="plum"] .tl-ev.gcal{background:#2E4A48;border-color:#63BFAE;color:#CFEDE6}
+body[data-theme="plum"] .tl-ev.task{background:#4A3140;border-color:#E0A0B8;color:#F0E4EE}
+body[data-theme="plum"] ::placeholder{color:#7E6C86}
+body[data-theme="plum"] #wxChip{color:#B79FB4}
+
 @media (max-width:640px){
   #dateNav{gap:6px;padding:0 10px}
   .date-chip{min-width:0;flex:1 1 auto;max-width:none;padding:9px 10px!important;overflow:hidden}
@@ -3296,6 +3369,11 @@ const THEMES = [
   {id:'dark',  name:'깊은 다크',     desc:'짙은 배경 + 앰버 포인트',     bg:'#26232D', dot:'#E0A33E'},
   {id:'white', name:'미니멀 화이트', desc:'흰 배경 + 가는 선, 담백하게', bg:'#FFFFFF', dot:'#D2542A'},
   {id:'kraft', name:'진한 크래프트', desc:'짙은 종이톤 + 딥그린',        bg:'#E9DEC6', dot:'#2F6B4F'},
+  {id:'mint',  name:'민트 브리즈',   desc:'맑은 민트 + 청록, 시원하게',  bg:'#E8F4F0', dot:'#1F8A76'},
+  {id:'rose',  name:'로즈 코랄',     desc:'따뜻한 살구빛 + 코랄 포인트', bg:'#FCEDE9', dot:'#C85A52'},
+  {id:'ink',   name:'먹빛 한지',     desc:'한지 바탕 + 먹색 글씨, 정갈', bg:'#F4F1E8', dot:'#3A3A38'},
+  {id:'forest',name:'딥 포레스트',   desc:'어두운 초록 + 라임 포인트',   bg:'#1F2A24', dot:'#8FCB7A'},
+  {id:'plum',  name:'플럼 나이트',   desc:'짙은 자주 + 살구 포인트',     bg:'#2A2130', dot:'#E0A0B8'},
 ];
 let todayTheme = '';
 function applyTheme(){
