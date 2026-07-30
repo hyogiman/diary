@@ -426,6 +426,10 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   resize:vertical;overflow:hidden;min-height:72px;font-family:inherit;color:var(--ink)}
 #goalPeekBox{max-width:900px;margin:10px auto 0;padding:0 26px}
 .peek{background:var(--card);border:1.5px solid var(--rule);border-radius:14px;padding:14px 16px;box-shadow:var(--shadow)}
+.peek.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.peek.two .peek-col:first-child{border-right:1.5px solid var(--rule);padding-right:14px}
+@media (max-width:640px){ .peek.two{grid-template-columns:1fr;gap:12px}
+  .peek.two .peek-col:first-child{border-right:none;border-bottom:1.5px solid var(--rule);padding-right:0;padding-bottom:12px} }
 .peek h4{font-family:'Jua';font-weight:400;color:var(--accent-deep);font-size:.92rem;margin-bottom:6px}
 .peek .pg{font-size:.86rem;padding:4px 0;display:flex;gap:7px;align-items:center}
 .peek .pg i{width:15px;height:15px;border-radius:5px;border:2px solid var(--accent);flex:none;
@@ -887,6 +891,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
           <button class="mini-btn active" data-g="year">🗓 연간</button>
           <button class="mini-btn" data-g="month">📅 월간</button>
           <button class="mini-btn" data-g="week">🎯 주간</button>
+          <button class="mini-btn" data-g="dday">⏳ D-Day</button>
         </div>
         <span id="goalCount" class="goal-count"></span>
       </div>
@@ -3445,7 +3450,7 @@ function attachBoxListeners(){
       if(goalDirty || isEditing()) return;
       let v = snap.exists()? (snap.val()||{}) : {};
       if(typeof v !== 'object' || Array.isArray(v)) v = {};
-      ['year','month','week'].forEach(k => { if(!v[k] || typeof v[k] !== 'object') v[k] = {}; });
+      ['year','month','week','dday'].forEach(k => { if(!v[k] || typeof v[k] !== 'object') v[k] = {}; });
       if(JSON.stringify(v) === JSON.stringify(goals)) return;
       goals = v;
       if(!$('goalView').classList.contains('hidden')) renderGoals();
@@ -3893,6 +3898,7 @@ function weekRange(key){                                     // 'YYYY-Www' → �
   return {mon, sun};
 }
 function goalLabelOf(scope, key){
+  if(scope==='dday') return '⏳ D-Day 목록';
   if(scope==='year') return `${key}년`;
   if(scope==='month') return `${+key.slice(0,4)}년 ${+key.slice(5,7)}월`;
   const {mon, sun} = weekRange(key);
@@ -3924,7 +3930,7 @@ function ddayCls(g){
 }
 function ensureGoals(){
   if(!goals || typeof goals !== 'object' || Array.isArray(goals)) goals = {};
-  ['year','month','week'].forEach(k => { if(!goals[k] || typeof goals[k] !== 'object') goals[k] = {}; });
+  ['year','month','week','dday'].forEach(k => { if(!goals[k] || typeof goals[k] !== 'object') goals[k] = {}; });
 }
 const goalsOf = (scope, key) => (goals && goals[scope] && goals[scope][key]) || [];
 
@@ -3947,7 +3953,9 @@ async function saveGoals(){
 }
 document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.onclick = () => {
   goalScope = b.dataset.g;
-  goalKey = goalScope==='year'? yearKey(curDate) : goalScope==='month'? monthKey(curDate) : weekKey(curDate);
+  goalKey = goalScope==='year'? yearKey(curDate)
+          : goalScope==='month'? monthKey(curDate)
+          : goalScope==='week'? weekKey(curDate) : 'all';
   renderGoals();
 });
 $('goalPrev').onclick = () => shiftGoal(-1);
@@ -3957,6 +3965,7 @@ $('goalNow').onclick = () => {
   renderGoals();
 };
 function shiftGoal(dir){
+  if(goalScope==='dday') return;
   if(goalScope==='year'){ goalKey = String(+goalKey + dir); }
   else if(goalScope==='month'){
     let y = +goalKey.slice(0,4), m = +goalKey.slice(5,7) + dir;
@@ -4003,7 +4012,7 @@ function childProgress(scope, parentId){
   return {all, done, pct: all? Math.round(done/all*100) : 0};
 }
 function parentOptions(scope){
-  if(scope==='year') return [];
+  if(scope==='year' || scope==='dday') return [];
   if(scope==='month') return (goals.year[goalKey.slice(0,4)]||[]).map(g=>({id:g.id, name:g.text}));
   const {mon} = weekRange(goalKey);
   const mk = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}`;
@@ -4057,12 +4066,17 @@ function renderGoals(){
   if(carried) toast(`반복 목표 ${carried}건을 이어받았어요`);
   document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.classList.toggle('active', b.dataset.g===goalScope));
   $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
+  const isDD = goalScope==='dday';
+  $('goalPrev').classList.toggle('hidden', isDD);
+  $('goalNext').classList.toggle('hidden', isDD);
+  $('goalNow').classList.toggle('hidden', isDD);
   const all = goalsOf(goalScope, goalKey);
-  const list = all.filter(g => !g.stopped);
+  let list = all.filter(g => !g.stopped);
+  if(goalScope==='dday') list = [...list].sort((a,b)=> (a.due||'9999').localeCompare(b.due||'9999'));
   const doneN = list.filter(g=>g.done).length;
   $('goalCount').textContent = list.length? `${list.length}개 중 ${doneN}개 달성` : '아직 목표가 없어요';
   const box = $('goalList'); box.innerHTML = '';
-  const opts = parentOptions(goalScope);
+  const opts = goalScope==='dday' ? [] : parentOptions(goalScope);
   list.forEach((g, i) => {
     const el = document.createElement('div');
     el.className = 'goal' + (g.done? ' done':'');
@@ -4078,7 +4092,7 @@ function renderGoals(){
           <input type="date" value="${g.due||''}">
         </span>
         <button class="note-btn g-memo" title="세부 내용">📝${(g.note||'').trim()? '<span class="dot"></span>':''}</button>
-        <button class="rep-btn ${g.repeat?'on':''}" title="${g.repeat? '반복 켜짐 — 다음 기간에 자동 생성':'반복 끄기 상태'}">🔁</button>
+        <button class="rep-btn ${goalScope==='dday'?'hidden':''} ${g.repeat?'on':''}" title="${g.repeat? '반복 켜짐 — 다음 기간에 자동 생성':'반복 끄기 상태'}">🔁</button>
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button><button class="del" title="삭제">✕</button>
         </div>
@@ -4170,6 +4184,7 @@ function renderGoals(){
 /* 기본 시작일 = 그 기간의 첫날 */
 function defaultGoalStart(){
   const p2 = n => String(n).padStart(2,'0');
+  if(goalScope==='dday') return todayStr();
   if(goalScope==='year') return `${goalKey}-01-01`;
   if(goalScope==='month') return `${goalKey}-01`;
   const {mon} = weekRange(goalKey);
@@ -4178,6 +4193,7 @@ function defaultGoalStart(){
 /* 기본 마감일 = 그 기간의 마지막 날 */
 function defaultGoalDue(){
   const p2 = n => String(n).padStart(2,'0');
+  if(goalScope==='dday') return todayStr();
   if(goalScope==='year') return `${goalKey}-12-31`;
   if(goalScope==='month'){
     const y = +goalKey.slice(0,4), m = +goalKey.slice(5,7);
@@ -4203,34 +4219,57 @@ $('goalPeek').onclick = () => {
   if(peekOpen) renderPeek();
 };
 function renderPeek(){
-  const wk = goalsOf('week', weekKey(curDate)).filter(g=>!g.stopped);
-  const mo = goalsOf('month', monthKey(curDate)).filter(g=>!g.stopped);
+  const wk = goalsOf('week', weekKey(curDate)).filter(g=>!g.stopped && (g.text||'').trim());
+  const mo = goalsOf('month', monthKey(curDate)).filter(g=>!g.stopped && (g.text||'').trim());
+  const dd = goalsOf('dday','all').filter(g=>!g.stopped && (g.text||'').trim() && !g.done)
+              .sort((a,b)=> (a.due||'9999').localeCompare(b.due||'9999'));
   const line = g => `<div class="pg ${g.done?'done':''}"><i class="${g.done?'on':''}">${g.done?'✔':''}</i>
     <span style="flex:1">${esc(g.text||'(제목 없음)')}${g.target>1? ` <b style="color:var(--accent-deep)">${g.count||0}/${g.target}</b>`:''}${
       (()=>{ const tp = taskProgress(g.seed||g.id, weekKey(curDate)); return tp.all? ` <b style="color:#2E7D5B">📔${tp.done}/${tp.all}</b>` : ''; })()}</span>
     ${g.due? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>`:''}</div>`;
-  $('goalPeekBox').innerHTML = `<div class="peek">
-    <h4>🎯 이번 주 목표</h4>
-    ${wk.length? wk.map(line).join('') : '<div class="none">아직 없어요 — 목표 탭에서 세워 보세요</div>'}
-    <h4 style="margin-top:12px">📅 이번 달 목표</h4>
-    ${mo.length? mo.map(line).join('') : '<div class="none">아직 없어요</div>'}
-  </div>`;
-  $('goalPeekBox').querySelectorAll('.pg').forEach((el, idx) => {
-    el.style.cursor = 'pointer';
-    el.onclick = () => {
-      const arr = idx < wk.length ? wk : mo;
-      const g = idx < wk.length ? wk[idx] : mo[idx - wk.length];
-      if(g.target > 1 && !g.done){
-        g.count = (g.count||0) + 1;
-        if(g.count >= g.target) g.done = true;
-      }else{
-        g.done = !g.done;
-        if(g.target > 1) g.count = g.done ? g.target : 0;
-      }
-      markGoals(); renderPeek();
-      if(!$('goalView').classList.contains('hidden')) renderGoals();
-    };
-  });
+  const ddLine = g => `<div class="pg"><span style="flex:1">${esc(g.text||'(제목 없음)')}</span>
+    <b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b></div>`;
+
+  const hasGoal = wk.length || mo.length;
+  const hasDD   = dd.length;
+  if(!hasGoal && !hasDD){
+    $('goalPeekBox').innerHTML = '<div class="peek"><div class="none" style="text-align:center">설정된 목표가 없습니다</div></div>';
+    return;
+  }
+  const goalCol = `<div class="peek-col">
+      <h4>🎯 이번 주 목표</h4>
+      ${wk.length? wk.map(line).join('') : '<div class="none">아직 없어요</div>'}
+      <h4 style="margin-top:12px">📅 이번 달 목표</h4>
+      ${mo.length? mo.map(line).join('') : '<div class="none">아직 없어요</div>'}
+    </div>`;
+  const ddCol = `<div class="peek-col">
+      <h4>⏳ D-Day</h4>
+      ${dd.slice(0,8).map(ddLine).join('')}
+      ${dd.length>8? `<div class="none">＋ ${dd.length-8}건 더</div>`:''}
+    </div>`;
+  $('goalPeekBox').innerHTML = `<div class="peek ${hasGoal&&hasDD? 'two':''}">`
+    + (hasGoal? goalCol : '') + (hasDD? ddCol : '') + '</div>';
+
+  /* 목표 줄 클릭 → 달성 체크 (D-Day 칸은 제외) */
+  const rows = [...$('goalPeekBox').querySelectorAll('.peek-col')][0];
+  if(hasGoal && rows){
+    rows.querySelectorAll('.pg').forEach((el, idx) => {
+      el.style.cursor = 'pointer';
+      el.onclick = () => {
+        const g = idx < wk.length ? wk[idx] : mo[idx - wk.length];
+        if(!g) return;
+        if(g.target > 1 && !g.done){
+          g.count = (g.count||0) + 1;
+          if(g.count >= g.target) g.done = true;
+        }else{
+          g.done = !g.done;
+          if(g.target > 1) g.count = g.done ? g.target : 0;
+        }
+        markGoals(); renderPeek();
+        if(!$('goalView').classList.contains('hidden')) renderGoals();
+      };
+    });
+  }
 }
 $('tabGoal').onclick = () => switchTab('goal');
 
