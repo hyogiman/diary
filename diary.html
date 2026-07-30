@@ -431,14 +431,14 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .bank-item .bp{font-size:.8rem;color:var(--ink-soft);margin-top:4px;line-height:1.45;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
 .bank-item .bd{font-size:.68rem;color:var(--ink-soft);opacity:.8;margin-top:5px}
-.be-top{display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap}
-.be-top .mini-btn:first-child{margin-right:auto}
+.be-foot{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
+.btn-primary.be-save{width:auto;padding:10px 26px;margin:0;font-size:.95rem}
 .be-title{width:100%;border:none;background:transparent;border-bottom:1.5px solid var(--rule);
   font-family:'Jua';font-weight:400;font-size:1.2rem;color:var(--accent-deep);padding:5px 3px;margin-bottom:11px}
 .be-body{width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface);
   padding:12px 13px;font-size:.93rem;line-height:1.65;resize:vertical;overflow:hidden;min-height:220px;
   font-family:inherit;color:var(--ink)}
-.be-when{font-size:.7rem;color:var(--ink-soft);text-align:right;margin-top:7px}
+.be-when{font-size:.7rem;color:var(--ink-soft);text-align:right;margin-top:8px}
 .ask-quick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
 .ask-quick button{font-size:.82rem;font-weight:700;padding:8px 14px;border-radius:999px;
   border:1.5px solid var(--rule);background:var(--surface);color:var(--accent-deep);transition:.15s}
@@ -660,7 +660,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
       </div>
       <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
       <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
-      <button class="icon-btn" id="memoBankBtn" title="장기 메모">🗄</button>
+      <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
       <button class="icon-btn" id="diaryBtn" title="오늘의 일기">📖</button>
       <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
       <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
@@ -887,7 +887,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
 <div id="bankModal" class="hidden">
   <div class="bank-panel">
     <div class="bank-head">
-      <b>🗄 장기 메모</b>
+      <b>📌 장기 메모</b>
       <span class="bank-sub">날짜와 무관하게 오래 보관할 내용</span>
       <button class="mini-btn" id="bankAdd">＋ 새 메모</button>
       <button class="icon-btn" id="bankClose" title="닫기">✕</button>
@@ -896,13 +896,13 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     <div class="bank-body">
       <div id="bankList"></div>
       <div id="bankView" class="hidden">
-        <div class="be-top">
-          <button class="mini-btn" id="bankBack">‹ 목록</button>
-          <button class="mini-btn" id="bankDel" style="color:var(--danger);border-color:#E4B3AA">🗑 삭제</button>
-        </div>
         <input id="bankTitle" class="be-title" placeholder="제목 (예: 사무실 출입 비번)">
         <textarea id="bankBody" class="be-body" placeholder="오래 기억해야 할 내용을 적어 두세요"></textarea>
         <div class="be-when" id="bankMeta"></div>
+        <div class="be-foot">
+          <button class="mini-btn" id="bankDel" style="color:var(--danger);border-color:#E4B3AA">🗑 삭제</button>
+          <button class="btn-primary be-save" id="bankBack">저장</button>
+        </div>
       </div>
     </div>
   </div>
@@ -2203,7 +2203,7 @@ async function doSearch(q){
   }
   if(bkLines.length){
     const bk = document.createElement('div'); bk.className = 'day-card';
-    bk.innerHTML = `<div class="dc-date"><div class="d">🗄</div><div class="w">장기메모</div></div>
+    bk.innerHTML = `<div class="dc-date"><div class="d">📌</div><div class="w">장기메모</div></div>
       <div class="dc-body">${bkLines.slice(0,5).map(l=>`<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('')}
       ${bkLines.length>5? `<div class="sr-line" style="color:var(--ink-soft)">＋ ${bkLines.length-5}건 더</div>`:''}</div>`;
     bk.onclick = () => {                                   // 눌러서 장기 메모 열기
