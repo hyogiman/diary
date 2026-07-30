@@ -415,6 +415,9 @@ body[data-theme="dark"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   font-family:inherit;line-height:1;transition:.15s}
 .time-badge:hover{border-color:var(--accent);background:var(--card)}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pr-ctl{flex:none;align-items:center}
+.ctl-gap{width:28px;flex:none;display:block}
+.off-prio,.on-prio{font-weight:800;color:var(--accent-deep)}
 .pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
   font-weight:800;font-size:.82rem;display:flex;align-items:center;justify-content:center}
 .up-row{width:100%;background:var(--surface);border:1.5px solid var(--rule);border-radius:10px;padding:9px 12px;margin-top:6px}
@@ -1153,6 +1156,15 @@ function renderCats(){
 }
 function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, files:[], open:false}; }
 /* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
+/* 실행 시간 표기: 09:30~10:30 */
+function timeRange(t){
+  if(!t.time) return '';
+  const [h,m] = t.time.split(':').map(Number);
+  const st = new Date(2000,0,1,h,m);
+  const en = new Date(st.getTime() + (t.dur||60)*60000);
+  const p2 = n => String(n).padStart(2,'0');
+  return `${t.time}~${p2(en.getHours())}:${p2(en.getMinutes())}`;
+}
 function taskOrder(list){
   return list.map((t,ti)=>({t,ti})).sort((a,b)=>{
     const ad = a.t.done?1:0, bd = b.t.done?1:0;
@@ -1182,7 +1194,7 @@ function taskRow(t, ctx){
     <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요">
     <div class="task-meta">
       ${t.goal && goalNameOf(t.goal)? `<button class="goal-tag" title="주간 목표: ${esc(goalNameOf(t.goal))}">🎯 ${esc(goalNameOf(t.goal))}</button>`:''}
-      ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${t.time}</button>`:''}
+      ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <span class="due-wrap">
         <button class="due-chip ${overdue?'over':''}" title="${t.due||'마감일 지정'}">${dueLabel}</button>
@@ -1191,7 +1203,7 @@ function taskRow(t, ctx){
       <button class="note-btn" title="퀵메모">📝${t.note.trim()? '<span class="dot"></span>':''}</button>
       <button class="clip-btn" title="첨부">📎${t.files.length? `<span class="cnt">${t.files.length}</span>`:''}</button>
       <div class="ctl">
-        ${(ctx.inbox && t.offPrio)? '<button class="on-prio" title="우선순위로 올리기">↑</button>':''}
+        ${(ctx.inbox && prioMode)? (t.offPrio? '<button class="on-prio" title="우선순위로 올리기">↑</button>' : '<span class="ctl-gap"></span>') : ''}
         <button class="del" title="삭제">✕</button>
       </div>
     </div>`;
@@ -1235,24 +1247,24 @@ function taskRow(t, ctx){
     const panel = document.createElement('div');
     panel.className = 'attach-panel';
     panel.innerHTML = `
+      <div class="ap-head" style="margin-bottom:8px">
+        <span class="ap-title">⏰ 실행 시간 <span style="font-weight:600;color:var(--ink-soft)">(오늘)</span></span>
+        <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
+        <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
+          ${DURS.map(([m,l])=>`<option value="${m}" ${t.dur===m?'selected':''}>${l}</option>`).join('')}
+        </select>
+        <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
+          ${[[-1,'알림 없음'],[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전']]
+            .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
+        </select>
+        <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
+        <button class="mini-btn ap-cal">📅 캘린더 ${t.gcalId? '수정':'등록'}</button>
+      </div>
       <div class="tg-row">
         <span class="ap-title">🎯 주간 목표</span>
         <select class="ap-goal">${weekGoalOptions(t.goal)}</select>
       </div>
       <textarea class="qnote" placeholder="퀵메모 — 진행 상황, 상세 내용, 특이사항을 적어 두세요">${esc(t.note)}</textarea>
-      <div class="ap-head" style="margin-bottom:8px">
-        <span class="ap-title">⏰ 실행 시간 <span style="font-weight:600;color:var(--ink-soft)">(이 날짜에 할 시각)</span></span>
-        <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
-        <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
-          ${DURS.map(([m,l])=>`<option value="${m}" ${t.dur===m?'selected':''}>${l}</option>`).join('')}
-        </select>
-        <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
-        <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
-          ${[[-1,'알림 없음'],[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전']]
-            .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
-        </select>
-        <button class="mini-btn ap-cal">📅 캘린더 ${t.gcalId? '수정':'등록'}</button>
-      </div>
       <div class="ap-head">
         <span class="ap-title">📎 첨부 (${t.files.length})</span>
         <button class="mini-btn ap-img">🖼 사진</button>
@@ -1267,7 +1279,7 @@ function taskRow(t, ctx){
     panel.querySelector('.ap-time').addEventListener('change', e => {
       t.time = e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
-      t.dur = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
+      t.dur = +e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-alarm').addEventListener('change', e => {
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
@@ -1588,7 +1600,7 @@ function buildA4(dateStr, data){
       const bb = t.note.trim()? 'border-bottom:none;' : '';
       rows += `<tr>
         <td style="width:58%;${bb}"><span class="box ${t.done?'on':''}" style="border-color:${col};${t.done?`background:${col}`:''}">${t.done?'✔':''}</span>
-          <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span>${t.time? ` <span style="font-size:12.5px;color:#C95F1D;font-weight:700">⏰${t.time}</span>`:''}${t.files.length? ' 📎':''}</td>
+          <span class="${t.done?'done-t':''}">－ ${esc(t.text)}</span>${t.time? ` <span style="font-size:12.5px;color:#C95F1D;font-weight:700">⏰${timeRange(t)}</span>`:''}${t.files.length? ' 📎':''}</td>
         <td style="width:10%;text-align:center;${bb}">${i+1}</td>
         <td style="width:14%;text-align:center;${bb}">${stMap[t.status]||''}</td>
         <td style="width:18%;text-align:center;${bb}">${t.due? (+t.due.slice(5,7))+'/'+(+t.due.slice(8,10)):''}</td>
@@ -2135,7 +2147,7 @@ function buildReport(){
     if(!ts.length && !c.name.trim()) return;
     out += `\n\n■ ${c.name.trim()||'(무제)'}`;
     ts.forEach(t => {
-      out += `\n - [${stMap[t.status]}] ${t.time? `${t.time} `:''}${t.text.trim()}${t.due? ` (마감 ~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
+      out += `\n - [${stMap[t.status]}] ${t.time? `${timeRange(t)} `:''}${t.text.trim()}${t.due? ` (마감 ~${+t.due.slice(5,7)}/${+t.due.slice(8,10)})`:''}`;
       if(t.note.trim()) out += `\n    · ${t.note.trim().replace(/\n/g,'\n    · ')}`;
     });
   });
@@ -2304,14 +2316,17 @@ function renderPrio(){
       <button class="chk" style="border-color:${col}" title="완료 체크"></button>
       <input class="task-text" value="${esc(t.text)}">
       <div class="task-meta">
-        ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${t.time}</button>`:''}
+        ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${timeRange(t)}</button>`:''}
         <span class="dr-cat" style="color:${col};border:1.5px ${c?'solid':'dashed'} ${col}88">${c? esc(label) : label}</span>
         <button class="status-chip ${st.cls}">${st.label}</button>
         <span class="due-wrap">
           <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
           <input type="date" value="${t.due}">
         </span>
-        <div class="ctl">${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>':''}<button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button></div>
+        <div class="ctl pr-ctl">
+          ${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>' : '<span class="ctl-gap"></span>'}
+          <button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button>
+        </div>
       </div>`;
     row.querySelector('.chk').onclick = () => {
       if(bx==='inbox'){ completeInbox(t, inbox.indexOf(t)); return; }
