@@ -324,10 +324,11 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .tl-hour{position:absolute;left:0;right:0;border-top:1px solid var(--rule)}
 .tl-hour span{position:absolute;left:2px;top:-11px;font-size:.86rem;font-weight:800;color:var(--ink-soft);
   background:var(--card);padding:0 3px;letter-spacing:-.02em}
-.tl-hour.half{border-top-style:dotted;opacity:.5}
+.tl-hour.half{border-top-style:dotted;opacity:.55}
+.tl-hour.quarter{border-top-style:dotted;opacity:.25}
 .tl-now{position:absolute;left:44px;right:0;height:0;border-top:2px solid var(--danger);z-index:5}
 .tl-now::before{content:'';position:absolute;left:-6px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--danger)}
-.tl-ev{position:absolute;left:44px;right:4px;border-radius:9px;padding:6px 9px;overflow:hidden;
+.tl-ev{position:absolute;left:44px;right:4px;border-radius:10px;padding:8px 10px;overflow:hidden;
   border-left:4px solid;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
 .tl-ev:hover{filter:brightness(.97)}
 .tl-ev .t{font-weight:700;font-size:.85rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -3254,7 +3255,7 @@ async function loadSchedule(force){
   }
 }
 function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
-const PXH = 120;                                   // 1시간 = 120px (15분 일정도 글씨가 들어가도록)
+const PXH = 220;                                   // 1시간 = 220px (15분 일정도 기존 30분 크기로)
 function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
 function renderSchedule(events, cachedTs){
   const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
@@ -3300,9 +3301,12 @@ function renderSchedule(events, cachedTs){
     line.innerHTML = `<span>${h}시</span>`;
     body.appendChild(line);
     if(h < h1){
-      const half = document.createElement('div');
-      half.className = 'tl-hour half'; half.style.top = ((h-h0)*PXH + PXH/2) + 'px';
-      body.appendChild(half);
+      [0.25, 0.5, 0.75].forEach(fr => {
+        const q = document.createElement('div');
+        q.className = 'tl-hour ' + (fr===0.5? 'half' : 'quarter');
+        q.style.top = ((h-h0)*PXH + PXH*fr) + 'px';
+        body.appendChild(q);
+      });
     }
   }
   const now = new Date();
@@ -3330,7 +3334,7 @@ function renderSchedule(events, cachedTs){
   const laneN = Math.max(1, lanes.length);
   items.forEach(it => {
     const top = (minOf(it.st) - h0*60) / 60 * PXH;
-    const hgt = Math.max(34, it.dur / 60 * PXH - 4);
+    const hgt = Math.max(44, it.dur / 60 * PXH - 5);
     const el = document.createElement('button');
     el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
     el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(44px + (100% - 50px) * ${it.lane/laneN});width:calc((100% - 50px) * ${1/laneN} - 4px);right:auto;`;
@@ -3344,7 +3348,7 @@ function renderSchedule(events, cachedTs){
     const sub = [catTxt, `🕘 ${timeTxt}`].filter(Boolean).join(' · ')
               + (it.loc? ` · 📍${esc(it.loc)}` : '');
     el.innerHTML = `<div class="t">${esc(bare)}</div>`
-      + (hgt > 46 ? `<div class="s">${sub}</div>` : '');
+      + (hgt > 44 ? `<div class="s">${sub}</div>` : '');
     el.title = `${timeTxt} ${bare}`;
     el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
     body.appendChild(el);
