@@ -208,7 +208,7 @@ input:focus,textarea:focus{outline-offset:0}
 .cal-evt{color:var(--ink)}
 .cal-vac{color:#2E7D5B}
 .cal-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.evt-hint{text-align:center;font-size:.76rem;font-weight:700;color:var(--ink-soft);padding:0 0 9px}
+.evt-hint{text-align:right;font-size:.74rem;font-weight:700;color:var(--ink-soft);padding:0 2px 12px;margin-top:-8px}
 .evt-icons{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0 10px}
 .evt-icons button{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--rule);
   background:var(--surface);font-size:1.15rem;transition:.15s;display:flex;align-items:center;justify-content:center}
@@ -933,11 +933,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
     </div>
-    <div class="evt-hint" id="evtHint">날짜 숫자를 누르면 그날 일지로 · 칸의 빈 곳을 누르면 이벤트 입력</div>
-    <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
+    <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:8px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
       <div class="cal-grid" id="calGrid"></div>
     </div>
+    <div class="evt-hint" id="evtHint">날짜 숫자를 누르면 그날 일지로 · 칸의 빈 곳을 누르면 이벤트 입력</div>
     <div class="day-list" id="dayList"></div>
   </div>
 </div>
