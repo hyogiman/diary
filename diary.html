@@ -469,6 +469,12 @@ body[data-theme="dark"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   font-family:inherit;line-height:1;transition:.15s}
 .time-badge:hover{border-color:var(--accent);background:var(--card)}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.pr-cat{flex:none;width:116px;display:flex;align-items:center;gap:5px;color:#fff;
+  border-radius:8px;padding:6px 9px;font-size:.76rem;font-weight:800;overflow:hidden}
+.pr-cat .pc-ico{flex:none;font-size:.82rem;line-height:1}
+.pr-cat .pc-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#prioList .task{flex-wrap:nowrap}
+#prioList .task-text{min-width:80px}
 .pr-ctl{flex:none;align-items:center}
 .ctl-gap{width:28px;flex:none;display:block}
 .off-prio,.on-prio{font-weight:800;color:var(--accent-deep)}
@@ -628,6 +634,7 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
   #wxChip{font-size:.7rem}
   .date-arrow{width:36px;height:36px;flex:none}
   .today-btn{padding:7px 10px;font-size:.78rem;flex:none}
+  .pr-cat{width:82px;padding:5px 7px;font-size:.7rem}
   #schedOpen{padding:11px 6px}
   #schedOpen .sh-txt{font-size:.68rem}
   .paper{padding:20px 14px 24px;border-radius:12px}
@@ -2452,6 +2459,7 @@ function renderPrio(){
   items.forEach(({c,t,box:bx}, i) => {
     const col = c? catColor(c) : (bx==='priv'? '#5C6BC0' : '#B08A5A');
     const label = c? (c.name.trim()||'무제') : (bx==='priv'? '개인용무' : '기타업무');
+    const icon = c? (c.priv? '🏠' : '📁') : (bx==='priv'? '🏠' : '📥');
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
@@ -2461,10 +2469,12 @@ function renderPrio(){
     row.innerHTML = `
       <span class="pr-rank">${i+1}</span>
       <button class="chk" style="border-color:${col}" title="완료 체크"></button>
+      <span class="pr-cat" style="background:${col}" title="${esc(label)}">
+        <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
+      </span>
       <input class="task-text" value="${esc(t.text)}">
       <div class="task-meta">
         ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${timeRange(t)}</button>`:''}
-        <span class="dr-cat" style="color:${col};border:1.5px ${c?'solid':'dashed'} ${col}88">${c? esc(label) : label}</span>
         <button class="status-chip ${st.cls}">${st.label}</button>
         <span class="due-wrap">
           <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
