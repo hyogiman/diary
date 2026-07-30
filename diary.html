@@ -392,6 +392,56 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   border-radius:999px;padding:3px 8px;flex:none}
 .pk-d.soon{background:var(--amber);color:#fff}
 .pk-d.over{background:var(--danger);color:#fff}
+.bank-card{background:var(--paper);border:1.5px solid var(--rule);border-radius:18px;box-shadow:var(--shadow);
+  width:100%;max-width:560px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.bank-head{display:flex;align-items:center;gap:8px;padding:16px 16px 12px;border-bottom:1.5px solid var(--rule);flex-wrap:wrap}
+.bank-head b{font-family:'Jua';font-weight:400;font-size:1.15rem;color:var(--accent-deep)}
+.bank-sub{flex:1;font-size:.72rem;color:var(--ink-soft)}
+.bank-search{padding:12px 16px 0}
+.bank-search input{width:100%;border:1.5px solid var(--rule);border-radius:999px;background:var(--field);
+  padding:10px 15px;font-size:.9rem;color:var(--ink)}
+.bank-body{flex:1;overflow-y:auto;padding:12px 16px 16px}
+.bank-item{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:12px;padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:.15s;text-align:left;
+  width:100%;font-family:inherit;display:block}
+.bank-item:hover{box-shadow:var(--shadow);border-color:#E8B27C}
+.bank-item .bt{font-weight:800;font-size:.96rem;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bank-item .bp{font-size:.79rem;color:var(--ink-soft);margin-top:3px;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.bank-item .bd{font-size:.68rem;color:var(--ink-soft);margin-top:5px;opacity:.85}
+.bank-view-head{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+#bankTitle{flex:1;min-width:0;border:none;background:transparent;border-bottom:1.5px dashed var(--rule);
+  font-family:'Jua';font-size:1.08rem;color:var(--accent-deep);padding:4px 2px}
+#bankBody{width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface);
+  padding:12px 13px;font-size:.93rem;line-height:1.6;resize:vertical;overflow:hidden;min-height:240px;
+  font-family:inherit;color:var(--ink)}
+.bank-meta{font-size:.7rem;color:var(--ink-soft);margin-top:8px;text-align:right}
+#bankModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:172;display:flex;align-items:center;justify-content:center;padding:16px}
+.bank-panel{background:var(--paper);border:1.5px solid var(--rule);border-radius:18px;box-shadow:var(--shadow);
+  width:min(620px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.bank-head{display:flex;align-items:center;gap:9px;padding:15px 16px 12px;border-bottom:1.5px solid var(--rule);flex-wrap:wrap}
+.bank-head b{font-family:'Jua';font-weight:400;font-size:1.15rem;color:var(--accent-deep)}
+.bank-sub{flex:1;font-size:.74rem;color:var(--ink-soft);min-width:90px}
+.bank-search{padding:12px 16px 0}
+.bank-search input{width:100%;border:1.5px solid var(--rule);border-radius:999px;background:var(--field);
+  padding:10px 15px;font-size:.9rem}
+.bank-body{flex:1;overflow-y:auto;padding:12px 16px 18px}
+.bank-item{background:var(--card);border:1.5px solid var(--rule);border-left:4px solid var(--accent);
+  border-radius:12px;padding:12px 14px;margin-bottom:9px;cursor:pointer;transition:.15s;
+  text-align:left;width:100%;font-family:inherit}
+.bank-item:hover{border-color:#E8B27C;box-shadow:0 3px 10px rgba(120,80,40,.12)}
+.bank-item .bt{font-weight:800;font-size:.95rem;color:var(--ink)}
+.bank-item .bp{font-size:.8rem;color:var(--ink-soft);margin-top:4px;line-height:1.45;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.bank-item .bd{font-size:.68rem;color:var(--ink-soft);opacity:.8;margin-top:5px}
+.be-top{display:flex;gap:7px;margin-bottom:11px;flex-wrap:wrap}
+.be-top .mini-btn:first-child{margin-right:auto}
+.be-title{width:100%;border:none;background:transparent;border-bottom:1.5px solid var(--rule);
+  font-family:'Jua';font-weight:400;font-size:1.2rem;color:var(--accent-deep);padding:5px 3px;margin-bottom:11px}
+.be-body{width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface);
+  padding:12px 13px;font-size:.93rem;line-height:1.65;resize:vertical;overflow:hidden;min-height:220px;
+  font-family:inherit;color:var(--ink)}
+.be-when{font-size:.7rem;color:var(--ink-soft);text-align:right;margin-top:7px}
 .ask-quick{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px}
 .ask-quick button{font-size:.82rem;font-weight:700;padding:8px 14px;border-radius:999px;
   border:1.5px solid var(--rule);background:var(--surface);color:var(--accent-deep);transition:.15s}
@@ -611,7 +661,9 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
         <button class="tab" id="tabGoal">목표</button>
         <button class="tab" id="tabArchive">기록</button>
       </div>
+      <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
       <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
+      <button class="icon-btn" id="memoBankBtn" title="장기 메모">🗄</button>
       <button class="icon-btn" id="diaryBtn" title="오늘의 일기">📖</button>
       <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
       <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
@@ -835,6 +887,29 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
     <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
   </div>
 </div>
+<div id="bankModal" class="hidden">
+  <div class="bank-panel">
+    <div class="bank-head">
+      <b>🗄 장기 메모</b>
+      <span class="bank-sub">날짜와 무관하게 오래 보관할 내용</span>
+      <button class="mini-btn" id="bankAdd">＋ 새 메모</button>
+      <button class="icon-btn" id="bankClose" title="닫기">✕</button>
+    </div>
+    <div class="bank-search"><input id="bankSearch" placeholder="🔍 제목·내용 검색" autocomplete="off"></div>
+    <div class="bank-body">
+      <div id="bankList"></div>
+      <div id="bankView" class="hidden">
+        <div class="be-top">
+          <button class="mini-btn" id="bankBack">‹ 목록</button>
+          <button class="mini-btn" id="bankDel" style="color:var(--danger);border-color:#E4B3AA">🗑 삭제</button>
+        </div>
+        <input id="bankTitle" class="be-title" placeholder="제목 (예: 사무실 출입 비번)">
+        <textarea id="bankBody" class="be-body" placeholder="오래 기억해야 할 내용을 적어 두세요"></textarea>
+        <div class="be-when" id="bankMeta"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <div id="askModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:190;display:flex;align-items:center;justify-content:center;padding:16px">
   <div class="bk-card" style="max-width:400px">
     <h3 id="askTitle">입력</h3>
@@ -965,6 +1040,7 @@ auth.onAuthStateChanged(async u => {
     $('appView').classList.remove('hidden');
     await loadName();
     await loadGoals();
+    await loadBank();
     await loadCalTarget();
     setTimeout(initGoogle, 800);
     await loadTheme();
@@ -1088,7 +1164,7 @@ async function saveNow(){
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
   }
 }
-async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); }
+async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); }
 window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 
 /* ───────── 시트 렌더 ───────── */
@@ -3004,6 +3080,7 @@ function detachAll(){
   if(inboxCb){ db.ref(`diaries/${USER.uid}/inbox`).off('value', inboxCb); inboxCb = null; }
   if(privCb){ db.ref(`diaries/${USER.uid}/priv`).off('value', privCb); privCb = null; }
   if(goalCb){ db.ref(`diaries/${USER.uid}/goals`).off('value', goalCb); goalCb = null; }
+  if(bankCb){ db.ref(`diaries/${USER.uid}/bank`).off('value', bankCb); bankCb = null; }
   pendingRemote = null;
 }
 /* 보고 있는 날짜를 실시간 구독 */
@@ -3057,6 +3134,18 @@ function attachBoxListeners(){
       inbox = next; renderInbox();
     };
     db.ref(`diaries/${USER.uid}/inbox`).on('value', inboxCb);
+  }
+  if(!bankCb){
+    bankCb = snap => {
+      if(bankDirty || isEditing()) return;
+      const v = snap.exists()? snap.val() : [];
+      const next = (Array.isArray(v)? v : Object.values(v||{})).map(b => ({
+        id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now() }));
+      if(JSON.stringify(next) === JSON.stringify(bank)) return;
+      bank = next;
+      if(!$('bankModal').classList.contains('hidden') && !bankCur) renderBankList();
+    };
+    db.ref(`diaries/${USER.uid}/bank`).on('value', bankCb);
   }
   if(!goalCb){
     goalCb = snap => {
@@ -3905,6 +3994,98 @@ $('goalPrint').onclick = async () => {
     }
   }catch(e){ $('exportStage').innerHTML=''; toast('출력 실패: '+e.message); }
 };
+
+/* ═══════════════ 🗄 장기 메모 (날짜 무관 · 목록 + 검색) ═══════════════ */
+let bank = [], bankTimer = null, bankDirty = false, bankCur = null, bankQ = '', bankCb = null;
+
+async function loadBank(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/bank`).get(), 5000);
+    const v = snap.exists()? snap.val() : [];
+    bank = (Array.isArray(v)? v : Object.values(v||{})).map(b => ({
+      id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now()
+    }));
+  }catch(e){ bank = bank || []; }
+}
+function markBank(){ bankDirty = true; clearTimeout(bankTimer); bankTimer = setTimeout(saveBank, 800); }
+async function saveBank(){
+  if(!bankDirty || !USER) return;
+  bankDirty = false;
+  try{
+    if(bank.length) await db.ref(`diaries/${USER.uid}/bank`).set(JSON.parse(JSON.stringify(bank)));
+    else await db.ref(`diaries/${USER.uid}/bank`).remove();
+  }catch(e){ bankDirty = true; }
+}
+function renderBankList(){
+  const box = $('bankList'); box.innerHTML = '';
+  $('bankList').classList.remove('hidden');
+  $('bankView').classList.add('hidden');
+  const q = bankQ.trim().toLowerCase();
+  const list = bank
+    .filter(b => !q || (b.title+' '+b.body).toLowerCase().includes(q))
+    .sort((a,b) => (b.ts||0) - (a.ts||0));
+  if(!list.length){
+    box.innerHTML = `<div class="empty-note">${q? `'${esc(bankQ)}'에 해당하는 메모가 없어요.` : '＋ 새 메모로 오래 기억할 내용을 적어 두세요.<br>사무실 비번, 업무 절차, 참고 정보 같은 것들이요.'}</div>`;
+    return;
+  }
+  list.forEach(b => {
+    const el = document.createElement('button');
+    el.className = 'bank-item';
+    const hi = txt => q? hl(txt, bankQ) : esc(txt);
+    el.innerHTML = `<div class="bt">${hi(b.title||'(제목 없음)')}</div>
+      ${b.body.trim()? `<div class="bp">${q? hl(snippet(b.body, bankQ), bankQ) : esc(b.body.trim())}</div>`:''}
+      <div class="bd">${new Date(b.ts||Date.now()).toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric'})} 수정</div>`;
+    el.onclick = () => openBankItem(b.id);
+    box.appendChild(el);
+  });
+}
+function openBankItem(id){
+  const b = bank.find(x => x.id === id);
+  if(!b) return;
+  bankCur = id;
+  $('bankList').classList.add('hidden');
+  $('bankView').classList.remove('hidden');
+  $('bankTitle').value = b.title;
+  const ta = $('bankBody');
+  ta.value = b.body;
+  grow(ta, 240);
+  $('bankMeta').textContent = `마지막 수정 ${new Date(b.ts||Date.now()).toLocaleString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+}
+$('memoBankBtn').onclick = () => { bankQ=''; $('bankSearch').value=''; renderBankList(); $('bankModal').classList.remove('hidden'); };
+$('bankClose').onclick = () => {
+  $('bankModal').classList.add('hidden'); bankCur = null;
+  clearTimeout(bankTimer); saveBank();                    // 저장은 뒤에서
+};
+$('bankModal').addEventListener('click', e => { if(e.target.id==='bankModal') $('bankClose').onclick(); });
+$('bankBack').onclick = () => {
+  bankCur = null; renderBankList();
+  clearTimeout(bankTimer); saveBank();
+};
+$('bankAdd').onclick = () => {
+  const b = {id:uid8(), title:'', body:'', ts:Date.now()};
+  bank.push(b); markBank();
+  openBankItem(b.id);
+  $('bankTitle').focus();
+};
+$('bankSearch').addEventListener('input', e => { bankQ = e.target.value; renderBankList(); });
+$('bankTitle').addEventListener('input', e => {
+  const b = bank.find(x => x.id === bankCur); if(!b) return;
+  b.title = e.target.value; b.ts = Date.now(); markBank();
+});
+$('bankBody').addEventListener('input', e => {
+  const b = bank.find(x => x.id === bankCur); if(!b) return;
+  b.body = e.target.value; b.ts = Date.now(); markBank(); grow(e.target, 240);
+});
+$('bankBody').addEventListener('focus', e => grow(e.target, 240));
+$('bankBody').addEventListener('click', e => grow(e.target, 240));
+$('bankDel').onclick = () => {
+  const b = bank.find(x => x.id === bankCur); if(!b) return;
+  if(!(!b.title.trim() && !b.body.trim()) && !confirm(`"${b.title.trim()||'제목 없음'}" 메모를 삭제할까요?`)) return;
+  bank = bank.filter(x => x.id !== bankCur);
+  bankCur = null; markBank(); renderBankList();
+  toast('메모를 삭제했어요');
+};
+
 </script>
 </body>
 </html>
