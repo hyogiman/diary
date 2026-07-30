@@ -505,6 +505,11 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .priv-wrap .inbox-hint{color:#7B5FA8}
 #inboxArrow,#privArrow{font-size:.76rem;font-weight:700;color:var(--ink-soft);font-family:Pretendard,sans-serif}
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
+.arc-tools-row{justify-content:flex-start;align-items:center}
+.at-spacer{flex:1;min-width:6px}
+.vac-row{display:flex;align-items:center;gap:8px;font-size:.8rem;background:var(--card);
+  border:1.5px solid var(--rule);border-radius:9px;padding:7px 10px;margin-bottom:6px}
+.vac-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pin-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap}
 .pin-label{font-weight:800;color:var(--accent-deep);font-size:.92rem}
 .pin-in{width:120px;text-align:center;font-size:1.25rem;letter-spacing:.35em;padding:9px 8px;
@@ -523,12 +528,28 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .cal.diary-mode .cal-cell.has-diary{background:var(--paper-deep)}
 .cal.diary-mode .cal-cell{gap:2px}
 .cal-cell{position:relative}
-.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.72rem;font-weight:800;color:var(--ink-soft);
-  text-align:center;padding:4px 6px 10px}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);font-size:.9rem;font-weight:800;color:var(--ink-soft);
+  text-align:center;padding:10px 6px 9px;border-bottom:1.5px solid var(--rule);margin-bottom:6px}
+.cal-dow span{padding:2px 0;border-right:1px solid var(--rule)}
+.cal-dow span:last-child{border-right:none}
 .cal-dow span:first-child{color:var(--danger)}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;padding:0 6px 8px}
+.cal-dow span:last-child{color:#3A6BC8}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;padding:0 6px 10px}
 .cal-cell{aspect-ratio:1;border:none;border-radius:10px;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:3px;font-weight:700;font-size:.92rem;color:#C7B49B;background:transparent;font-family:inherit}
+  justify-content:center;gap:2px;font-weight:700;font-size:.92rem;color:#C7B49B;background:transparent;
+  font-family:inherit;position:relative}
+.cal-ring{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex:none}
+.cal-ring i{width:25px;height:25px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-style:normal;font-weight:800;font-size:.86rem;background:var(--card)}
+.cal-num{line-height:1}
+.cal-cnt{font-size:.6rem;font-weight:800;opacity:.75;line-height:1}
+.cal-holi{position:absolute;top:2px;left:3px;right:3px;font-size:.52rem;font-weight:800;color:var(--danger);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.cal-cell.sat{color:#3A6BC8}
+.cal-cell.holi{color:var(--danger)}
+.cal-cell.holi.has{background:#FBE7E2}
+.cal-cell.vac{box-shadow:inset 0 0 0 2px #4FA894}
+.cal-vac{position:absolute;bottom:2px;font-size:.55rem;font-weight:800;color:#2E7D5B}
 .cal-cell.none{color:var(--ink-soft);cursor:pointer}
 .cal-cell.has{background:var(--paper-deep);color:var(--accent-deep);cursor:pointer}
 .cal-cell.has:hover,.cal-cell.none:hover{background:#FFE9C4}
@@ -891,10 +912,12 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <div class="year-label" id="yearLabel">2026년</div>
       <button class="date-arrow" id="nextYear">▶</button>
     </div>
-    <div class="arc-tools">
-      <button class="mini-btn" id="backupBtn">💾 백업</button>
+    <div class="arc-tools arc-tools-row">
+      <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
+      <span class="at-spacer"></span>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
+      <button class="mini-btn" id="backupBtn">💾 백업</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
     </div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
@@ -1009,6 +1032,31 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         </div>
       </div>
     </div>
+  </div>
+</div>
+<div id="vacModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:176;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:430px">
+    <h3>🏖 휴가 입력</h3>
+    <div class="ev-field"><label>유형</label>
+      <select id="vacType">
+        <option value="full">당일·장기 휴가 (종일)</option>
+        <option value="amHalf">반일 휴가 — 오전 (09:00~14:00)</option>
+        <option value="pmHalf">반일 휴가 — 오후 (14:00~18:00)</option>
+        <option value="quarter">반반차 휴가 (2시간, 시각 선택)</option>
+      </select></div>
+    <div class="ev-field"><label>시작일</label><input type="date" id="vacStart"></div>
+    <div class="ev-field" id="vacEndRow"><label>종료일</label><input type="date" id="vacEnd"></div>
+    <div class="ev-field hidden" id="vacTimeRow"><label>시작<br>시각</label><input type="time" id="vacTime" value="16:00"></div>
+    <div class="ev-field" style="align-items:flex-start"><label>휴가<br>계획</label>
+      <textarea id="vacNote" placeholder="어디서 무엇을 할 계획인지 (선택)"
+        style="flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);
+        padding:10px 12px;font-size:.9rem;line-height:1.5;resize:vertical;min-height:70px;font-family:inherit;color:var(--ink)"></textarea></div>
+    <div id="vacPreview" style="font-size:.8rem;font-weight:700;color:var(--accent-deep);text-align:center;margin:4px 0 2px"></div>
+    <div class="bk-btns">
+      <button class="btn-primary" id="vacSave">캘린더에 등록</button>
+      <button class="btn-line" id="vacClose">닫기</button>
+    </div>
+    <div id="vacList" style="margin-top:14px"></div>
   </div>
 </div>
 <div id="askModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:190;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -1142,6 +1190,7 @@ auth.onAuthStateChanged(async u => {
     await loadName();
     await loadGoals();
     await loadBank();
+    await loadVacs();
     await loadCalTarget();
     setTimeout(initGoogle, 800);
     await loadTheme();
@@ -1265,7 +1314,7 @@ async function saveNow(){
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
   }
 }
-async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); }
+async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); clearTimeout(vacTimer); await saveVacs(); }
 window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 
 /* ───────── 시트 렌더 ───────── */
@@ -1751,6 +1800,7 @@ async function renderArchive(){
   $('monthGrid').classList.remove('hidden');
   if(!arcMonth) arcMonth = curDate.slice(5,7);
   $('yearLabel').textContent = `${arcYear}년 ${+arcMonth}월`;
+  loadHolidays(arcYear);
   const yd = await getYear(arcYear);
   const md = yd[arcMonth] || {};
 
@@ -1766,30 +1816,36 @@ async function renderArchive(){
     const ds = `${arcYear}-${arcMonth}-${dd}`;
     const has = !!md[dd];
     const dow = new Date(arcYear, +arcMonth-1, d).getDay();
+    const holi = holidayOf(ds);                        // 공휴일 이름 or ''
+    const vac  = vacationOf(ds);                       // 휴가 라벨 or ''
     const cell = document.createElement('button');
-    const hasDiary = has && arcDiary && (normalize(md[dd]).diary||'').trim();
-    cell.className = 'cal-cell ' + (has?'has':'none') + (hasDiary?' has-diary':'') + (ds===tstr?' today':'') + (dow===0?' sun':'');
-    let mark = '';
-    if(has){
+    const isSun = dow===0, isSat = dow===6;
+    cell.className = 'cal-cell ' + (has?'has':'none')
+      + (ds===tstr?' today':'') + (isSun||holi?' holi':'') + (isSat?' sat':'')
+      + (vac?' vac':'');
+    let inner = '';
+    if(arcDiary){
+      const v = normalize(md[dd]||{});
+      inner = `<span class="cal-num">${d}</span>` + (has && v.diary.trim()? '<span class="dbook">📖</span>':'');
+    }else if(has){
       const v = normalize(md[dd]);
-      if(arcDiary){
-        if(v.diary.trim()) mark = '<span class="dbook">📖</span>';
-      }else{
-        const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
-        const pct = all.length? Math.round(all.filter(t=>t.done).length/all.length*100) : 0;
-        mark = `<span class="bar"><i style="width:${pct}%"></i></span>`;
-      }
+      const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
+      const done = all.filter(t=>t.done).length;
+      const pct = all.length? Math.round(done/all.length*100) : 0;
+      const ringCol = pct===100? 'var(--green)' : (pct>0? 'var(--accent)' : 'var(--rule)');
+      inner = `<span class="cal-ring" style="background:conic-gradient(${ringCol} ${pct*3.6}deg, var(--paper-deep) 0)">
+          <i>${d}</i></span>`
+        + (all.length? `<span class="cal-cnt">${done}/${all.length}</span>` : '');
+    }else{
+      inner = `<span class="cal-num">${d}</span>`;
     }
-    cell.innerHTML = `${d}${mark}`;
-    cell.title = has? `${ds} 기록 열기` : `${ds} 새로 기록하기`;
-    cell.onclick = () => { if(arcDiary){ openDiaryOn(ds); } else { switchTab(true); loadDay(ds); } };
+    cell.innerHTML = (holi? `<span class="cal-holi">${esc(holi)}</span>`:'')
+      + inner
+      + (vac? `<span class="cal-vac">${esc(vac)}</span>`:'');
+    cell.title = [ds, holi, vac].filter(Boolean).join(' · ');
+    cell.onclick = () => { if(arcDiary){ openDiaryOn(ds); } else { switchTab('today'); loadDay(ds); } };
     grid.appendChild(cell);
   }
-
-  $('arcDoneBtn').classList.toggle('active', arcDone);
-  $('arcDiaryBtn').classList.toggle('active', arcDiary);
-  if(arcDone){ renderArcDone(yd); return; }
-  if(arcDiary){ renderArcDiary(md); return; }
 
   /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
@@ -4289,6 +4345,154 @@ $('bankDel').onclick = () => {
   toast('메모를 삭제했어요');
 };
 
+
+/* ═══════════════ 🏖 휴가 · 🇰🇷 공휴일 ═══════════════ */
+let vacs = [], vacDirty = false, vacTimer = null;
+let holidays = {};                                  /* 'YYYY-MM-DD' → 이름 */
+
+const VAC_KIND = {
+  full:    {label:'휴가',    allDay:true},
+  amHalf:  {label:'오전반차', start:'09:00', dur:5*60, hours:4},   /* 09~14시, 점심 제외 4H */
+  pmHalf:  {label:'오후반차', start:'14:00', dur:4*60, hours:4},
+  quarter: {label:'반반차',   dur:120, hours:2},
+};
+const holidayOf  = ds => holidays[ds] || '';
+const vacationOf = ds => {
+  const v = vacs.find(x => ds >= x.start && ds <= (x.end || x.start));
+  return v? (VAC_KIND[v.type]||VAC_KIND.full).label : '';
+};
+
+async function loadVacs(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/vacs`).get(), 5000);
+    const v = snap.exists()? snap.val() : [];
+    vacs = (Array.isArray(v)? v : Object.values(v||{}));
+  }catch(e){ vacs = vacs || []; }
+}
+function markVacs(){ vacDirty = true; clearTimeout(vacTimer); vacTimer = setTimeout(saveVacs, 600); }
+async function saveVacs(){
+  if(!vacDirty || !USER) return;
+  vacDirty = false;
+  try{
+    if(vacs.length) await db.ref(`diaries/${USER.uid}/vacs`).set(JSON.parse(JSON.stringify(vacs)));
+    else await db.ref(`diaries/${USER.uid}/vacs`).remove();
+  }catch(e){ vacDirty = true; }
+}
+/* 구글 공식 '대한민국 휴일' 캘린더에서 가져오기 (직접 입력하지 않음) */
+async function loadHolidays(year){
+  const key = `holi:${year}`;
+  try{ const c = await idbGet(key); if(c && c.map){ Object.assign(holidays, c.map); } }catch(e){}
+  if(!GOOGLE_CLIENT_ID) return;
+  if(!(await ensureToken(false))) return;
+  try{
+    const cal = 'ko.south_korea%23holiday%40group.v.calendar.google.com';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${cal}/events`
+      + `?timeMin=${year}-01-01T00:00:00Z&timeMax=${year}-12-31T23:59:59Z&singleEvents=true&maxResults=100`,
+      {headers:{Authorization:'Bearer '+gToken}});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    const map = {};
+    (j.items||[]).forEach(e => {
+      const st = e.start && (e.start.date || (e.start.dateTime||'').slice(0,10));
+      if(st) map[st] = (e.summary||'휴일').replace(/\s*\(.*\)$/,'');
+    });
+    Object.assign(holidays, map);
+    try{ await idbSet(key, {map, ts:Date.now()}); }catch(e){}
+    if(!$('archiveView').classList.contains('hidden')) refreshArchive();
+  }catch(e){ /* 실패 시 캐시만 사용 — 임의 날짜를 만들지 않음 */ }
+}
+/* ── 휴가 입력 모달 ── */
+function vacPreviewText(){
+  const type = $('vacType').value, st = $('vacStart').value, en = $('vacEnd').value || st;
+  if(!st) return '시작일을 골라 주세요';
+  const k = VAC_KIND[type];
+  if(k.allDay){
+    const days = Math.round((new Date(en+'T00:00:00') - new Date(st+'T00:00:00'))/86400000) + 1;
+    return days>1 ? `${st} ~ ${en} · 총 ${days}일 종일 휴가` : `${st} · 하루 종일 휴가`;
+  }
+  const start = type==='quarter' ? ($('vacTime').value||'16:00') : k.start;
+  const [h,m] = start.split(':').map(Number);
+  const d0 = new Date(st+'T00:00:00'); d0.setHours(h,m,0,0);
+  const d1 = new Date(d0.getTime() + k.dur*60000);
+  const p2 = n => String(n).padStart(2,'0');
+  return `${st} · ${k.label} ${start}~${p2(d1.getHours())}:${p2(d1.getMinutes())} (휴가 ${k.hours}시간)`;
+}
+function vacSyncUI(){
+  const type = $('vacType').value;
+  $('vacEndRow').classList.toggle('hidden', type !== 'full');
+  $('vacTimeRow').classList.toggle('hidden', type !== 'quarter');
+  $('vacPreview').textContent = vacPreviewText();
+}
+$('vacBtn').onclick = () => {
+  const base = (arcYear && arcMonth)? `${arcYear}-${arcMonth}-${String(new Date().getDate()).padStart(2,'0')}` : todayStr();
+  $('vacStart').value = todayStr(); $('vacEnd').value = todayStr();
+  $('vacType').value = 'full'; $('vacNote').value = '';
+  vacSyncUI(); renderVacList();
+  $('vacModal').classList.remove('hidden');
+};
+$('vacClose').onclick = () => $('vacModal').classList.add('hidden');
+$('vacModal').addEventListener('click', e => { if(e.target.id==='vacModal') $('vacModal').classList.add('hidden'); });
+['vacType','vacStart','vacEnd','vacTime'].forEach(id => $(id).addEventListener('change', vacSyncUI));
+
+$('vacSave').onclick = async () => {
+  const type = $('vacType').value, st = $('vacStart').value;
+  if(!st){ toast('시작일을 골라 주세요'); return; }
+  const k = VAC_KIND[type];
+  const en = k.allDay ? ($('vacEnd').value || st) : st;
+  if(k.allDay && en < st){ toast('종료일이 시작일보다 빠릅니다'); return; }
+  const note = $('vacNote').value.trim();
+  const rec = {id:uid8(), type, start:st, end:en, time: type==='quarter'? ($('vacTime').value||'16:00') : (k.start||''), note, gcalId:''};
+
+  /* 구글 캘린더 등록 */
+  if(GOOGLE_CLIENT_ID && await ensureToken(false)){
+    try{
+      const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
+      let body = {summary:`🏖 ${k.label}`, description: note || '업무일지에서 등록'};
+      if(k.allDay){
+        const nx = new Date(en+'T12:00:00'); nx.setDate(nx.getDate()+1);
+        const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+        body.start = {date:st}; body.end = {date:ymd(nx)};
+      }else{
+        const [h,m] = rec.time.split(':').map(Number);
+        const d0 = new Date(st+'T00:00:00'); d0.setHours(h,m,0,0);
+        const d1 = new Date(d0.getTime() + k.dur*60000);
+        body.start = {dateTime:d0.toISOString(), timeZone:tz};
+        body.end   = {dateTime:d1.toISOString(), timeZone:tz};
+      }
+      const calId = calTarget || 'primary';
+      const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`,
+        {method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const ev = await r.json(); rec.gcalId = ev.id || '';
+      toast(`캘린더에 ${k.label}을(를) 등록했어요`);
+    }catch(e){ toast('캘린더 등록 실패 — 앱에는 저장했어요'); }
+  }else toast('구글 연결이 없어 앱에만 저장했어요');
+
+  vacs.push(rec); markVacs(); renderVacList(); refreshArchive();
+};
+function renderVacList(){
+  const box = $('vacList');
+  const list = [...vacs].sort((a,b)=> b.start.localeCompare(a.start)).slice(0,6);
+  if(!list.length){ box.innerHTML = '<div style="font-size:.78rem;color:var(--ink-soft);text-align:center">등록된 휴가가 없어요</div>'; return; }
+  box.innerHTML = '<div style="font-size:.76rem;font-weight:800;color:var(--accent-deep);margin-bottom:6px">최근 등록</div>'
+    + list.map(v => {
+      const k = VAC_KIND[v.type]||VAC_KIND.full;
+      const range = k.allDay? (v.end && v.end!==v.start? `${v.start} ~ ${v.end}` : v.start) : `${v.start} ${v.time}`;
+      return `<div class="vac-row"><span>🏖 <b>${k.label}</b> ${range}</span>
+        <button class="file-x" style="position:static" data-id="${v.id}">✕</button></div>`;
+    }).join('');
+  box.querySelectorAll('button[data-id]').forEach(b => b.onclick = async () => {
+    const v = vacs.find(x => x.id === b.dataset.id); if(!v) return;
+    if(!confirm('이 휴가를 삭제할까요? (캘린더 일정도 함께 지웁니다)')) return;
+    if(v.gcalId && GOOGLE_CLIENT_ID && await ensureToken(false)){
+      try{ await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calTarget||'primary')}/events/${encodeURIComponent(v.gcalId)}`,
+        {method:'DELETE', headers:{Authorization:'Bearer '+gToken}}); }catch(e){}
+    }
+    vacs = vacs.filter(x => x.id !== v.id);
+    markVacs(); renderVacList(); refreshArchive();
+    toast('휴가를 삭제했어요');
+  });
+}
 </script>
 </body>
 </html>
