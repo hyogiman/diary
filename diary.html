@@ -149,11 +149,6 @@ input:focus,textarea:focus{outline-offset:0}
 .st-done{color:var(--green);border-color:#B4D6BE;background:#EAF6EE}
 .due-in{width:96px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   font-size:.78rem;padding:5px 6px;color:var(--ink-soft)}
-.clip-btn{position:relative;width:30px;height:30px;border-radius:8px;font-size:1rem;color:var(--ink-soft);
-  display:flex;align-items:center;justify-content:center}
-.clip-btn:hover{background:var(--paper-deep)}
-.clip-btn .cnt{position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:.62rem;
-  font-weight:800;border-radius:999px;min-width:16px;height:16px;display:flex;align-items:center;justify-content:center;padding:0 4px}
 
 /* 첨부 패널(업무별 · 숨김형) */
 .attach-panel{width:100%;background:#FFF7E6;border:1.5px dashed var(--rule);border-radius:10px;
@@ -272,6 +267,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
   display:flex;align-items:center;justify-content:center}
 .note-btn:hover{background:var(--paper-deep)}
 .note-btn .dot{position:absolute;top:2px;right:2px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.note-btn .cnt{position:absolute;bottom:-5px;right:-6px;background:var(--accent);color:#fff;font-size:.58rem;
+  font-weight:800;border-radius:999px;padding:1px 4px;line-height:1.3}
 .qnote{width:100%;border:1.5px solid var(--rule);border-radius:8px;background:var(--surface);padding:9px 10px;
   font-size:.9rem;line-height:1.55;resize:vertical;overflow:hidden;min-height:72px;margin-bottom:10px;
   font-family:inherit;color:var(--ink)}
@@ -1280,8 +1277,7 @@ function taskRow(t, ctx){
         <button class="due-chip ${overdue?'over':''}" title="${t.due||'마감일 지정'}">${dueLabel}</button>
         <input type="date" value="${t.due}" title="마감일">
       </span>
-      <button class="note-btn" title="퀵메모">📝${t.note.trim()? '<span class="dot"></span>':''}</button>
-      <button class="clip-btn" title="첨부">📎${t.files.length? `<span class="cnt">${t.files.length}</span>`:''}</button>
+      <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       <div class="ctl">
         ${(ctx.inbox && prioMode)? (t.offPrio? '<button class="on-prio" title="우선순위로 올리기">↑</button>' : '<span class="ctl-gap"></span>') : ''}
         <button class="del" title="삭제">✕</button>
@@ -1312,7 +1308,6 @@ function taskRow(t, ctx){
   if(tb) tb.onclick = () => { t.open=!t.open; ctx.rerender(); };
   const gtag = row.querySelector('.goal-tag');
   if(gtag) gtag.onclick = () => { t.open=!t.open; ctx.rerender(); };
-  row.querySelector('.clip-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const onBtn = row.querySelector('.on-prio');
   if(onBtn) onBtn.onclick = () => {
     t.offPrio = false; ctx.save();
@@ -1432,10 +1427,16 @@ async function findPrevRecord(dateStr){
 }
 
 /* ───────── 첨부: 이미지/오디오 ───────── */
-function pickFile(accept, cb){
+function pickFile(accept, cb, single){
   const fi = $('fileInput');
   fi.accept = accept; fi.value = '';
-  fi.onchange = () => { if(fi.files[0]) cb(fi.files[0]); };
+  if(single) fi.removeAttribute('multiple'); else fi.setAttribute('multiple','');
+  fi.onchange = () => {
+    const files = [...(fi.files||[])];
+    if(!files.length) return;
+    files.forEach(f => cb(f));
+    if(files.length > 1) toast(`${files.length}개 파일을 올리고 있어요`);
+  };
   fi.click();
 }
 function addImage(file, arr, done){
@@ -1949,7 +1950,7 @@ $('bkRestore').onclick = () => {
       if(!$('archiveView').classList.contains('hidden')){ arcYear=+year; arcMonth=month; renderArchive(); }
       if(curDate.startsWith(`${year}-${month}`)) loadDay(curDate);
     }catch(e){ toast('복원 실패: '+e.message); }
-  });
+  }, true);
 };
 
 /* ═══════════════ 기타 업무함 (날짜와 무관, 처리 시까지 유지) ═══════════════ */
