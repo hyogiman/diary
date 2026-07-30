@@ -484,7 +484,7 @@ body[data-theme="dark"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-meta label{font-weight:800;color:var(--accent-deep);white-space:nowrap;padding-top:3px}
 .bn-meta input{border:none;background:transparent;border-bottom:1px dashed var(--rule);padding:3px 2px;font-size:.9rem}
 .bn-body{width:100%;border:none;background:repeating-linear-gradient(transparent,transparent 27px,var(--rule) 27px,var(--rule) 28px);
-  line-height:28px;font-size:.95rem;resize:vertical;min-height:112px;margin-bottom:8px;color:var(--ink)}
+  line-height:28px;font-size:.95rem;resize:vertical;overflow:hidden;min-height:112px;margin-bottom:8px;color:var(--ink)}
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
@@ -1099,6 +1099,8 @@ function renderSheet(){
 }
 $('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); });
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
+$('memoText').addEventListener('focus', e => autoGrow(e.target));
+$('memoText').addEventListener('click', e => autoGrow(e.target));
 function autoGrow(el){ el.style.height='auto'; el.style.height = Math.max(128, el.scrollHeight)+'px'; }
 function grow(el, min){ el.style.height='auto'; el.style.height = Math.max(min, el.scrollHeight + 2)+'px'; }
 
@@ -1122,6 +1124,7 @@ function goalNameOf(id, ds){
 const isDoneCat = c => /\(완료\)$/.test(c.name.trim());
 function renderCats(){
   $('prioBtn').classList.toggle('active', prioMode);
+  $('carryBtn').classList.toggle('hidden', prioMode);
   $('prioList').classList.toggle('hidden', !prioMode);
   $('catList').classList.toggle('hidden', prioMode);
   if(prioMode){ $('emptyTasks').classList.add('hidden'); renderPrio(); return; }
@@ -1274,6 +1277,8 @@ function taskRow(t, ctx){
       <div class="file-grid"></div>`;
     panel.querySelector('.ap-goal').addEventListener('change', e => { t.goal = e.target.value; ctx.save(); ctx.rerender(); });
     const qn = panel.querySelector('.qnote');
+    qn.addEventListener('focus', () => grow(qn, 72));
+    qn.addEventListener('click', () => grow(qn, 72));
     qn.addEventListener('input', e => { t.note = e.target.value; ctx.save();
       grow(qn, 72);
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
@@ -2224,8 +2229,10 @@ function renderNotes(){
     el.querySelectorAll('.bn-meta input').forEach(inp =>
       inp.addEventListener('input', () => { n.meta[inp.dataset.k] = inp.value; markDirty(); }));
     const ta = el.querySelector('.bn-body');
-    ta.addEventListener('input', () => { n.body = ta.value; markDirty(); ta.style.height='auto'; ta.style.height = Math.max(112, ta.scrollHeight)+'px'; });
+    ta.addEventListener('input', () => { n.body = ta.value; markDirty(); grow(ta, 112); });
     ta.addEventListener('keydown', outlineKeydown);
+    ta.addEventListener('focus', () => grow(ta, 112));
+    ta.addEventListener('click', () => grow(ta, 112));
     el.querySelectorAll('.bn-t').forEach(b => b.onclick = () => insertOutline(ta, b.dataset.k));
     el.querySelector('.bn-head .del').onclick = () => {
       if((!n.title.trim() && !n.body.trim() && !n.files.length) || confirm(`'${n.title.trim()||'메모장'}'을(를) 통째로 삭제할까요?`)){
@@ -2237,6 +2244,7 @@ function renderNotes(){
     el.querySelector('.bn-rec').onclick = e => startRecording(n.files, e.currentTarget);
     renderFiles(el.querySelector('.bn-files'), n.files, {save:markDirty, rerender:renderAll});
     box.appendChild(el);
+    grow(ta, 112);                                   // 열자마자 내용 길이만큼 펼침
   });
 }
 $('noteTopBtn').onclick = () => {
@@ -2498,7 +2506,9 @@ function showDiaryBody(label){
 }
 $('diaryOpenBtn').onclick = () => { if(pinResolver) pinResolver(); };
 $('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter' && pinResolver) pinResolver(); });
-$('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); });
+$('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); grow(e.target, 280); });
+$('diaryText').addEventListener('focus', e => grow(e.target, 280));
+$('diaryText').addEventListener('click', e => grow(e.target, 280));
 $('diaryClose').onclick = async () => {
   await flushSave();
   $('diaryModal').classList.add('hidden');
@@ -3718,6 +3728,8 @@ function renderGoals(){
     const gn = el.querySelector('.g-note');
     if(gn){
       gn.addEventListener('input', e => { g.note = e.target.value; markGoals(); grow(gn, 72); });
+      gn.addEventListener('focus', () => grow(gn, 72));
+      gn.addEventListener('click', () => grow(gn, 72));
       grow(gn, 72);
     }
     el.querySelector('.rep-btn').onclick = () => {
