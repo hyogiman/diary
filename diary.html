@@ -335,11 +335,15 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .tl-empty{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:26px 0}
 .sched-stale{background:#FBF2DC;border:1.5px solid #EBD3A0;color:#8A6A20;border-radius:10px;
   padding:8px 11px;font-size:.78rem;font-weight:700;margin-bottom:10px}
-.goal-tabs{display:flex;gap:8px;justify-content:center;margin:18px 0 4px;flex-wrap:wrap}
-#goalNav{max-width:900px;margin:8px auto 0;padding:0 26px;display:flex;align-items:center;justify-content:center;gap:8px}
+.goal-tabs{display:flex;gap:6px;flex-wrap:wrap}
+#goalNav{max-width:900px;margin:18px auto 0;padding:0 26px;display:flex;align-items:center;justify-content:center;gap:8px}
 #goalWrap{max-width:900px;margin:14px auto 60px;padding:0 26px}
-.goal-head{display:flex;align-items:center;gap:8px;margin-bottom:12px}
-.goal-count{flex:1;font-size:.85rem;font-weight:700;color:var(--ink-soft)}
+.goal-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.goal-count{margin-left:auto;font-size:.85rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+#fabGoal{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));height:54px;padding:0 22px;
+  border-radius:999px;background:var(--accent);color:#fff;font-size:.98rem;font-weight:800;z-index:60;
+  box-shadow:0 6px 18px rgba(200,110,40,.45);transition:.15s;font-family:inherit}
+#fabGoal:hover{background:var(--accent-deep);transform:scale(1.04)}
 .goal{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
   border-radius:12px;padding:12px 14px;margin-bottom:9px}
 .goal.done{opacity:.62}
@@ -835,25 +839,26 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   <button id="fabCat" title="카테고리 추가">＋</button>
 
   <div id="goalView" class="hidden">
-    <div class="goal-tabs">
-      <button class="mini-btn active" data-g="year">🗓 연간</button>
-      <button class="mini-btn" data-g="month">📅 월간</button>
-      <button class="mini-btn" data-g="week">🎯 주간</button>
-    </div>
     <div id="goalNav">
-      <button class="date-arrow" id="goalPrev">◀</button>
-      <div class="date-chip" style="padding:10px 20px;cursor:default"><div class="ymd" id="goalLabel">—</div></div>
-      <button class="date-arrow" id="goalNext">▶</button>
-      <button class="today-btn" id="goalNow">현재</button>
+      <div class="dn-side dn-left"><button class="date-arrow" id="goalPrev">◀</button></div>
+      <div class="date-chip" style="cursor:default"><div class="ymd" id="goalLabel">—</div></div>
+      <div class="dn-side dn-right">
+        <button class="date-arrow" id="goalNext">▶</button>
+        <button class="today-btn" id="goalNow">현재</button>
+      </div>
     </div>
     <div id="goalWrap">
       <div class="goal-head">
+        <div class="goal-tabs">
+          <button class="mini-btn active" data-g="year">🗓 연간</button>
+          <button class="mini-btn" data-g="month">📅 월간</button>
+          <button class="mini-btn" data-g="week">🎯 주간</button>
+        </div>
         <span id="goalCount" class="goal-count"></span>
-        <button class="mini-btn" id="goalPrint">🖨 출력</button>
-        <button class="mini-btn" id="goalAdd">＋ 목표 추가</button>
       </div>
       <div id="goalList"></div>
     </div>
+    <button id="fabGoal" title="목표 추가">＋ 목표</button>
   </div>
 
   <button id="schedOpen" title="이 날짜의 시간표" aria-label="시간표 열기">
@@ -1035,7 +1040,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 <div id="themeModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:175;display:flex;align-items:center;justify-content:center;padding:16px">
   <div class="bk-card" style="max-width:440px">
     <h3>🎨 오늘 페이지 테마</h3>
-    <p style="text-align:center;font-size:.82rem;color:var(--ink-soft);margin:8px 0 14px">오늘 날짜를 볼 때만 적용돼요 · 지난 날짜는 크림톤 그대로</p>
+    <p style="text-align:center;font-size:.82rem;color:var(--ink-soft);margin:8px 0 14px">목표·기록 탭과 오늘 날짜 화면에 적용돼요<br>지난 날짜의 목록은 크림톤 그대로</p>
     <div id="themeList"></div>
     <button class="btn-line" id="themeClose" style="margin-top:12px;border-style:dashed">닫기</button>
   </div>
@@ -1712,6 +1717,7 @@ function switchTab(mode){
   $('goalView').classList.toggle('hidden', !goal);
   $('fabCat').classList.toggle('hidden', !today);
   $('schedOpen').classList.toggle('hidden', !today);
+  $('fabGoal').classList.toggle('hidden', !goal);
   applyTheme();
   if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
   if(goal){ if(!goalKey) goalKey = yearKey(curDate); renderGoals(); }
@@ -1814,7 +1820,10 @@ async function renderArchive(){
   });
 }
 /* ───────── A4 내보내기 (PDF / PNG) ───────── */
-$('exportBtn').onclick = () => $('exportMenu').classList.remove('hidden');
+$('exportBtn').onclick = () => {
+  if(!$('goalView').classList.contains('hidden')){ goalPrint(); return; }
+  $('exportMenu').classList.remove('hidden');
+};
 $('expClose').onclick  = () => $('exportMenu').classList.add('hidden');
 $('exportMenu').addEventListener('click', e => { if(e.target.id==='exportMenu') $('exportMenu').classList.add('hidden'); });
 $('expPdf').onclick = () => runExport('pdf');
@@ -3387,8 +3396,12 @@ const THEMES = [
 ];
 let todayTheme = '';
 function applyTheme(){
-  const onToday = curDate === todayStr() && !$('todayView').classList.contains('hidden');
-  if(todayTheme && onToday) document.body.dataset.theme = todayTheme;
+  /* 목표·기록 탭도 오늘과 연결된 화면이므로 함께 테마 적용.
+     목록 탭은 '오늘 날짜'를 볼 때만(지난 날짜는 크림톤 유지) */
+  const listOn  = !$('todayView').classList.contains('hidden') && curDate === todayStr();
+  const goalOn  = !$('goalView').classList.contains('hidden');
+  const archOn  = !$('archiveView').classList.contains('hidden');
+  if(todayTheme && (listOn || goalOn || archOn)) document.body.dataset.theme = todayTheme;
   else delete document.body.dataset.theme;
 }
 async function loadTheme(){
@@ -4062,7 +4075,7 @@ function defaultGoalDue(){
   const {sun} = weekRange(goalKey);
   return `${sun.getFullYear()}-${p2(sun.getMonth()+1)}-${p2(sun.getDate())}`;
 }
-$('goalAdd').onclick = () => {
+$('fabGoal').onclick = () => {
   ensureGoals();
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
   goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', start:defaultGoalStart(), due:defaultGoalDue(), note:'', repeat:false, target:1, count:0});
@@ -4148,7 +4161,7 @@ function buildGoalA4(){
     <div class="a4-foot">${goalLabelOf(goalScope, goalKey)} · ${esc(userName||'나')}의 목표</div>`;
   return el;
 }
-$('goalPrint').onclick = async () => {
+async function goalPrint(){
   const fmt = await askInput({title:'🖨 목표 출력', desc:'저장할 형식을 골라 주세요',
     value:'pdf', quick:[['pdf','📄 PDF'],['png','🖼 이미지']]});
   if(fmt === null) return;
@@ -4171,7 +4184,7 @@ $('goalPrint').onclick = async () => {
       toast('PDF를 저장했어요');
     }
   }catch(e){ $('exportStage').innerHTML=''; toast('출력 실패: '+e.message); }
-};
+}
 
 /* ═══════════════ 🗄 장기 메모 (날짜 무관 · 목록 + 검색) ═══════════════ */
 let bank = [], bankTimer = null, bankDirty = false, bankCur = null, bankQ = '', bankCb = null;
