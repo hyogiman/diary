@@ -199,7 +199,7 @@ input:focus,textarea:focus{outline-offset:0}
 .cal-cell.holi.has{background:#F7DED4}
 .cal-cell.today{box-shadow:inset 0 0 0 2.5px var(--accent);border-radius:4px}
 .cal-cell.has:hover,.cal-cell.none:hover{background:#FFE9C4}
-.cal-line{font-size:.74rem;font-weight:700;line-height:1.25;width:100%;
+.cal-line{font-size:13px;font-weight:700;line-height:1.28;width:100%;
   overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
 .cal-holi-name{color:var(--danger)}
 .cal-evt{color:var(--ink)}
@@ -247,9 +247,11 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 #lightbox{position:fixed;inset:0;background:rgba(40,25,10,.85);z-index:200;display:flex;
   align-items:center;justify-content:center;padding:20px}
 #lightbox img{max-width:96%;max-height:92%;border-radius:10px}
-#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);background:var(--ink);
-  color:#FFF6E4;padding:11px 20px;border-radius:999px;font-size:.88rem;font-weight:600;opacity:0;
-  transition:.25s;z-index:300;pointer-events:none;max-width:90vw;text-align:center}
+#toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);
+  background:rgba(46,34,22,.95);color:#FFF6E4;padding:12px 20px;border-radius:14px;
+  border-left:4px solid #E5762E;box-shadow:0 8px 24px rgba(30,20,10,.34);
+  font-size:.9rem;font-weight:700;line-height:1.4;opacity:0;
+  transition:.25s;z-index:300;pointer-events:none;max-width:min(90vw,420px);text-align:center}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 #exportMenu{position:fixed;inset:0;background:rgba(40,25,10,.45);z-index:150;display:flex;align-items:flex-end;justify-content:center}
 .export-card{background:var(--card);border-radius:20px 20px 0 0;padding:22px 20px calc(26px + env(safe-area-inset-bottom));
@@ -1845,8 +1847,9 @@ async function renderArchive(){
     const vac  = vacationOf(ds);
     const evt  = eventOf(ds);
     const cell = document.createElement('button');
+    const fullVac = isFullVac(ds);
     cell.className = 'cal-cell ' + (has?'has':'none')
-      + (ds===tstr?' today':'') + (dow===0||holi?' holi':'') + (dow===6?' sat':'');
+      + (ds===tstr?' today':'') + (dow===0||holi||fullVac?' holi':'') + (dow===6?' sat':'');
     /* 아래 줄: 공휴일 → 내 이벤트 → 휴가 (최대 2줄까지 자동 말줄임) */
     const lines = [];
     if(holi) lines.push(`<span class="cal-line cal-holi-name">${esc(holi)}</span>`);
@@ -1857,7 +1860,31 @@ async function renderArchive(){
       + (has? '<span class="cal-dot"></span>':'');
     cell.title = [ds, holi, evt? ((evt.icon||'')+' '+(evt.text||'')).trim() : '', vac? '휴가: '+vac : '']
       .filter(Boolean).join(' · ');
+    const detail = () => {
+      const parts = [];
+      const dt = new Date(ds+'T12:00:00');
+      parts.push(`${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]})`);
+      if(holi) parts.push('🇰🇷 '+holi);
+      if(evt)  parts.push(((evt.icon||'')+' '+(evt.text||'')).trim());
+      if(vac)  parts.push('🏖 '+vac);
+      if(has){
+        const v = normalize(md[dd]);
+        const all = v.cats.flatMap(c=>c.tasks).filter(t=>t.text.trim());
+        parts.push(`업무 ${all.length}건 · 완료 ${all.filter(t=>t.done).length}건`);
+      }
+      toast(parts.join(' · '));
+    };
+    let lpTimer = null, lpFired = false;
+    const startLP = () => { lpFired = false; lpTimer = setTimeout(()=>{ lpFired = true; detail(); }, 450); };
+    const endLP = () => clearTimeout(lpTimer);
+    cell.addEventListener('touchstart', startLP, {passive:true});
+    cell.addEventListener('touchend', endLP);
+    cell.addEventListener('touchmove', endLP, {passive:true});
+    cell.addEventListener('mousedown', startLP);
+    cell.addEventListener('mouseup', endLP);
+    cell.addEventListener('mouseleave', endLP);
     cell.onclick = () => {
+      if(lpFired){ lpFired = false; return; }          // 길게 누른 경우는 열지 않음
       if(evtMode){ openEventEditor2(ds); return; }
       if(arcDiary){ openDiaryOn(ds); return; }
       switchTab('today'); loadDay(ds);
@@ -4378,10 +4405,9 @@ const VAC_KIND = {
   quarter: {label:'반반차',   dur:120, hours:2},
 };
 const holidayOf  = ds => holidays[ds] || '';
-const vacationOf = ds => {
-  const v = vacs.find(x => ds >= x.start && ds <= (x.end || x.start));
-  return v? (VAC_KIND[v.type]||VAC_KIND.full).label : '';
-};
+const vacRecOf = ds => vacs.find(x => ds >= x.start && ds <= (x.end || x.start)) || null;
+const vacationOf = ds => { const v = vacRecOf(ds); return v? (VAC_KIND[v.type]||VAC_KIND.full).label : ''; };
+const isFullVac  = ds => { const v = vacRecOf(ds); return !!(v && (VAC_KIND[v.type]||VAC_KIND.full).allDay); };
 
 async function loadVacs(){
   try{
