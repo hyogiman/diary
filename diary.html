@@ -189,8 +189,11 @@ input:focus,textarea:focus{outline-offset:0}
   border-right:1px solid var(--rule);border-bottom:1px solid var(--rule);
   display:flex;flex-direction:column;align-items:center;gap:3px;position:relative;text-align:center}
 .cal-cell:nth-child(7n){border-right:none}
-.cal-cell.pad{cursor:default}
-.cal-d{font-size:1.15rem;font-weight:800;line-height:1.1;color:var(--ink-soft)}
+.cal-cell.pad{cursor:default;pointer-events:none}
+.cal-cell{cursor:cell}
+.cal-d{font-size:1.15rem;font-weight:800;line-height:1;color:var(--ink-soft);font-family:inherit;
+  background:none;border:none;padding:3px 8px;border-radius:8px;transition:.12s;flex:none}
+.cal-d:hover{background:var(--accent);color:#fff!important}
 .cal-cell.has{background:var(--paper-deep)}
 .cal-cell.has .cal-d{color:var(--accent-deep)}
 .cal-cell.sat .cal-d{color:#3A6BC8}
@@ -205,11 +208,10 @@ input:focus,textarea:focus{outline-offset:0}
 .cal-evt{color:var(--ink)}
 .cal-vac{color:#2E7D5B}
 .cal-dot{position:absolute;top:5px;right:5px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
-.cal.evt-mode .cal-cell.none,.cal.evt-mode .cal-cell.has{cursor:cell;outline:1px dashed var(--rule);outline-offset:-2px}
-.evt-hint{text-align:center;font-size:.8rem;font-weight:700;color:var(--accent-deep);padding:0 0 10px}
-.evt-icons{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin:10px 0 12px}
-.evt-icons button{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--rule);
-  background:var(--surface);font-size:1.2rem;transition:.15s}
+.evt-hint{text-align:center;font-size:.76rem;font-weight:700;color:var(--ink-soft);padding:0 0 9px}
+.evt-icons{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:12px 0 10px}
+.evt-icons button{aspect-ratio:1;border-radius:10px;border:1.5px solid var(--rule);
+  background:var(--surface);font-size:1.15rem;transition:.15s;display:flex;align-items:center;justify-content:center}
 .evt-icons button.on{border-color:var(--accent);background:var(--paper-deep);transform:scale(1.06)}
 body[data-theme="dark"] .cal-cell.holi,
 body[data-theme="forest"] .cal-cell.holi,
@@ -924,14 +926,13 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     </div>
     <div class="arc-tools arc-tools-row">
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
-      <button class="mini-btn" id="evtBtn">🎂 이벤트</button>
       <span class="at-spacer"></span>
       <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
     </div>
-    <div class="evt-hint hidden" id="evtHint">🎂 이벤트 모드 — 날짜를 누르면 배지와 메모를 넣을 수 있어요</div>
+    <div class="evt-hint" id="evtHint">날짜 숫자를 누르면 그날 일지로 · 칸의 빈 곳을 누르면 이벤트 입력</div>
     <div class="cal" id="monthGrid" style="background:var(--card);border:1.5px solid var(--rule);border-radius:14px;margin-bottom:16px">
       <div class="cal-dow"><span>일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span>토</span></div>
       <div class="cal-grid" id="calGrid"></div>
@@ -1050,6 +1051,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   <div class="bk-card" style="max-width:400px">
     <h3 id="evtTitle">🎂 이벤트</h3>
     <div class="evt-icons" id="evtIcons"></div>
+    <div id="evtLabel" style="text-align:center;font-size:.8rem;font-weight:800;color:var(--accent-deep);margin:-4px 0 10px"></div>
     <input id="evtText" placeholder="예: 와이프 생일"
       style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:.98rem;text-align:center">
     <div class="bk-btns">
@@ -1833,7 +1835,6 @@ async function renderArchive(){
   /* 달력 */
   const grid = $('calGrid'); grid.innerHTML = '';
   $('monthGrid').classList.toggle('diary-mode', arcDiary);
-  $('monthGrid').classList.toggle('evt-mode', evtMode);
   const firstDow = new Date(arcYear, +arcMonth-1, 1).getDay();
   const dim = new Date(arcYear, +arcMonth, 0).getDate();
   for(let i=0;i<firstDow;i++){ const sp=document.createElement('div'); sp.className='cal-cell pad'; grid.appendChild(sp); }
@@ -1856,7 +1857,7 @@ async function renderArchive(){
     if(evt)  lines.push(`<span class="cal-line cal-evt">${esc((evt.icon||'') + (evt.icon&&evt.text? ' ':'') + (evt.text||''))}</span>`);
     if(vac)  lines.push(`<span class="cal-line cal-vac">🏖 ${esc(vac)}</span>`);
     if(arcDiary && has && normalize(md[dd]).diary.trim()) lines.push('<span class="cal-line">📖 일기</span>');
-    cell.innerHTML = `<span class="cal-d">${d}</span>` + lines.slice(0,2).join('')
+    cell.innerHTML = `<button class="cal-d" title="${ds} 일지 열기">${d}</button>` + lines.slice(0,2).join('')
       + (has? '<span class="cal-dot"></span>':'');
     cell.title = [ds, holi, evt? ((evt.icon||'')+' '+(evt.text||'')).trim() : '', vac? '휴가: '+vac : '']
       .filter(Boolean).join(' · ');
@@ -1883,11 +1884,15 @@ async function renderArchive(){
     cell.addEventListener('mousedown', startLP);
     cell.addEventListener('mouseup', endLP);
     cell.addEventListener('mouseleave', endLP);
-    cell.onclick = () => {
-      if(lpFired){ lpFired = false; return; }          // 길게 누른 경우는 열지 않음
-      if(evtMode){ openEventEditor2(ds); return; }
+    cell.querySelector('.cal-d').onclick = e => {
+      e.stopPropagation();
+      if(lpFired){ lpFired = false; return; }
       if(arcDiary){ openDiaryOn(ds); return; }
-      switchTab('today'); loadDay(ds);
+      switchTab('today'); loadDay(ds);                 // 숫자 → 그 날짜 일지로
+    };
+    cell.onclick = () => {
+      if(lpFired){ lpFired = false; return; }
+      openEventEditor2(ds);                            // 빈 공간 → 이벤트 편집
     };
     grid.appendChild(cell);
   }
@@ -4542,8 +4547,18 @@ function renderVacList(){
 }
 
 /* ═══════════════ 🎂 달력 이벤트 (배지 + 한 줄 메모) ═══════════════ */
-const EVT_ICONS = ['🎂','🎉','🎁','❤️','💍','✈️','🏖','🏥','💊','🎓','🍽','☕','🚗','🏃','⚠️','📌','🔔','💰','🐶','🌸'];
-let dayEvents = {}, evtMode = false, evtDirty = false, evtTimer = null, evtDate = '', evtIcon = '🎂';
+const EVT_ICONS = [
+  /* 1줄 — 기념·모임 */
+  ['🎂','생일'], ['🎉','축하·기념'], ['🍽','식사 약속'], ['☕','만남·차'],
+  ['👨‍👩‍👧','가족 행사'], ['🎓','졸업·수료'], ['💍','결혼·기념일'],
+  /* 2줄 — 나들이·여행 */
+  ['✈️','여행'], ['🏕','캠핑'], ['⛰','등산'], ['🏖','바다·물놀이'],
+  ['🎣','낚시'], ['🚗','드라이브·나들이'], ['🌸','꽃놀이·산책'],
+  /* 3줄 — 여가·생활 */
+  ['🎬','영화·공연'], ['🎨','전시·박물관'], ['⚽','운동 경기'], ['🏃','운동·훈련'],
+  ['🏥','병원·검진'], ['🛠','수리·정비'], ['⚠️','중요·주의'],
+];
+let dayEvents = {}, evtDirty = false, evtTimer = null, evtDate = '', evtIcon = '🎂';
 
 const eventOf = ds => dayEvents[ds] || null;
 
@@ -4562,21 +4577,20 @@ async function saveEvents(){
     else await db.ref(`diaries/${USER.uid}/dayEvents`).remove();
   }catch(e){ evtDirty = true; }
 }
-$('evtBtn').onclick = () => {
-  evtMode = !evtMode;
-  $('evtBtn').classList.toggle('active', evtMode);
-  $('evtHint').classList.toggle('hidden', !evtMode);
-  refreshArchive();
-};
 function renderEvtIcons(){
   const box = $('evtIcons'); box.innerHTML = '';
-  EVT_ICONS.forEach(ic => {
+  EVT_ICONS.forEach(([ic, label]) => {
     const b = document.createElement('button');
     b.textContent = ic;
+    b.title = label;
     if(ic === evtIcon) b.classList.add('on');
-    b.onclick = () => { evtIcon = ic; renderEvtIcons(); };
+    b.onclick = () => { evtIcon = ic; $('evtLabel').textContent = `${ic} ${label}`;
+      if(!$('evtText').value.trim()) $('evtText').placeholder = `예: ${label}`;
+      renderEvtIcons(); };
     box.appendChild(b);
   });
+  const cur = EVT_ICONS.find(([ic]) => ic === evtIcon);
+  $('evtLabel').textContent = cur? `${cur[0]} ${cur[1]}` : '';
 }
 function openEventEditor2(ds){
   evtDate = ds;
