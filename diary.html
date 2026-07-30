@@ -316,22 +316,22 @@ mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
 .sd-foot{flex:none;display:flex;gap:8px;justify-content:center;padding:12px 14px calc(14px + env(safe-area-inset-bottom));
   border-top:1.5px solid var(--rule);background:var(--card)}
 .tl{position:relative;background:var(--card);border:1.5px solid var(--rule);border-radius:14px;
-  padding:6px 8px 6px 0;overflow:hidden}
-.tl-allday{display:flex;flex-wrap:wrap;gap:6px;padding:10px 10px 10px 46px;border-bottom:1.5px solid var(--rule)}
+  padding:6px 4px 6px 0;overflow:hidden}
+.tl-allday{display:flex;flex-wrap:wrap;gap:6px;padding:10px 8px 10px 44px;border-bottom:1.5px solid var(--rule)}
 .tl-allday .ad{font-size:.74rem;font-weight:700;background:var(--paper-deep);border:1.5px solid var(--rule);
   border-radius:999px;padding:4px 9px}
 .tl-body{position:relative}
 .tl-hour{position:absolute;left:0;right:0;border-top:1px solid var(--rule)}
-.tl-hour span{position:absolute;left:4px;top:-9px;font-size:.68rem;font-weight:700;color:var(--ink-soft);
-  background:var(--card);padding:0 3px}
+.tl-hour span{position:absolute;left:2px;top:-11px;font-size:.86rem;font-weight:800;color:var(--ink-soft);
+  background:var(--card);padding:0 3px;letter-spacing:-.02em}
 .tl-hour.half{border-top-style:dotted;opacity:.5}
-.tl-now{position:absolute;left:40px;right:0;height:0;border-top:2px solid var(--danger);z-index:5}
+.tl-now{position:absolute;left:44px;right:0;height:0;border-top:2px solid var(--danger);z-index:5}
 .tl-now::before{content:'';position:absolute;left:-6px;top:-5px;width:8px;height:8px;border-radius:50%;background:var(--danger)}
-.tl-ev{position:absolute;left:42px;right:6px;border-radius:9px;padding:7px 10px;overflow:hidden;
+.tl-ev{position:absolute;left:44px;right:4px;border-radius:9px;padding:6px 9px;overflow:hidden;
   border-left:4px solid;cursor:pointer;transition:.15s;text-align:left;font-family:inherit}
 .tl-ev:hover{filter:brightness(.97)}
 .tl-ev .t{font-weight:700;font-size:.85rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.tl-ev .s{font-size:.68rem;opacity:.75;margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-ev .s{font-size:.71rem;opacity:.8;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .tl-ev.gcal{background:#CFEDE6;border-color:#4FA894;color:#1F4A42}
 .tl-ev.task{background:#FFF0D6;border-color:var(--accent);color:var(--ink)}
 .tl-ev.done{opacity:.55}
@@ -3221,12 +3221,12 @@ async function loadSchedule(force){
     try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; renderSchedule(c.events, c.ts); } }catch(e){}
   }
   if(!(await ensureToken(false))){
-    try{
-      const c = await idbGet(cacheKey);
-      if(c){ renderSchedule(c.events, c.ts);
-        $('schedState').innerHTML = '⚠ 구글 연결이 만료됐어요 — <b>↻ 새로고침</b>을 눌러 갱신하세요.'; }
-      else $('schedState').innerHTML = '구글 캘린더 연결이 필요해요 — <b>↻ 새로고침</b>을 눌러 주세요.';
-    }catch(e){}
+    let cached = null;
+    try{ cached = await idbGet(cacheKey); }catch(e){}
+    renderSchedule(cached? cached.events : [], cached? cached.ts : null);   // 앱 업무는 항상 표시
+    $('schedState').innerHTML = cached
+      ? '⚠ 구글 연결이 만료됐어요 — <b>↻ 새로고침</b>을 눌러 갱신하세요.'
+      : '구글 일정 없이 앱 업무만 보고 있어요 — <b>↻ 새로고침</b>으로 캘린더를 연결할 수 있어요.';
     return;
   }
   $('schedState').textContent = '일정을 불러오는 중…';
@@ -3315,7 +3315,7 @@ function renderSchedule(events, cachedTs){
   if(!items.length){
     const em = document.createElement('div');
     em.className = 'tl-empty';
-    em.style.cssText += ';position:absolute;left:52px;right:8px;top:40%';
+    em.style.cssText += ';position:absolute;left:44px;right:6px;top:40%';
     em.textContent = '이 날짜에는 일정이 없어요';
     body.appendChild(em);
     return;
@@ -3333,13 +3333,19 @@ function renderSchedule(events, cachedTs){
     const hgt = Math.max(34, it.dur / 60 * PXH - 4);
     const el = document.createElement('button');
     el.className = 'tl-ev ' + (it.kind==='task'? 'task':'gcal') + (it.done? ' done':'');
-    el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(52px + (100% - 60px) * ${it.lane/laneN});width:calc((100% - 60px) * ${1/laneN} - 4px);right:auto;`;
+    el.style.cssText += `top:${top}px;height:${hgt}px;left:calc(44px + (100% - 50px) * ${it.lane/laneN});width:calc((100% - 50px) * ${1/laneN} - 4px);right:auto;`;
     if(it.color){ el.style.borderLeftColor = it.color; el.style.background = it.color + '22'; el.style.color = 'var(--ink)'; }
     const timeTxt = `${hhmm(it.st)}~${hhmm(it.end)}`;
-    el.innerHTML = `<div class="t">${esc(it.title)}</div>`
-      + (hgt > 52 ? `<div class="s">${timeTxt}${it.kind==='task'? ' · 📔 캘린더 미등록'
-          : (it.catName? ' · 📔 '+esc(it.catName) : (it.loc? ' · 📍'+esc(it.loc):''))}</div>` : '');
-    el.title = `${timeTxt} ${it.title}`;
+    /* 제목에서 앞머리 [카테고리] 는 떼고 소업무 제목만 굵게 */
+    const bare = it.title.replace(/^\[[^\]]*\]\s*/, '');
+    const catTxt = it.catName ? esc(it.catName)
+                 : (it.kind==='task' ? '캘린더 미등록'
+                 : (/^\[[^\]]*\]/.test(it.title) ? esc(it.title.match(/^\[([^\]]*)\]/)[1]) : ''));
+    const sub = [catTxt, `🕘 ${timeTxt}`].filter(Boolean).join(' · ')
+              + (it.loc? ` · 📍${esc(it.loc)}` : '');
+    el.innerHTML = `<div class="t">${esc(bare)}</div>`
+      + (hgt > 46 ? `<div class="s">${sub}</div>` : '');
+    el.title = `${timeTxt} ${bare}`;
     el.onclick = () => it.kind==='task' ? openTaskFromTimeline(it.ref) : openEventEditor(it.ev);
     body.appendChild(el);
   });
