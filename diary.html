@@ -498,8 +498,8 @@ body[data-theme="dark"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .font-opt.on{border-color:var(--accent);background:#FFF3DF;box-shadow:0 2px 8px rgba(200,110,40,.18)}
 .font-opt .fname{font-family:Pretendard;font-size:.76rem;font-weight:800;color:var(--accent-deep);display:block;margin-bottom:2px}
 .font-opt .fprev{font-size:1.3rem;color:var(--ink);line-height:1.4}
-.priv-wrap{background:#F0F2F8;border:1.5px dashed #B9C4EE;border-radius:12px;padding:6px 10px 10px;margin-top:4px}
-.priv-wrap .inbox-hint{color:#6B7AA8}
+.priv-wrap{background:#F5F0FA;border:1.5px dashed #C9B3E8;border-radius:12px;padding:6px 10px 10px;margin-top:4px}
+.priv-wrap .inbox-hint{color:#7B5FA8}
 #inboxArrow,#privArrow{font-size:.76rem;font-weight:700;color:var(--ink-soft);font-family:Pretendard,sans-serif}
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
 .pin-row{display:flex;align-items:center;gap:10px;justify-content:center;margin:16px 0 4px;flex-wrap:wrap}
@@ -597,8 +597,8 @@ body[data-theme="dark"] .st-doing{color:#A9BEF5;border-color:#3C4A73;background:
 body[data-theme="dark"] .st-hold{color:#EEC377;border-color:#5E4C2C;background:#3D3524}
 body[data-theme="dark"] .st-done{color:#93D3A8;border-color:#33563F;background:#25382C}
 body[data-theme="dark"] .inbox-wrap{background:#2F2B38;border-color:#5A5068}
-body[data-theme="dark"] .priv-wrap{background:#282A38;border-color:#4A5480}
-body[data-theme="dark"] .priv-wrap .inbox-hint{color:#93A0CC}
+body[data-theme="dark"] .priv-wrap{background:#302838;border-color:#5C4A80}
+body[data-theme="dark"] .priv-wrap .inbox-hint{color:#B9A0DC}
 body[data-theme="dark"] ::placeholder{color:#6F6779}
 body[data-theme="dark"] #wxChip{color:#A79FB2}
 
@@ -1193,7 +1193,24 @@ $('memoText').addEventListener('click', e => autoGrow(e.target));
 function autoGrow(el){ el.style.height='auto'; el.style.height = Math.max(128, el.scrollHeight)+'px'; }
 function grow(el, min){ el.style.height='auto'; el.style.height = Math.max(min, el.scrollHeight + 2)+'px'; }
 
-const PALETTE = ['#3A57C8','#C8503C','#2E8B57','#7B4AC8','#C87A2E','#1F8FA8','#C8567F'];
+const PRIV_COLOR = '#7B4AC8';   // 개인용무 전용 보라 (완료 카테고리와 동일)
+const PALETTE = [
+  '#3A57C8',  // 볼펜 파랑
+  '#C8503C',  // 벽돌 빨강
+  '#2E8B57',  // 숲 초록
+  '#7B4AC8',  // 보라
+  '#C87A2E',  // 주황 갈색
+  '#1F8FA8',  // 청록
+  '#C8567F',  // 자두 분홍
+  '#5B7C1F',  // 올리브
+  '#8B5A2B',  // 카라멜 갈색
+  '#2F6B8F',  // 스틸 블루
+  '#A03CA0',  // 마젠타
+  '#17795E',  // 에메랄드
+  '#B8860B',  // 머스타드
+  '#5D6D7E',  // 슬레이트 회색
+  '#C0392B',  // 다크 브릭
+];
 const catColor = cat => PALETTE[(cat.color||0)%PALETTE.length];
 
 /* 이 날짜가 속한 주의 목표 목록 */
@@ -2457,7 +2474,7 @@ function renderPrio(){
     return;
   }
   items.forEach(({c,t,box:bx}, i) => {
-    const col = c? catColor(c) : (bx==='priv'? '#5C6BC0' : '#B08A5A');
+    const col = c? catColor(c) : (bx==='priv'? PRIV_COLOR : '#B08A5A');
     const label = c? (c.name.trim()||'무제') : (bx==='priv'? '개인용무' : '기타업무');
     const icon = c? (c.priv? '🏠' : '📁') : (bx==='priv'? '🏠' : '📥');
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
@@ -2563,7 +2580,7 @@ function renderArcDone(yd){
     card.className = 'day-card';
     card.style.flexDirection = 'column'; card.style.alignItems = 'stretch'; card.style.cursor = 'default';
     const rows = g.items.map(({c,t,kind}) => {
-      const col = c? catColor(c) : (kind==='priv'? '#5C6BC0' : '#B08A5A');
+      const col = c? catColor(c) : (kind==='priv'? PRIV_COLOR : '#B08A5A');
       const nm = c? ((c.priv? '🏠 ':'') + (c.name.trim()||'무제')) : (kind==='priv'? '🏠 개인 용무' : '📥 기타함');
       return `<div class="done-row" style="border-top:1px solid var(--rule);padding:8px 2px">
         <span class="dr-chk">✔</span>
@@ -2841,7 +2858,7 @@ function buildDoneA4(label, groupsAsc, total){
     const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
     g.items.forEach(({c,t,kind}, i) => {
       t.__kind = kind;
-      const col = c ? catColor(c) : (kind==='priv'? '#5C6BC0' : '#B08A5A');
+      const col = c ? catColor(c) : (kind==='priv'? PRIV_COLOR : '#B08A5A');
       rows += `<tr>
         ${i===0 ? `<td rowspan="${g.items.length}" style="width:15%;font-weight:700;color:#C95F1D;vertical-align:top">${+g.mm}/${+g.dd} (${DOW[dt.getDay()]})</td>` : ''}
         <td style="width:19%;color:${col};font-weight:700">${c ? esc(c.name.trim()||'무제') : (t.__kind==='priv'? '개인 용무' : '기타함')}</td>
