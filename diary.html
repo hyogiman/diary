@@ -2159,6 +2159,12 @@ async function doSearch(q){
     if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무', h:hl(t.text,q)+(t.done?' ✔':'')});
     else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
   });
+  const bkLines = [];
+  bank.forEach(b => {
+    const t = (b.title||'').trim(), body = (b.body||'').trim();
+    if(t.toLowerCase().includes(ql)) bkLines.push({id:b.id, k:'장기 메모', h:`<b>${hl(t||'(제목 없음)',q)}</b>`});
+    else if(body.toLowerCase().includes(ql)) bkLines.push({id:b.id, k:'장기 메모', h:`<b>${esc(t||'(제목 없음)')}</b> — ${hl(snippet(body,q),q)}`});
+  });
   const out = [];
   for(const mm of Object.keys(yd).sort().reverse()){
     for(const dd of Object.keys(yd[mm]).sort().reverse()){
@@ -2194,8 +2200,20 @@ async function doSearch(q){
     ib.onclick = () => { switchTab(true); setTimeout(()=>$('inboxList').scrollIntoView({behavior:'smooth', block:'center'}), 200); };
     list.appendChild(ib);
   }
-  if(!out.length && !ibLines.length){
-    list.innerHTML = `<div class="empty-note">'${esc(q)}'에 대한 ${arcYear}년 기록이 없어요.<br>◀ ▶ 로 연도를 바꿔 검색해 보세요.</div>`;
+  if(bkLines.length){
+    const bk = document.createElement('div'); bk.className = 'day-card';
+    bk.innerHTML = `<div class="dc-date"><div class="d">🗄</div><div class="w">장기메모</div></div>
+      <div class="dc-body">${bkLines.slice(0,5).map(l=>`<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('')}
+      ${bkLines.length>5? `<div class="sr-line" style="color:var(--ink-soft)">＋ ${bkLines.length-5}건 더</div>`:''}</div>`;
+    bk.onclick = () => {                                   // 눌러서 장기 메모 열기
+      $('bankModal').classList.remove('hidden');
+      bankQ = q; $('bankSearch').value = q; renderBankList();
+      if(bkLines.length === 1) openBankItem(bkLines[0].id);
+    };
+    list.appendChild(bk);
+  }
+  if(!out.length && !ibLines.length && !bkLines.length){
+    list.innerHTML = `<div class="empty-note">'${esc(q)}'에 대한 ${arcYear}년 기록이 없어요.<br>◀ ▶ 로 연도를 바꿔 검색해 보세요.<br><span style="font-size:.8rem">(보관함·장기 메모도 함께 찾았습니다)</span></div>`;
     return;
   }
   if(out.length){
