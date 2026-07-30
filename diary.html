@@ -431,8 +431,14 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .bank-item .bp{font-size:.8rem;color:var(--ink-soft);margin-top:4px;line-height:1.45;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
 .bank-item .bd{font-size:.68rem;color:var(--ink-soft);opacity:.8;margin-top:5px}
-.be-foot{display:flex;gap:8px;justify-content:flex-end;align-items:center;margin-top:12px}
-.btn-primary.be-save{width:auto;padding:10px 26px;margin:0;font-size:.95rem}
+.be-foot{display:flex;gap:7px;align-items:center;margin-top:12px;flex-wrap:wrap}
+.be-spacer{flex:1;min-width:8px}
+.bank-files{margin-top:12px}
+.bank-files .thumb{width:min(200px,42vw);height:auto;aspect-ratio:4/3}
+.file-doc{display:flex;align-items:center;gap:8px;background:var(--surface);border:1.5px solid var(--rule);
+  border-radius:10px;padding:8px 11px;width:100%;max-width:420px;font-size:.82rem}
+.file-doc a{flex:1;min-width:0;color:var(--accent-deep);font-weight:700;text-decoration:none;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .be-title{width:100%;border:none;background:transparent;border-bottom:1.5px solid var(--rule);
   font-family:'Jua';font-weight:400;font-size:1.2rem;color:var(--accent-deep);padding:5px 3px;margin-bottom:11px}
 .be-body{width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--surface);
@@ -898,9 +904,13 @@ body[data-theme="kraft"] .priv-wrap{background:#DFDEC9;border-color:#A8AE8A}
         <input id="bankTitle" class="be-title" placeholder="제목 (예: 사무실 출입 비번)">
         <textarea id="bankBody" class="be-body" placeholder="오래 기억해야 할 내용을 적어 두세요"></textarea>
         <div class="be-when" id="bankMeta"></div>
+        <div class="bank-files file-grid" id="bankFiles"></div>
         <div class="be-foot">
+          <button class="mini-btn" id="bankImg">🖼 사진</button>
+          <button class="mini-btn" id="bankFile">📎 파일</button>
+          <span class="be-spacer"></span>
+          <button class="mini-btn" id="bankBack">💾 저장</button>
           <button class="mini-btn" id="bankDel" style="color:var(--danger);border-color:#E4B3AA">🗑 삭제</button>
-          <button class="btn-primary be-save" id="bankBack">저장</button>
         </div>
       </div>
     </div>
@@ -1485,6 +1495,32 @@ function uploadAudio(file, arr, done, hostEl){
       }catch(e){ ui.remove(); toast('주소 확인 실패: '+e.message); }
     });
 }
+/* 문서·기타 파일 업로드 (Storage) */
+function addDoc(file, arr, done, hostEl){
+  done = done || (()=>{ markDirty(); renderAll(); });
+  if(file.size > 100*1024*1024){ toast('파일은 100MB 이하만 올릴 수 있어요'); return; }
+  const id = uid8();
+  const safe = (file.name||'파일').replace(/[^\w가-힣.\-]/g,'_').slice(-60);
+  const path = `docs/${USER.uid}/${curDate}/${id}_${safe}`;
+  const ui = document.createElement('div');
+  ui.className = 'up-row';
+  ui.innerHTML = `<div class="un"><span>📎 ${esc(file.name||'파일')} 올리는 중…</span><span class="up-pct">0%</span></div>
+    <div class="up-bar"><i></i></div>`;
+  if(hostEl && hostEl.appendChild) hostEl.appendChild(ui);
+  const task = storage.ref(path).put(file, {contentType: file.type || 'application/octet-stream'});
+  task.on('state_changed',
+    sn => { const p = Math.round(sn.bytesTransferred/sn.totalBytes*100);
+      ui.querySelector('.up-pct').textContent = p+'%'; ui.querySelector('.up-bar i').style.width = p+'%'; },
+    err => { ui.remove(); toast('업로드 실패: '+(err.code||err.message)); },
+    async () => {
+      try{
+        const url = await task.snapshot.ref.getDownloadURL();
+        arr.push({ id, type:'doc', name:file.name||'파일', url, path, size:file.size, ts:Date.now() });
+        ui.remove(); done();
+        toast(`파일을 저장했어요 (${(file.size/1024/1024).toFixed(1)}MB)`);
+      }catch(e){ ui.remove(); toast('주소 확인 실패: '+e.message); }
+    });
+}
 /* 첨부 삭제 시 Storage 원본도 정리 */
 async function deleteStored(f){
   if(f && f.path){ try{ await storage.ref(f.path).delete(); }catch(e){} }
@@ -1499,6 +1535,14 @@ function renderFiles(box, arr, ctx){
       t.querySelector('img').onclick = () => { $('lightboxImg').src=f.data; $('lightbox').classList.remove('hidden'); };
       t.querySelector('.file-x').onclick = e => { e.stopPropagation(); if(confirm('사진을 삭제할까요?')){ arr.splice(i,1); save(); rerender(); } };
       box.appendChild(t);
+    }else if(f.type==='doc'){
+      const dv = document.createElement('div'); dv.className='file-doc';
+      const sz = f.size? `${(f.size/1024/1024).toFixed(1)}MB` : '';
+      dv.innerHTML = `<span>📎</span><a href="${f.url}" target="_blank" rel="noopener">${esc(f.name)}</a>
+        <span style="color:var(--ink-soft);font-size:.72rem">${sz}</span>
+        <button class="file-x" style="position:static">✕</button>`;
+      dv.querySelector('.file-x').onclick = async () => { if(confirm('파일을 삭제할까요?')){ const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); } };
+      box.appendChild(dv);
     }else{
       const a = document.createElement('div'); a.className='audio-row';
       const src = f.url || f.data || '';
@@ -3158,7 +3202,8 @@ function attachBoxListeners(){
       if(bankDirty || isEditing()) return;
       const v = snap.exists()? snap.val() : [];
       const next = (Array.isArray(v)? v : Object.values(v||{})).map(b => ({
-        id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now() }));
+        id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now(),
+        files: Array.isArray(b.files)? b.files : Object.values(b.files||{}) }));
       if(JSON.stringify(next) === JSON.stringify(bank)) return;
       bank = next;
       if(!$('bankModal').classList.contains('hidden') && !bankCur) renderBankList();
@@ -4021,7 +4066,8 @@ async function loadBank(){
     const snap = await withTimeout(db.ref(`diaries/${USER.uid}/bank`).get(), 5000);
     const v = snap.exists()? snap.val() : [];
     bank = (Array.isArray(v)? v : Object.values(v||{})).map(b => ({
-      id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now()
+      id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now(),
+      files: Array.isArray(b.files)? b.files : Object.values(b.files||{})
     }));
   }catch(e){ bank = bank || []; }
 }
@@ -4052,7 +4098,7 @@ function renderBankList(){
     const hi = txt => q? hl(txt, bankQ) : esc(txt);
     el.innerHTML = `<div class="bt">${hi(b.title||'(제목 없음)')}</div>
       ${b.body.trim()? `<div class="bp">${q? hl(snippet(b.body, bankQ), bankQ) : esc(b.body.trim())}</div>`:''}
-      <div class="bd">${new Date(b.ts||Date.now()).toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric'})} 수정</div>`;
+      <div class="bd">${new Date(b.ts||Date.now()).toLocaleDateString('ko-KR',{year:'numeric',month:'numeric',day:'numeric'})} 수정${(b.files&&b.files.length)? ` · 📎${b.files.length}`:''}</div>`;
     el.onclick = () => openBankItem(b.id);
     box.appendChild(el);
   });
@@ -4068,7 +4114,17 @@ function openBankItem(id){
   ta.value = b.body;
   grow(ta, 240);
   $('bankMeta').textContent = `마지막 수정 ${new Date(b.ts||Date.now()).toLocaleString('ko-KR',{year:'numeric',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+  if(!b.files) b.files = [];
+  renderFiles($('bankFiles'), b.files, {save:markBank, rerender:()=>{ if(bankCur) openBankItem(bankCur); }});
 }
+$('bankImg').onclick = () => {
+  const b = bank.find(x => x.id === bankCur); if(!b) return;
+  pickFile('image/*', f => addImage(f, b.files, () => { b.ts = Date.now(); markBank(); if(bankCur) openBankItem(bankCur); }));
+};
+$('bankFile').onclick = () => {
+  const b = bank.find(x => x.id === bankCur); if(!b) return;
+  pickFile('*/*', f => addDoc(f, b.files, () => { b.ts = Date.now(); markBank(); if(bankCur) openBankItem(bankCur); }, $('bankFiles')));
+};
 $('memoBankBtn').onclick = () => { bankQ=''; $('bankSearch').value=''; renderBankList(); $('bankModal').classList.remove('hidden'); };
 $('bankClose').onclick = () => {
   $('bankModal').classList.add('hidden'); bankCur = null;
@@ -4080,7 +4136,7 @@ $('bankBack').onclick = () => {
   clearTimeout(bankTimer); saveBank();
 };
 $('bankAdd').onclick = () => {
-  const b = {id:uid8(), title:'', body:'', ts:Date.now()};
+  const b = {id:uid8(), title:'', body:'', ts:Date.now(), files:[]};
   bank.push(b); markBank();
   openBankItem(b.id);
   $('bankTitle').focus();
@@ -4099,6 +4155,7 @@ $('bankBody').addEventListener('click', e => grow(e.target, 240));
 $('bankDel').onclick = () => {
   const b = bank.find(x => x.id === bankCur); if(!b) return;
   if(!(!b.title.trim() && !b.body.trim()) && !confirm(`"${b.title.trim()||'제목 없음'}" 메모를 삭제할까요?`)) return;
+  (b.files||[]).forEach(f => deleteStored(f));
   bank = bank.filter(x => x.id !== bankCur);
   bankCur = null; markBank(); renderBankList();
   toast('메모를 삭제했어요');
