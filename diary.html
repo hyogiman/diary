@@ -34,8 +34,9 @@
   --danger:#C85A4A;
   --shadow:0 10px 30px rgba(120,80,40,.14);
   --radius:14px;
-  --field:var(--field);   /* 입력칸 */
+  --field:#FFFDF6;   /* 입력칸 */
   --surface:#ffffff; /* 카드 안쪽 흰 면 */
+  --mark-bg:#FFE08A; --mark-ink:#3A2A16;   /* 검색어 강조 */
   --hand:'Nanum Pen Script';
   --hand-size:1;
 }
@@ -74,7 +75,9 @@ input:focus,textarea:focus{outline-offset:0}
 #topbar{position:sticky;top:0;z-index:50;background:rgba(251,242,225,.92);backdrop-filter:blur(8px);
   border-bottom:1.5px solid var(--rule);padding:10px 16px calc(10px);}
 .topbar-in{max-width:900px;margin:0 auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.brand{font-family:'Jua';font-size:1.25rem;color:var(--accent);font-weight:400;white-space:nowrap}
+.brand{font-family:'Jua';font-size:1.25rem;color:var(--accent);font-weight:400;white-space:nowrap;
+  background:none;border:none;padding:4px 6px;border-radius:9px;transition:.15s}
+.brand:hover{background:var(--paper-deep)}
 .tabs{display:flex;gap:4px;background:var(--paper-deep);border-radius:999px;padding:3px;margin-left:auto}
 .tab{padding:7px 16px;border-radius:999px;font-weight:600;font-size:.9rem;color:var(--ink-soft)}
 .tab.on{background:var(--surface);color:var(--accent-deep);box-shadow:0 2px 6px rgba(120,80,40,.15)}
@@ -324,7 +327,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .search-bar{margin:0 0 14px}
 .search-bar input{width:100%;padding:12px 16px;border:1.5px solid var(--rule);border-radius:999px;
   background:var(--card);font-size:.95rem;box-shadow:var(--shadow)}
-mark{background:#FFE08A;color:inherit;border-radius:3px;padding:0 2px}
+mark{background:var(--mark-bg);color:var(--mark-ink);border-radius:3px;padding:0 3px;font-weight:800}
 .sr-line{font-size:.88rem;padding:3px 0;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sr-line .sr-cat{font-weight:800;margin-right:4px}
 .sr-line .sr-kind{font-size:.7rem;color:var(--ink-soft);background:var(--paper-deep);border-radius:6px;padding:1px 6px;margin-right:6px}
@@ -631,6 +634,7 @@ body[data-theme="dark"]{
   --rule:#453F51; --blue:#94AEEC; --done:#7C7488; --gray:#8C8497;
   background:radial-gradient(1200px 600px at 80% -10%, #332B3D 0%, transparent 60%),linear-gradient(#231F2A,#1C1922);
 }
+body[data-theme="dark"]{--mark-bg:#F5C451;--mark-ink:#2A2015}
 body[data-theme="dark"] .paper{border-color:#453F51}
 body[data-theme="dark"] .paper::before{background:repeating-linear-gradient(180deg,#E0A33E 0 14px,transparent 14px 26px);opacity:.28}
 body[data-theme="dark"] .st-wait{color:#A79FB2;border-color:#4B4557;background:#332F3B}
@@ -706,6 +710,7 @@ body[data-theme="forest"]{
   --rule:#3D4F44; --blue:#8FC0E8; --done:#7A8E78; --gray:#8AA188;
   background:radial-gradient(1200px 600px at 80% -10%, #2C3E33 0%, transparent 60%),linear-gradient(#202C26,#1A241F);
 }
+body[data-theme="forest"]{--mark-bg:#F5C451;--mark-ink:#2A2015}
 body[data-theme="forest"] .paper{border-color:#3D4F44}
 body[data-theme="forest"] .paper::before{background:repeating-linear-gradient(180deg,#8FCB7A 0 14px,transparent 14px 26px);opacity:.3}
 body[data-theme="forest"] .st-wait{color:#9CB79A;border-color:#44574B;background:#2E3E36}
@@ -727,6 +732,7 @@ body[data-theme="plum"]{
   --rule:#4C3D57; --blue:#A9B4F0; --done:#8A7A90; --gray:#9C8AA2;
   background:radial-gradient(1200px 600px at 80% -10%, #3C2C48 0%, transparent 60%),linear-gradient(#281F30,#201826);
 }
+body[data-theme="plum"]{--mark-bg:#F5C451;--mark-ink:#2A2015}
 body[data-theme="plum"] .paper{border-color:#4C3D57}
 body[data-theme="plum"] .paper::before{background:repeating-linear-gradient(180deg,#E0A0B8 0 14px,transparent 14px 26px);opacity:.3}
 body[data-theme="plum"] .st-wait{color:#B79FB4;border-color:#524262;background:#3A2F44}
@@ -790,7 +796,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 <div id="appView" class="hidden">
   <div id="topbar">
     <div class="topbar-in">
-      <div class="brand" id="brandName">📔 업무일지</div>
+      <button class="brand" id="brandName" title="오늘 목록으로">📔 업무일지</button>
       <div class="tabs">
         <button class="tab on" id="tabToday">목록</button>
         <button class="tab" id="tabGoal">목표</button>
@@ -1426,6 +1432,9 @@ function renderCats(){
     el.querySelector('.cat-dot').onclick = () => { cat.color = ((cat.color||0)+1)%PALETTE.length; markDirty(); renderCats(); };
     const [up,down,add,del] = el.querySelectorAll('.ctl button');
     el.querySelector('.cat-name').addEventListener('input', e => { cat.name = e.target.value; markDirty(); });
+    el.querySelector('.cat-name').addEventListener('change', () => {
+      cat.tasks.forEach(t => { if(t.gcalId) syncTaskToCalendar(t, cat); });   // 등록된 일정 제목 갱신
+    });
     up.onclick   = () => moveArr(day.cats, ci, -1, markDirty, renderCats);
     down.onclick = () => moveArr(day.cats, ci, 1, markDirty, renderCats);
     add.onclick  = () => { cat.tasks.push(newTask()); markDirty(); renderCats(); focusLastTask(el); };
@@ -1494,6 +1503,7 @@ function taskRow(t, ctx){
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
+    if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
   };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
@@ -1507,7 +1517,7 @@ function taskRow(t, ctx){
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
   };
-  row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); });
+  row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const tb = row.querySelector('.time-badge');
   if(tb) tb.onclick = () => { t.open=!t.open; ctx.rerender(); };
@@ -1519,8 +1529,15 @@ function taskRow(t, ctx){
     renderCats(); renderInbox(); renderPriv();
     toast('우선순위로 올렸어요');
   };
-  row.querySelector('.ctl .del').onclick = () => {
-    if(!t.text || confirm('이 업무를 삭제할까요?')){ ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender(); }
+  row.querySelector('.ctl .del').onclick = async () => {
+    const msg = t.gcalId
+      ? '이 업무를 삭제할까요?\n캘린더에 등록된 일정도 함께 지워집니다.'
+      : '이 업무를 삭제할까요?';
+    if(!t.text || confirm(msg)){
+      const gone = t.gcalId;
+      ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender();
+      if(gone) await deleteTaskEvent({gcalId:gone});
+    }
   };
 
   if(t.open){
@@ -1558,6 +1575,7 @@ function taskRow(t, ctx){
     qn.addEventListener('input', e => { t.note = e.target.value; ctx.save();
       grow(qn, 72);
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
+    qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
       t.time = e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
@@ -1566,18 +1584,8 @@ function taskRow(t, ctx){
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
     if(tclr) tclr.onclick = async () => {
-      if(t.gcalId){
-        if(!confirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다. 진행할까요?')) return;
-        try{
-          if(await ensureToken(false)){
-            const calId = calTarget || 'primary';
-            await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(t.gcalId)}`,
-              {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
-          }
-        }catch(e){}
-        t.gcalId = '';
-        if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
-      }
+      if(t.gcalId && !confirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다. 진행할까요?')) return;
+      await deleteTaskEvent(t, true);
       t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요');
     };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
@@ -2337,7 +2345,7 @@ function calDates(t){
 }
 function calBody(t, cat){
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-  const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
+  const title = (t.done? '✔ ':'') + (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
   const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
   const base = t.time ? curDate : (t.due || curDate);
   let body;
@@ -2387,6 +2395,23 @@ async function openCalendar(t, cat, ctxRerender){
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}&details=${encodeURIComponent(details)}`
     + (calTarget? `&src=${encodeURIComponent(calTarget)}` : ''), '_blank');
 }
+/* 캘린더에 등록된 일정을 지움 (업무 삭제·날짜 삭제 시) */
+async function deleteTaskEvent(t, quiet){
+  if(!t || !t.gcalId || !GOOGLE_CLIENT_ID) return false;
+  const id = t.gcalId;
+  t.gcalId = '';
+  if(!(await ensureToken(false))) return false;
+  try{
+    const calId = calTarget || 'primary';
+    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(id)}`,
+      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
+    if(!r.ok && r.status !== 410 && r.status !== 404) throw new Error('HTTP '+r.status);
+    if(!quiet) toast('캘린더 일정도 함께 지웠어요');
+    if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
+    return true;
+  }catch(e){ if(!quiet) toast('캘린더 일정 삭제 실패 — 캘린더에서 직접 지워 주세요'); return false; }
+}
+
 /* 목록에서 시간·소요·알림·제목을 고치면 캘린더에도 조용히 반영 */
 async function syncTaskToCalendar(t, cat){
   if(!t.gcalId || !GOOGLE_CLIENT_ID) return;
@@ -2724,7 +2749,7 @@ function renderPrio(){
       t.status = next; t.done = t.status==='done';
       save(); renderCats();
     };
-    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
+    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); if(t.gcalId) syncTaskToCalendar(t, c); });
     const ptb = row.querySelector('.time-badge');
     if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
       if(bx==='inbox') inboxOpen = true;
@@ -2814,8 +2839,13 @@ $('delTodayBtn').onclick = async () => {
   const d = new Date(curDate+'T12:00:00');
   const label = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
   if(!confirm(`${label} 내용을 전체 삭제하시겠습니까?\n업무·회의록·메모·첨부·일기가 모두 지워지며 복구할 수 없습니다.`)) return;
+  const evTasks = day.cats.flatMap(c => c.tasks).filter(t => t.gcalId);
+  if(evTasks.length && !confirm(`이 날짜에 캘린더로 등록한 일정이 ${evTasks.length}건 있습니다.\n캘린더 일정도 함께 지울까요?\n[취소]를 누르면 캘린더 일정은 남겨 둡니다.`)){
+    evTasks.length = 0;                     // 캘린더는 건드리지 않음
+  }
   clearTimeout(saveTimer); dirty = false;
   try{
+    for(const t of evTasks) await deleteTaskEvent(t, true);
     await dayRef(curDate).remove();
     delete yearCache[+curDate.slice(0,4)];
     day = emptyDay(); renderSheet();
@@ -4689,6 +4719,70 @@ $('evtDel').onclick = () => {
   markEvents(); $('evtModal').classList.add('hidden');
   refreshArchive(); toast('이벤트를 삭제했어요');
 };
+
+/* ═══════════════ 🏠 홈으로 · ⬅ 뒤로 가기 처리 ═══════════════ */
+$('brandName').onclick = () => {
+  closeAllOverlays();
+  switchTab('today');
+  if(curDate !== todayStr()) loadDay(todayStr());
+  window.scrollTo({top:0, behavior:'smooth'});
+};
+
+/* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
+const OVERLAYS = ['askModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+                  'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
+function topOverlay(){
+  for(const id of OVERLAYS){
+    const el = $(id);
+    if(el && !el.classList.contains('hidden')) return el;
+  }
+  return null;
+}
+function closeAllOverlays(){
+  OVERLAYS.forEach(id => { const el = $(id); if(el) el.classList.add('hidden'); });
+  if(!$('schedDrawer').classList.contains('hidden')) closeSchedDrawer();
+}
+function closeOneOverlay(){
+  const el = topOverlay();
+  if(el){
+    /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
+    const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
+      bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
+      backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose'}[el.id];
+    if(closer && $(closer)) $(closer).click();
+    else el.classList.add('hidden');
+    return true;
+  }
+  if(!$('schedDrawer').classList.contains('hidden')){ closeSchedDrawer(); return true; }
+  return false;
+}
+
+/* 뒤로 가기: 앱 안에서 한 단계씩 물러나고, 마지막에만 종료 확인 */
+let exitArmed = false, exitTimer = null;
+history.replaceState({app:1}, '');
+history.pushState({app:1}, '');
+window.addEventListener('popstate', () => {
+  history.pushState({app:1}, '');            // 항상 한 칸 채워둬 브라우저가 나가지 않게
+
+  if(closeOneOverlay()) return;              // ① 열린 창 닫기
+  if(prioMode){ prioMode = false;            // ② 우선순위 → 일반 목록
+    try{ localStorage.setItem('prioMode','0'); }catch(e){}
+    renderCats(); renderInbox(); renderPriv(); return; }
+  if(peekOpen){ peekOpen = false;            // ③ 목표 펼침 닫기
+    $('goalPeekBox').classList.add('hidden'); return; }
+  if($('todayView').classList.contains('hidden')){ switchTab('today'); return; }   // ④ 목록 탭으로
+  if(curDate !== todayStr()){ loadDay(todayStr()); return; }                        // ⑤ 오늘로
+
+  if(exitArmed){                             // ⑥ 한 번 더 누르면 종료
+    exitArmed = false;
+    history.go(-2);
+    return;
+  }
+  exitArmed = true;
+  toast('한 번 더 누르면 앱을 나갑니다');
+  clearTimeout(exitTimer);
+  exitTimer = setTimeout(()=>{ exitArmed = false; }, 2000);
+});
 </script>
 </body>
 </html>
