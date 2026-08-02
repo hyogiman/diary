@@ -1607,34 +1607,51 @@ $('fabCat').onclick = () => {
 /* ───────── 미완료 가져오기 ───────── */
 $('carryBtn').onclick = async () => {
   await flushSave();
-  const found = await findPrevRecord(curDate);
-  if(!found){ toast('이전 기록이 없어요'); return; }
-  let moved = 0;
-  found.data.cats.forEach(pc => {
+  const prev = await findPrevWorkDay(curDate);
+  if(!prev){ toast('이전에 작성한 업무일지가 없어요'); return; }
+
+  let moved = 0, skipped = 0;
+  prev.data.cats.forEach(pc => {
+    if(pc.priv) return;                                      // 개인용무만 제외 (기타업무는 포함)
     const undone = pc.tasks.filter(t => !t.done && t.text.trim());
     if(!undone.length) return;
-    let target = day.cats.find(c => c.name.trim() && c.name.trim()===pc.name.trim());
-    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, priv:!!pc.priv, tasks:[]}; day.cats.push(target); }
+    let target = day.cats.find(c => c.name.trim() && c.name.trim() === pc.name.trim());
+    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, tasks:[]}; day.cats.push(target); }
     undone.forEach(t => {
-      if(target.tasks.some(x => x.text.trim()===t.text.trim())) return;
-      target.tasks.push({...normTask(t), id:uid8(), time:''});   // 실행 시간은 그날그날 새로
+      if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
+      target.tasks.push({...normTask(t), id:uid8(), time:'', gcalId:''});
       moved++;
     });
   });
-  if(moved){ markDirty(); renderCats(); toast(`마지막 기록(${found.label})의 미완료 업무 ${moved}건을 가져왔어요`); }
-  else toast(`마지막 기록(${found.label})에 남은 미완료 업무가 없어요`);
+  if(moved){
+    markDirty(); renderCats();
+    toast(`${prev.label} 일지의 미완료 업무 ${moved}건을 가져왔어요` + (skipped? ` · 이미 있는 ${skipped}건 제외`:''));
+  }else{
+    toast(skipped? `${prev.label} 일지의 미완료 업무는 이미 목록에 있어요`
+                 : `${prev.label} 일지에 남은 미완료 업무가 없어요`);
+  }
 };
-async function findPrevRecord(dateStr){
+
+/* 직전에 '업무를 적은' 일지 하나를 찾음.
+   개인 용무 완료나 메모만 있어 생긴 날은 건너뜀 */
+function hasRealWork(v){
+  return v.cats.some(c => !c.priv && c.tasks.some(t => t.text.trim()));   // 개인용무만 제외
+}
+async function findPrevWorkDay(dateStr){
   const y0 = +dateStr.slice(0,4);
-  for(let k=0; k<10; k++){                 // 최대 10년 전까지 역탐색
+  for(let k=0; k<10; k++){                                   // 최대 10년 역탐색
     const y = y0 - k; if(y < 2000) break;
     const yd = await getYear(y);
-    let best = null;
+    const days = [];
     for(const mm in yd) for(const dd in yd[mm]){
       const ds = `${y}-${mm}-${dd}`;
-      if(ds < dateStr && (!best || ds > best)) best = ds;
+      if(ds < dateStr) days.push(ds);
     }
-    if(best){ const [Y,M,D] = best.split('-'); return {label:`${+M}/${+D}`, data: normalize(yd[M][D])}; }
+    days.sort((a,b) => b.localeCompare(a));                  // 최신순
+    for(const ds of days){
+      const v = normalize(yd[ds.slice(5,7)][ds.slice(8,10)]);
+      if(hasRealWork(v)) return {label:`${+ds.slice(5,7)}/${+ds.slice(8,10)}`, date:ds, data:v};
+    }
   }
   return null;
 }
