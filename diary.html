@@ -122,10 +122,13 @@ input:focus,textarea:focus{outline-offset:0}
 .sheet-head{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;border-bottom:2.5px solid var(--accent);
   padding-bottom:10px;margin-bottom:6px}
 .sheet-title{font-family:'Jua';font-size:1.7rem;color:var(--accent);font-weight:400}
-.note-wrap{flex:1;min-width:220px;display:flex;align-items:baseline;gap:8px}
+.note-wrap{flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px}
+.note-label{padding-top:4px}
 .note-label{font-family:'Jua';color:var(--accent);font-size:1.02rem;white-space:nowrap}
-#dayNote{flex:1;border:none;background:transparent;border-bottom:1.5px dashed var(--rule);
-  font-family:var(--hand);font-size:calc(1.3rem * var(--hand-size));color:var(--blue);padding:2px 4px}
+#dayNote{flex:1;min-width:0;border:none;background:transparent;border-bottom:1.5px dashed var(--rule);
+  font-family:var(--hand);font-size:calc(1.3rem * var(--hand-size));color:var(--blue);padding:2px 4px;
+  line-height:1.45;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;
+  min-height:calc(1.3rem * var(--hand-size) * 1.45 + 6px)}
 
 .section-star{font-family:'Jua';color:var(--accent-deep);font-size:1.12rem;margin:20px 0 10px;
   display:flex;align-items:center;gap:8px}
@@ -613,7 +616,8 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   font-family:"Pretendard Variable",Pretendard,sans-serif;position:relative}
 .a4 .a4-head{display:flex;align-items:flex-end;gap:16px;border-bottom:3px solid #E5762E;padding-bottom:10px}
 .a4 .a4-title{font-family:'Jua';font-size:30px;color:#E5762E}
-.a4 .a4-note{flex:1;font-family:var(--hand);font-size:calc(22px * var(--hand-size));color:#3A57C8}
+.a4 .a4-note{flex:1;font-family:var(--hand);font-size:calc(22px * var(--hand-size));color:#3A57C8;
+  line-height:1.5;white-space:pre-wrap;word-break:break-word}
 .a4 .a4-date{font-size:14px;font-weight:700;color:#8A705A}
 .a4 .a4-star{font-family:'Jua';font-size:18px;color:#C95F1D;margin:22px 0 8px}
 .a4 table{width:100%;border-collapse:collapse}
@@ -875,7 +879,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <div class="sheet-head" style="border-bottom-width:2px">
           <div class="note-wrap">
             <span class="note-label">남김말 :</span>
-            <input id="dayNote" placeholder="오늘 하루를 한 줄로">
+            <textarea id="dayNote" rows="1" placeholder="오늘 하루를 한 줄로" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
           </div>
           <div class="actions" style="display:flex;gap:6px;flex:none">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
@@ -1085,7 +1089,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="bank-body">
       <div id="bankList"></div>
       <div id="bankView" class="hidden">
-        <input id="bankTitle" class="be-title" placeholder="제목 (예: 사무실 출입 비번)">
+        <input id="bankTitle" class="be-title" placeholder="제목 (예: 사무실 출입 비번)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <textarea id="bankBody" class="be-body" placeholder="오래 기억해야 할 내용을 적어 두세요"></textarea>
         <div class="be-when" id="bankMeta"></div>
         <div class="bank-files file-grid" id="bankFiles"></div>
@@ -1106,7 +1110,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="evt-icons" id="evtIcons"></div>
     <div id="evtLabel" style="text-align:center;font-size:.8rem;font-weight:800;color:var(--accent-deep);margin:-4px 0 10px"></div>
     <input id="evtText" placeholder="예: 와이프 생일"
-      style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:.98rem;text-align:center">
+      style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:.98rem;text-align:center" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="bk-btns">
       <button class="btn-primary" id="evtSave">저장</button>
       <button class="btn-line" id="evtClose">닫기</button>
@@ -1144,7 +1148,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <h3 id="askTitle">입력</h3>
     <p id="askDesc" style="text-align:center;font-size:.83rem;color:var(--ink-soft);margin:8px 0 14px"></p>
     <div id="askQuick" class="ask-quick"></div>
-    <input id="askInput" style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:1rem;text-align:center">
+    <input id="askInput" style="width:100%;border:1.5px solid var(--rule);border-radius:10px;background:var(--field);padding:11px 13px;font-size:1rem;text-align:center" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="bk-btns"><button class="btn-primary" id="askOk">확인</button><button class="btn-line" id="askCancel">취소</button></div>
   </div>
 </div>
@@ -1155,8 +1159,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="ev-field"><label>시작</label><input type="time" id="evStart"></div>
     <div class="ev-field"><label>소요</label>
       <select id="evDur"></select></div>
-    <div class="ev-field"><label>제목</label><input type="text" id="evText" placeholder="일정 제목"></div>
-    <div class="ev-field"><label>장소</label><input type="text" id="evLoc" placeholder="(선택)"></div>
+    <div class="ev-field"><label>제목</label><input type="text" id="evText" placeholder="일정 제목" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
+    <div class="ev-field"><label>장소</label><input type="text" id="evLoc" placeholder="(선택)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></div>
     <div class="bk-btns">
       <button class="btn-primary" id="evSave">저장</button>
       <button class="btn-line" id="evClose">닫기</button>
@@ -1337,7 +1341,7 @@ async function loadDay(dateStr){
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
-    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio,
+    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
 }
 function normalize(v){
@@ -1408,10 +1412,13 @@ window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 /* ───────── 시트 렌더 ───────── */
 function renderSheet(){
   $('dayNote').value = day.note;
+  grow($('dayNote'), 0);
   $('memoText').value = day.memo;
   renderCats(); renderInbox(); renderPriv(); renderNotes(); renderMemoFiles();
 }
-$('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); });
+$('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); grow(e.target, 0); });
+$('dayNote').addEventListener('focus', e => grow(e.target, 0));
+$('dayNote').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); e.target.blur(); } });
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
 $('memoText').addEventListener('focus', e => autoGrow(e.target));
 $('memoText').addEventListener('click', e => autoGrow(e.target));
@@ -1469,7 +1476,7 @@ function renderCats(){
     el.innerHTML = `
       <div class="cat-head" style="border-bottom-color:${col}55">
         <button class="cat-dot" title="${cat.priv? '개인 용무 (인쇄 포함 여부는 설정에서)':'카테고리 색 바꾸기'}" style="background:${col}">${cat.priv? '<span style="font-size:.5rem">🏠</span>':''}</button>
-        <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}">
+        <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button>
           <button title="업무 추가">＋</button><button class="del" title="삭제">✕</button>
@@ -1492,7 +1499,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, files:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], open:false}; }
 /* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
 /* 실행 시간 표기: 09:30~10:30 */
 function timeRange(t){
@@ -1529,7 +1536,7 @@ function taskRow(t, ctx){
   row.style.paddingLeft = '7px';
   row.innerHTML = `
     <button class="chk" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
-    <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요">
+    <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="task-meta">
       ${t.goal && goalNameOf(t.goal)? `<button class="goal-tag" title="주간 목표: ${esc(goalNameOf(t.goal))}">🎯 ${esc(goalNameOf(t.goal))}</button>`:''}
       ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
@@ -1551,6 +1558,7 @@ function taskRow(t, ctx){
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
     if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
+    if(t.done && !ctx.inbox) clearCarriedCopies(t, ctx.cat, curDate);   // 이월본 정리
   };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
@@ -1563,6 +1571,7 @@ function taskRow(t, ctx){
     t.done = t.status==='done';
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
+    if(t.done && !ctx.inbox) clearCarriedCopies(t, ctx.cat, curDate);
   };
   row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
@@ -1666,7 +1675,7 @@ $('carryBtn').onclick = async () => {
     if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, tasks:[]}; day.cats.push(target); }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
-      target.tasks.push({...normTask(t), id:uid8(), time:'', gcalId:''});
+      target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id), time:'', gcalId:''});   // 원본 계보 유지
       moved++;
     });
   });
@@ -2459,6 +2468,49 @@ async function openCalendar(t, cat, ctxRerender){
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}&details=${encodeURIComponent(details)}`
     + (calTarget? `&src=${encodeURIComponent(calTarget)}` : ''), '_blank');
 }
+/* 같은 업무인지 판별 — 계보(origin)가 이어지면 같은 업무 */
+const taskLine = t => t.origin || t.id;
+
+/* 이 업무를 완료 처리했을 때, 이후 날짜에 이월돼 있는 같은 업무를 정리 */
+async function clearCarriedCopies(t, cat, fromDate){
+  const line = taskLine(t);
+  const y0 = +fromDate.slice(0,4);
+  let removed = 0, where = [];
+  for(let k=0; k<2; k++){                                  // 올해·내년까지만 확인
+    const y = y0 + k;
+    const yd = await getYear(y);
+    for(const mm of Object.keys(yd)){
+      for(const dd of Object.keys(yd[mm])){
+        const ds = `${y}-${mm}-${dd}`;
+        if(ds <= fromDate) continue;                       // 이후 날짜만
+        const isCur = (ds === curDate);
+        const v = isCur ? day : normalize(yd[mm][dd]);
+        let hit = false;
+        v.cats.forEach(c => {
+          for(let i = c.tasks.length-1; i >= 0; i--){
+            const x = c.tasks[i];
+            if(!x.done && taskLine(x) === line){
+              if(x.gcalId) deleteTaskEvent(x, true);
+              c.tasks.splice(i,1); hit = true; removed++;
+            }
+          }
+        });
+        if(hit){
+          where.push(`${+mm}/${+dd}`);
+          if(isCur){ markDirty(); renderCats(); }
+          else{
+            const clean = JSON.parse(JSON.stringify(v, (k2,v2)=>(k2==='open'||k2==='_ov')? undefined : v2));
+            clean.updatedAt = Date.now();
+            try{ await dayRef(ds).set(clean); delete yearCache[y]; }catch(e){}
+          }
+        }
+      }
+    }
+  }
+  if(removed) toast(`${where.join(', ')}에 이월돼 있던 같은 업무 ${removed}건을 정리했어요`);
+  return removed;
+}
+
 /* 캘린더에 등록된 일정을 지움 (업무 삭제·날짜 삭제 시) */
 async function deleteTaskEvent(t, quiet){
   if(!t || !t.gcalId || !GOOGLE_CLIENT_ID) return false;
@@ -2658,15 +2710,15 @@ function renderNotes(){
     const el = document.createElement('div'); el.className = 'bignote';
     el.innerHTML = `
       <div class="bn-head">
-        <input class="bn-title" value="${esc(n.title)}" placeholder="제목 (예: 7월 조직문화 TF 회의)">
+        <input class="bn-title" value="${esc(n.title)}" placeholder="제목 (예: 7월 조직문화 TF 회의)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <button class="mini-btn bn-ov ${(metaFilled||n._ov)?'active':''}">📋 개요</button>
         <div class="ctl"><button class="del" title="메모장 삭제">✕</button></div>
       </div>
       <div class="bn-meta ${(metaFilled||n._ov)? '':'hidden'}">
-        <label>일시</label><input data-k="when" value="${esc(n.meta.when)}" placeholder="7/23(목) 14:00">
-        <label>장소</label><input data-k="where" value="${esc(n.meta.where)}" placeholder="본관 3층 회의실">
-        <label>참석자</label><input data-k="who" value="${esc(n.meta.who)}" placeholder="센터장님 외 5명">
-        <label>안건</label><input data-k="agenda" value="${esc(n.meta.agenda)}" placeholder="① 하반기 계획  ② 예산">
+        <label>일시</label><input data-k="when" value="${esc(n.meta.when)}" placeholder="7/23(목) 14:00" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <label>장소</label><input data-k="where" value="${esc(n.meta.where)}" placeholder="본관 3층 회의실" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <label>참석자</label><input data-k="who" value="${esc(n.meta.who)}" placeholder="센터장님 외 5명" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <label>안건</label><input data-k="agenda" value="${esc(n.meta.agenda)}" placeholder="① 하반기 계획  ② 예산" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       </div>
       <div class="ap-head" style="margin-bottom:6px">
         <span class="ap-title">✏ 서식</span>
@@ -2786,7 +2838,7 @@ function renderPrio(){
       <span class="pr-cat" style="background:${col}" title="${esc(label)}">
         <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
       </span>
-      <input class="task-text" value="${esc(t.text)}">
+      <input class="task-text" value="${esc(t.text)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div class="task-meta">
         ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${timeRange(t)}</button>`:''}
         <button class="status-chip ${st.cls}">${st.label}</button>
@@ -4179,7 +4231,7 @@ function renderGoals(){
     el.innerHTML = `
       <div class="goal-row">
         <button class="chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
-        <input class="goal-txt" value="${esc(g.text)}" placeholder="${goalScope==='year'?'올해 이루고 싶은 것':goalScope==='month'?'이 달의 목표':'이번 주 목표'}">
+        <input class="goal-txt" value="${esc(g.text)}" placeholder="${goalScope==='year'?'올해 이루고 싶은 것':goalScope==='month'?'이 달의 목표':'이번 주 목표'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         ${g.target>1? `<span class="g-count">${g.count||0}/${g.target}</span>`:''}
         <span class="due-wrap">
           <button class="due-chip ${ddayCls(g)}" title="${g.due||'마감일 지정'}">${ddayLabel(g)}</button>
