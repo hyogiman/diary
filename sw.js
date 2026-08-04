@@ -10,6 +10,8 @@ const SHELL = [
   './icon-192.png',
   './icon-512.png',
   './icon-maskable.png',
+  './apple-touch-icon.png',
+  './favicon-32.png',
 ];
 
 /* 설치: 앱 껍데기를 미리 담아둠 */

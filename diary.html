@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>업무일지</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#E5762E">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="업무일지">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" href="./favicon-32.png" sizes="32x32">
+<link rel="icon" href="./icon-192.png" sizes="192x192">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Nanum+Pen+Script&family=Gaegu:wght@300;400;700&family=Nanum+Brush+Script&family=Gowun+Dodum&family=Hi+Melody&family=Dokdo&family=Single+Day&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css">
@@ -253,6 +262,14 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 #lightbox{position:fixed;inset:0;background:rgba(40,25,10,.85);z-index:200;display:flex;
   align-items:center;justify-content:center;padding:20px}
 #lightbox img{max-width:96%;max-height:92%;border-radius:10px}
+#installBar{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:95;
+  display:flex;align-items:center;gap:10px;max-width:min(94vw,470px);
+  background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:14px;padding:11px 12px 11px 14px;box-shadow:0 10px 28px rgba(120,80,40,.24)}
+#installBar .ib-ico{font-size:1.25rem;flex:none}
+#installBar .ib-txt{flex:1;min-width:0;font-size:.86rem;font-weight:700;line-height:1.35}
+#installBar .icon-btn{width:32px;height:32px;font-size:.9rem;flex:none}
+#installBar .mini-btn{flex:none}
 #toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(20px);
   background:rgba(46,34,22,.95);color:#FFF6E4;padding:12px 20px;border-radius:14px;
   border-left:4px solid #E5762E;box-shadow:0 8px 24px rgba(30,20,10,.34);
@@ -1147,6 +1164,12 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   </div>
 </div>
 <div id="exportStage"></div>
+<div id="installBar" class="hidden">
+  <span class="ib-ico">📔</span>
+  <span class="ib-txt">홈 화면에 추가하면 앱처럼 쓸 수 있어요</span>
+  <button class="mini-btn" id="installGo">설치</button>
+  <button class="icon-btn" id="installNo" title="닫기">✕</button>
+</div>
 <div id="toast"></div>
 <input type="file" id="fileInput" class="hidden">
 
@@ -4800,6 +4823,58 @@ window.addEventListener('popstate', () => {
   clearTimeout(exitTimer);
   exitTimer = setTimeout(()=>{ exitArmed = false; }, 2000);
 });
+
+/* ═══════════════ 📲 앱으로 설치 (PWA) ═══════════════ */
+let deferredPrompt = null;
+
+/* 서비스워커 등록 — 오프라인에서도 앱이 열리게 */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  });
+}
+const isStandalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+/* 안드로이드·크롬: 설치 가능 신호를 잡아 배너 노출 */
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if(isStandalone()) return;
+  try{ if(localStorage.getItem('installHide') === '1') return; }catch(err){}
+  $('installBar').classList.remove('hidden');
+});
+$('installGo').onclick = async () => {
+  if(deferredPrompt){
+    $('installBar').classList.add('hidden');
+    deferredPrompt.prompt();
+    const r = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    toast(r && r.outcome === 'accepted' ? '홈 화면에 추가했어요' : '나중에 상단 메뉴에서도 설치할 수 있어요');
+    return;
+  }
+  /* 아이폰 사파리 등: 직접 안내 */
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  toast(ios ? '사파리 하단 공유 버튼 → "홈 화면에 추가"를 눌러 주세요'
+            : '브라우저 메뉴 → "홈 화면에 추가"를 눌러 주세요');
+};
+$('installNo').onclick = () => {
+  $('installBar').classList.add('hidden');
+  try{ localStorage.setItem('installHide','1'); }catch(e){}
+};
+window.addEventListener('appinstalled', () => {
+  $('installBar').classList.add('hidden');
+  deferredPrompt = null;
+  toast('설치 완료 — 홈 화면에서 열어 보세요');
+});
+
+/* 설치 신호가 없는 브라우저(아이폰 등)에서도 한 번은 안내 */
+setTimeout(() => {
+  if(isStandalone() || deferredPrompt) return;
+  if(!location.protocol.startsWith('http')) return;
+  try{ if(localStorage.getItem('installHide') === '1') return; }catch(e){}
+  if(/iPad|iPhone|iPod/.test(navigator.userAgent)) $('installBar').classList.remove('hidden');
+}, 4000);
 </script>
 </body>
 </html>
