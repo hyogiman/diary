@@ -789,8 +789,28 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .sheet-title{font-size:1.45rem}
   .task-meta{width:100%;justify-content:flex-end;padding-left:29px}
   .attach-panel{margin-left:0}
-  .brand{font-size:1.1rem}
-  .tab{padding:7px 12px;font-size:.84rem}
+  /* 상단: 제목+탭 한 줄, 아이콘 5개는 아래 줄에 고르게 */
+  .topbar-in{gap:8px;row-gap:8px}
+  .brand{font-size:1.05rem;padding:3px 4px}
+  .tabs{margin-left:auto;padding:2px}
+  .tab{padding:6px 11px;font-size:.82rem}
+  .icon-group{order:3;width:100%;justify-content:space-between;gap:6px;
+    padding-top:8px;border-top:1.5px solid var(--rule)}
+  .icon-group .icon-btn{flex:1;min-width:0;height:36px;font-size:1.06rem}
+  #topbar{padding-bottom:8px}
+
+  /* 섹션 제목 줄: 버튼 줄바꿈 방지 */
+  .section-star{flex-wrap:wrap;gap:6px;align-items:center}
+  .section-star .actions{margin-left:auto;gap:5px;flex-wrap:nowrap}
+  .mini-btn{white-space:nowrap}
+  .section-star .actions .mini-btn{padding:6px 10px;font-size:.76rem}
+}
+@media (max-width:400px){
+  .section-star .actions .mini-btn .lb{display:none}      /* 좁으면 아이콘만 */
+  .section-star .actions .mini-btn{padding:7px 11px;font-size:.95rem}
+  .icon-group .icon-btn{height:34px;font-size:1rem}
+  .brand{font-size:.95rem}
+  .tab{padding:6px 9px;font-size:.78rem}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -819,11 +839,13 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <button class="tab" id="tabGoal">목표</button>
         <button class="tab" id="tabArchive">기록</button>
       </div>
-      <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
-      <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
-      <button class="icon-btn" id="diaryBtn" title="오늘의 일기">㊙️</button>
-      <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
-      <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
+      <div class="icon-group">
+        <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
+        <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
+        <button class="icon-btn" id="diaryBtn" title="오늘의 일기">㊙️</button>
+        <button class="icon-btn" id="exportBtn" title="내보내기">🖨️</button>
+        <button class="icon-btn" id="settingsBtn" title="설정">⚙️</button>
+      </div>
     </div>
   </div>
 
@@ -882,9 +904,9 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 
         <div class="section-star">★ 회의 및 기타 메모
           <div class="actions">
-            <button class="mini-btn" id="memoImgBtn">🖼 사진</button>
-            <button class="mini-btn" id="memoAudioBtn">🎵 녹음파일</button>
-            <button class="mini-btn rec-btn" id="memoRecBtn">🎙 녹음</button>
+            <button class="mini-btn" id="memoImgBtn">🖼<span class="lb"> 사진</span></button>
+            <button class="mini-btn" id="memoAudioBtn">🎵<span class="lb"> 녹음파일</span></button>
+            <button class="mini-btn rec-btn" id="memoRecBtn">🎙<span class="lb"> 녹음</span></button>
           </div>
         </div>
         <div id="memoBox">
