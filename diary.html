@@ -1472,7 +1472,7 @@ function renderCats(){
   catOrder.sort((a,b)=> (isDoneCat(a.cat)?1:0) - (isDoneCat(b.cat)?1:0));   // 완료 모음 카테고리는 맨 아래
   catOrder.forEach(({cat, ci}) => {
     const col = catColor(cat);
-    const el = document.createElement('div'); el.className='cat';
+    const el = document.createElement('div'); el.className='cat'; el.dataset.cid = cat.id;
     el.innerHTML = `
       <div class="cat-head" style="border-bottom-color:${col}55">
         <button class="cat-dot" title="${cat.priv? '개인 용무 (인쇄 포함 여부는 설정에서)':'카테고리 색 바꾸기'}" style="background:${col}">${cat.priv? '<span style="font-size:.5rem">🏠</span>':''}</button>
@@ -1491,7 +1491,14 @@ function renderCats(){
     });
     up.onclick   = () => moveArr(day.cats, ci, -1, markDirty, renderCats);
     down.onclick = () => moveArr(day.cats, ci, 1, markDirty, renderCats);
-    add.onclick  = () => { cat.tasks.push(newTask()); markDirty(); renderCats(); focusLastTask(el); };
+    add.onclick  = () => {
+      const tid = uid8();
+      cat.tasks.push({...newTask(), id:tid});
+      markDirty(); renderCats();
+      const box = document.querySelector(`.cat[data-cid="${cat.id}"]`);
+      const inp = box && box.querySelector(`.task[data-tid="${tid}"] .task-text`);
+      if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
+    };
     del.onclick  = () => { if(!cat.tasks.length || confirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`)){ day.cats.splice(ci,1); markDirty(); renderCats(); } };
     const list = el.querySelector('.task-list');
     const order = taskOrder(cat.tasks);
@@ -1522,7 +1529,6 @@ function taskOrder(list){
   });
 }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
-function focusLastTask(catEl){ const ins = catEl.querySelectorAll('.task-text'); if(ins.length) ins[ins.length-1].focus(); }
 
 /* ── 공용 업무 행: ctx = {arr, idx, save, rerender, cat|null, inbox?} ── */
 function taskRow(t, ctx){
@@ -1532,6 +1538,7 @@ function taskRow(t, ctx){
   const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
   const row = document.createElement('div');
   row.className = 'task' + (t.done? ' done':'');
+  row.dataset.tid = t.id;
   row.style.borderLeft = `3px solid ${col}40`;
   row.style.paddingLeft = '7px';
   row.innerHTML = `
@@ -1654,10 +1661,12 @@ function taskRow(t, ctx){
   return row;
 }
 $('fabCat').onclick = () => {
-  day.cats.push({id:uid8(), name:'', color: day.cats.length%PALETTE.length, tasks:[newTask()]});
+  const cid = uid8();
+  day.cats.push({id:cid, name:'', color: day.cats.length%PALETTE.length, tasks:[newTask()]});
   markDirty(); renderCats();
-  const names = document.querySelectorAll('.cat-name');
-  if(names.length){ names[names.length-1].scrollIntoView({behavior:'smooth', block:'center'}); names[names.length-1].focus(); }
+  /* 화면 정렬과 무관하게, 방금 만든 카테고리를 정확히 찾아 커서를 둠 */
+  const el = document.querySelector(`.cat[data-cid="${cid}"] .cat-name`);
+  if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
 };
 
 /* ───────── 미완료 가져오기 ───────── */
@@ -2375,9 +2384,11 @@ $('inboxHead').onclick = e => {
 };
 $('inboxAddBtn').onclick = () => {
   inboxOpen = true;
-  inbox.push(newTask()); markInbox(); renderInbox();
-  const ins = $('inboxList').querySelectorAll('.task-text');
-  if(ins.length) ins[ins.length-1].focus();
+  const tid = uid8();
+  inbox.push({...newTask(), id:tid});
+  markInbox(); renderInbox();
+  const inp = document.querySelector(`#inboxList .task[data-tid="${tid}"] .task-text`);
+  if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 /* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
 function completeInbox(t, idx){
@@ -2707,7 +2718,7 @@ function renderNotes(){
   box.appendChild(hd);
   day.notes.forEach((n, ni) => {
     const metaFilled = n.meta.when||n.meta.where||n.meta.who||n.meta.agenda;
-    const el = document.createElement('div'); el.className = 'bignote';
+    const el = document.createElement('div'); el.className = 'bignote'; el.dataset.nid = n.id;
     el.innerHTML = `
       <div class="bn-head">
         <input class="bn-title" value="${esc(n.title)}" placeholder="제목 (예: 7월 조직문화 TF 회의)" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
@@ -2760,10 +2771,11 @@ function renderNotes(){
 }
 $('noteTopBtn').onclick = () => {
   if($('todayView').classList.contains('hidden')) switchTab(true);
-  day.notes.push({id:uid8(), title:'', body:'', meta:{when:'',where:'',who:'',agenda:''}, files:[], _ov:true});
+  const nid = uid8();
+  day.notes.push({id:nid, title:'', body:'', meta:{when:'',where:'',who:'',agenda:''}, files:[], _ov:true});
   markDirty(); renderNotes();
-  const ts = $('bigNotes').querySelectorAll('.bn-title');
-  if(ts.length){ ts[ts.length-1].scrollIntoView({behavior:'smooth', block:'center'}); ts[ts.length-1].focus(); }
+  const inp = document.querySelector(`.bignote[data-nid="${nid}"] .bn-title`);
+  if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 
 /* ═══════════════ 위치 기반 오늘 날씨 (Open-Meteo, 키 불필요) ═══════════════ */
@@ -3451,9 +3463,11 @@ $('setPrivPrintBtn').onclick = async () => {
 };
 $('privAddBtn').onclick = () => {
   privOpen = true;
-  priv.push(newTask()); markPriv(); renderPriv();
-  const ins = $('privList').querySelectorAll('.task-text');
-  if(ins.length) ins[ins.length-1].focus();
+  const tid = uid8();
+  priv.push({...newTask(), id:tid});
+  markPriv(); renderPriv();
+  const inp = document.querySelector(`#privList .task[data-tid="${tid}"] .task-text`);
+  if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 
 /* ═══════════════ ✒️ 손글씨 글꼴 선택 ═══════════════ */
@@ -4226,6 +4240,7 @@ function renderGoals(){
   list.forEach((g, i) => {
     const el = document.createElement('div');
     el.className = 'goal' + (g.done? ' done':'');
+    el.dataset.gid = g.id;
     const prog = goalScope!=='week' ? childProgress(goalScope, g.id) : null;
     const tp = goalScope==='week' ? taskProgress(g.seed||g.id, goalKey) : null;
     el.innerHTML = `
@@ -4351,10 +4366,11 @@ function defaultGoalDue(){
 $('fabGoal').onclick = () => {
   ensureGoals();
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
-  goals[goalScope][goalKey].push({id:uid8(), text:'', done:false, parent:'', start:defaultGoalStart(), due:defaultGoalDue(), note:'', repeat:false, target:1, count:0});
+  const gid = uid8();
+  goals[goalScope][goalKey].push({id:gid, text:'', done:false, parent:'', start:defaultGoalStart(), due:defaultGoalDue(), note:'', repeat:false, target:1, count:0});
   markGoals(); renderGoals();
-  const ins = $('goalList').querySelectorAll('.goal-txt');
-  if(ins.length) ins[ins.length-1].focus();
+  const inp = document.querySelector(`.goal[data-gid="${gid}"] .goal-txt`);
+  if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 
 /* 목록 탭의 🎯 버튼 — 이번 주·이번 달 목표 펼쳐보기 */
