@@ -93,6 +93,7 @@ input:focus,textarea:focus{outline-offset:0}
 .icon-btn{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;
   font-size:1.15rem;background:var(--paper-deep);transition:.15s}
 .icon-btn:hover{background:#EFDCB8}
+.icon-group{display:flex;flex-direction:row;align-items:center;gap:8px}
 
 /* ───────── 날짜 내비 ───────── */
 #dateNav{max-width:900px;margin:18px auto 0;padding:0 26px;display:flex;align-items:center;justify-content:center;gap:8px}
@@ -794,9 +795,10 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .brand{font-size:1.05rem;padding:3px 4px}
   .tabs{margin-left:auto;padding:2px}
   .tab{padding:6px 11px;font-size:.82rem}
-  .icon-group{order:3;width:100%;justify-content:space-between;gap:6px;
+  .icon-group{order:3;flex:0 0 100%;width:100%;display:flex;flex-direction:row;flex-wrap:nowrap;
+    justify-content:space-between;align-items:center;gap:6px;
     padding-top:8px;border-top:1.5px solid var(--rule)}
-  .icon-group .icon-btn{flex:1;min-width:0;height:36px;font-size:1.06rem}
+  .icon-group .icon-btn{flex:1 1 0;width:auto;min-width:0;height:38px;font-size:1.08rem}
   #topbar{padding-bottom:8px}
 
   /* 섹션 제목 줄: 버튼 줄바꿈 방지 */
