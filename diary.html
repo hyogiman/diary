@@ -237,6 +237,62 @@ body[data-theme="dark"] .cal-cell.holi.has,
 body[data-theme="forest"] .cal-cell.holi.has,
 body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 
+
+/* ───────── 🗺 Overview ───────── */
+#ovWrap{margin-bottom:70px}
+.ov-tree{display:flex;flex-direction:column;gap:7px}
+.ov-row{display:flex;align-items:center;gap:4px}
+.ov-branch{color:var(--rule);font-weight:800;flex:none;font-size:1.05rem;line-height:1}
+.ov-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
+.ov-col{background:var(--paper-deep);border:1.5px solid var(--rule);border-radius:14px;padding:12px 11px}
+.ov-col h4{font-family:'Jua';font-weight:400;font-size:.98rem;color:var(--accent-deep);
+  margin-bottom:9px;display:flex;align-items:center;gap:6px}
+.ov-col h4 span{font-family:Pretendard,sans-serif;font-size:.72rem;font-weight:800;color:var(--ink-soft);
+  background:var(--card);border-radius:999px;padding:2px 8px}
+.ov-col-body{display:flex;flex-direction:column;gap:7px}
+.ov-empty{font-size:.8rem;color:var(--ink-soft);text-align:center;padding:14px 0}
+.ov-loose-h{font-size:.78rem;font-weight:800;color:var(--ink-soft);margin:14px 0 2px;
+  padding-top:10px;border-top:1.5px dashed var(--rule)}
+
+.ov-card{flex:1;min-width:0;display:flex;align-items:center;gap:6px;
+  background:var(--card);border:1.5px solid var(--rule);border-left:4px solid var(--accent);
+  border-radius:11px;padding:8px 10px;transition:.15s;cursor:grab}
+.ov-card:active{cursor:grabbing}
+.ov-card.dragging{opacity:.45}
+.ov-card.over{border-color:var(--accent);box-shadow:0 0 0 2.5px var(--accent) inset;background:var(--paper-deep)}
+.ov-card.done{opacity:.6}
+.ov-card.done .ov-txt{text-decoration:line-through;color:var(--done)}
+.ov-year{border-left-color:#3A57C8}
+.ov-month{border-left-color:var(--accent)}
+.ov-week{border-left-color:#2E8B57}
+.ov-card.linked{border-left-style:solid}
+
+.ov-chk{width:20px;height:20px;flex:none;border:2px solid var(--accent);border-radius:6px;
+  background:var(--surface);display:flex;align-items:center;justify-content:center;
+  font-size:.68rem;color:#fff;font-weight:800}
+.ov-chk.on{background:var(--accent)}
+.ov-when{flex:none;font-size:.68rem;font-weight:800;color:var(--ink-soft);
+  background:var(--paper-deep);border-radius:999px;padding:3px 7px;white-space:nowrap}
+.ov-txt{flex:1;min-width:50px;border:none;background:transparent;font-size:.9rem;font-weight:700;
+  color:var(--ink);padding:3px 2px;font-family:inherit}
+.ov-cnt{flex:none;font-size:.7rem;font-weight:800;color:var(--accent-deep)}
+.ov-kid{flex:none;font-size:.68rem;font-weight:800;color:var(--ink-soft);
+  background:var(--paper-deep);border-radius:999px;padding:2px 7px;white-space:nowrap}
+.ov-date,.ov-add,.ov-del{flex:none;width:26px;height:26px;border-radius:7px;font-size:.82rem;
+  display:flex;align-items:center;justify-content:center;color:var(--ink-soft);transition:.12s;background:none;border:none}
+.ov-date:hover,.ov-add:hover{background:var(--paper-deep);color:var(--accent-deep)}
+.ov-add{font-weight:800;color:var(--accent);font-size:1rem}
+.ov-del:hover{background:#FBE7E2;color:var(--danger)}
+.ov-card .due-wrap{position:relative;flex:none}
+.ov-card .due-wrap input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:none}
+
+@media (max-width:640px){
+  .ov-when{font-size:.64rem;padding:2px 6px}
+  .ov-txt{font-size:.86rem}
+  .ov-card{gap:5px;padding:7px 8px}
+  .ov-date,.ov-add,.ov-del{width:24px;height:24px}
+}
+
 /* ───────── 기록(아카이브) ───────── */
 #archiveView{max-width:900px;margin:16px auto 60px;padding:0 26px}
 .year-row{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:14px}
@@ -939,6 +995,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div id="goalWrap">
       <div class="goal-head">
         <div class="goal-tabs">
+          <button class="mini-btn" data-g="ov">🗺 Overview</button>
           <button class="mini-btn active" data-g="year">🗓 연간</button>
           <button class="mini-btn" data-g="month">📅 월간</button>
           <button class="mini-btn" data-g="week">🎯 주간</button>
@@ -947,6 +1004,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <span id="goalCount" class="goal-count"></span>
       </div>
       <div id="goalList"></div>
+      <div id="ovWrap" class="hidden"></div>
     </div>
     <button id="fabGoal" title="목표 추가">＋ 목표</button>
   </div>
@@ -4058,6 +4116,7 @@ function weekRange(key){                                     // 'YYYY-Www' → �
   return {mon, sun};
 }
 function goalLabelOf(scope, key){
+  if(scope==='ov') return `${key}년 전체 계획`;
   if(scope==='dday') return '⏳ D-Day 목록';
   if(scope==='year') return `${key}년`;
   if(scope==='month') return `${+key.slice(0,4)}년 ${+key.slice(5,7)}월`;
@@ -4113,7 +4172,7 @@ async function saveGoals(){
 }
 document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.onclick = () => {
   goalScope = b.dataset.g;
-  goalKey = goalScope==='year'? yearKey(curDate)
+  goalKey = (goalScope==='year' || goalScope==='ov') ? yearKey(curDate)
           : goalScope==='month'? monthKey(curDate)
           : goalScope==='week'? weekKey(curDate) : 'all';
   renderGoals();
@@ -4126,6 +4185,7 @@ $('goalNow').onclick = () => {
 };
 function shiftGoal(dir){
   if(goalScope==='dday') return;
+  if(goalScope==='ov'){ goalKey = String(+goalKey + dir); renderGoals(); return; }
   if(goalScope==='year'){ goalKey = String(+goalKey + dir); }
   else if(goalScope==='month'){
     let y = +goalKey.slice(0,4), m = +goalKey.slice(5,7) + dir;
@@ -4195,6 +4255,7 @@ function keyAfter(a, b){ return a > b; }
 /* 반복 목표 자동 생성 — 시작 기간 이후라면 어느 기간을 열든 만들어짐(건너뛰어도 OK) */
 function carryRepeats(){
   ensureGoals();
+  if(goalScope==='ov' || goalScope==='dday') return 0;      /* 기간 개념이 없는 화면 */
   if(goals[goalScope][goalKey] === undefined) goals[goalScope][goalKey] = [];
   const cur = goals[goalScope][goalKey];
   const bucket = goals[goalScope] || {};
@@ -4226,6 +4287,15 @@ function renderGoals(){
   if(carried) toast(`반복 목표 ${carried}건을 이어받았어요`);
   document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.classList.toggle('active', b.dataset.g===goalScope));
   $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
+  /* Overview 화면 */
+  const isOV = goalScope==='ov';
+  $('goalList').classList.toggle('hidden', isOV);
+  $('ovWrap').classList.toggle('hidden', !isOV);
+  if(isOV){
+    $('goalPrev').classList.remove('hidden'); $('goalNext').classList.remove('hidden'); $('goalNow').classList.remove('hidden');
+    renderOverview();
+    return;
+  }
   const isDD = goalScope==='dday';
   $('goalPrev').classList.toggle('hidden', isDD);
   $('goalNext').classList.toggle('hidden', isDD);
@@ -4364,6 +4434,7 @@ function defaultGoalDue(){
   return `${sun.getFullYear()}-${p2(sun.getMonth()+1)}-${p2(sun.getDate())}`;
 }
 $('fabGoal').onclick = () => {
+  if(goalScope==='ov'){ ovAddGoal(); return; }
   ensureGoals();
   if(!goals[goalScope][goalKey]) goals[goalScope][goalKey] = [];
   const gid = uid8();
@@ -4967,6 +5038,246 @@ setTimeout(() => {
   try{ if(localStorage.getItem('installHide') === '1') return; }catch(e){}
   if(/iPad|iPhone|iPod/.test(navigator.userAgent)) $('installBar').classList.remove('hidden');
 }, 4000);
+
+/* ═══════════════ 🗺 Overview — 연·월·주를 한눈에 ═══════════════ */
+let ovDrag = null;                                        /* 끌고 있는 목표 */
+
+/* 그 해에 속한 월/주 키 목록 */
+const ovMonthsOf = y => Object.keys(goals.month||{}).filter(k => k.startsWith(y+'-')).sort();
+const ovWeeksOf  = y => Object.keys(goals.week ||{}).filter(k => k.startsWith(y+'-')).sort();
+
+/* 기간의 시작일 — 정렬 기준 */
+function periodStart(scope, key){
+  if(scope==='year')  return `${key}-01-01`;
+  if(scope==='month') return `${key}-01`;
+  const {mon} = weekRange(key);
+  const p2 = n => String(n).padStart(2,'0');
+  return `${mon.getFullYear()}-${p2(mon.getMonth()+1)}-${p2(mon.getDate())}`;
+}
+/* 정렬 키: 지정한 날짜 우선, 없으면 기간 시작일 */
+const ovSortKey = it => it.g.start || it.g.due || periodStart(it.scope, it.key);
+
+/* 해당 연도의 모든 목표를 스코프별로 모음 */
+function ovCollect(y){
+  const pick = (scope, keys) => keys.flatMap(k =>
+    goalsOf(scope, k).filter(g => !g.stopped && (g.text||'').trim() !== undefined)
+      .map(g => ({g, scope, key:k})));
+  const years  = pick('year',  [y]);
+  const months = pick('month', ovMonthsOf(y));
+  const weeks  = pick('week',  ovWeeksOf(y));
+  [years, months, weeks].forEach(a => a.sort((x,z) => ovSortKey(x).localeCompare(ovSortKey(z))));
+  return {years, months, weeks};
+}
+function ovLabelOf(it){
+  if(it.scope==='year')  return `${it.key}년`;
+  if(it.scope==='month') return `${+it.key.slice(5,7)}월`;
+  const {mon, sun} = weekRange(it.key);
+  return `${mon.getMonth()+1}/${mon.getDate()}~${sun.getMonth()+1}/${sun.getDate()}`;
+}
+/* 목표 한 칸 */
+function ovCard(it, childCount){
+  const {g, scope} = it;
+  const el = document.createElement('div');
+  el.className = `ov-card ov-${scope}` + (g.done? ' done':'');
+  el.dataset.gid = g.id; el.dataset.scope = scope; el.dataset.key = it.key;
+  el.draggable = true;
+  const dd = g.due ? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>` : '';
+  const cnt = g.target>1 ? `<span class="ov-cnt">${g.count||0}/${g.target}</span>` : '';
+  const kid = childCount ? `<span class="ov-kid">▽ ${childCount}</span>` : '';
+  el.innerHTML = `
+    <button class="ov-chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
+    <span class="ov-when">${ovLabelOf(it)}</span>
+    <input class="ov-txt" value="${esc(g.text||'')}" placeholder="목표를 적어 주세요"
+      autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    ${cnt}${kid}${dd}
+    <span class="due-wrap"><button class="ov-date" title="${g.start||''} ~ ${g.due||'기간 지정'}">📅</button>
+      <input type="date" value="${g.due||''}"></span>
+    ${scope!=='week' ? '<button class="ov-add" title="하위 목표 추가">＋</button>' : ''}
+    <button class="ov-del" title="삭제">✕</button>`;
+
+  /* 편집 */
+  el.querySelector('.ov-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
+  el.querySelector('.ov-txt').addEventListener('change', () => renderOverview());
+  el.querySelector('.ov-chk').onclick = () => {
+    if(g.target>1 && !g.done){ g.count=(g.count||0)+1; if(g.count>=g.target) g.done=true; }
+    else { g.done=!g.done; if(g.target>1) g.count = g.done? g.target : 0; }
+    markGoals(); renderOverview();
+  };
+  const dEl = el.querySelector('.due-wrap input');
+  el.querySelector('.ov-date').onclick = () => dEl.showPicker? dEl.showPicker() : dEl.click();
+  dEl.addEventListener('change', e => {
+    g.due = e.target.value;
+    if(!g.start) g.start = e.target.value;
+    markGoals(); renderOverview();                        /* 날짜 순으로 재정렬 */
+  });
+  el.querySelector('.ov-del').onclick = () => {
+    if(g.text.trim() && !confirm(`"${g.text}" 목표를 삭제할까요?`)) return;
+    const arr = goalsOf(it.scope, it.key);
+    const i = arr.findIndex(x => x.id === g.id);
+    if(i >= 0) arr.splice(i,1);
+    markGoals(); renderOverview();
+  };
+  const addBtn = el.querySelector('.ov-add');
+  if(addBtn) addBtn.onclick = () => ovAddChild(it);
+
+  /* 드래그로 상위 바꾸기 */
+  el.addEventListener('dragstart', e => { ovDrag = it; el.classList.add('dragging');
+    if(e.dataTransfer){ e.dataTransfer.effectAllowed='move';
+      try{ e.dataTransfer.setData('text/plain', g.id); }catch(err){} } });
+  el.addEventListener('dragend', () => { ovDrag = null; el.classList.remove('dragging');
+    document.querySelectorAll('.ov-card.over').forEach(x=>x.classList.remove('over')); });
+  el.addEventListener('dragover', e => {
+    if(!ovDrag || !ovCanLink(ovDrag, it)) return;
+    e.preventDefault(); el.classList.add('over');
+  });
+  el.addEventListener('dragleave', () => el.classList.remove('over'));
+  el.addEventListener('drop', e => {
+    e.preventDefault(); el.classList.remove('over');
+    if(!ovDrag || !ovCanLink(ovDrag, it)) return;
+    ovDrag.g.parent = g.id; markGoals(); renderOverview();
+    toast(`"${ovDrag.g.text||'목표'}" → "${g.text||'상위 목표'}" 아래로 옮겼어요`);
+  });
+  /* 모바일: 길게 눌러 상위 선택 */
+  let lp=null;
+  el.addEventListener('touchstart', () => { lp = setTimeout(()=>ovPickParent(it), 550); }, {passive:true});
+  ['touchend','touchmove','touchcancel'].forEach(ev => el.addEventListener(ev, ()=>clearTimeout(lp), {passive:true}));
+  return el;
+}
+/* 연결 가능 여부 — 주간은 월간 아래, 월간은 연간 아래로만 */
+function ovCanLink(child, parent){
+  if(child.g.id === parent.g.id) return false;
+  return (child.scope==='week' && parent.scope==='month')
+      || (child.scope==='month' && parent.scope==='year');
+}
+/* 상위의 ＋ 로 하위 목표 바로 만들기 */
+async function ovAddChild(parent){
+  const isYear = parent.scope==='year';
+  const scope  = isYear ? 'month' : 'week';
+  const base   = parent.g.start || parent.g.due || periodStart(parent.scope, parent.key);
+  const key    = isYear ? monthKey(base) : weekKey(base);
+  ensureGoals();
+  if(!goals[scope][key]) goals[scope][key] = [];
+  const gid = uid8();
+  goals[scope][key].push({id:gid, text:'', done:false, parent:parent.g.id,
+    start: periodStart(scope, key), due:'', note:'', repeat:false, target:1, count:0});
+  markGoals(); renderOverview();
+  const inp = document.querySelector(`.ov-card[data-gid="${gid}"] .ov-txt`);
+  if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
+}
+/* 모바일용 — 상위 고르기 */
+async function ovPickParent(it){
+  if(it.scope==='year'){ toast('연간 목표는 최상위예요'); return; }
+  const y = goalKey;
+  const ups = it.scope==='week' ? ovCollect(y).months : ovCollect(y).years;
+  if(!ups.length){ toast(it.scope==='week'? '먼저 월간 목표를 만들어 주세요' : '먼저 연간 목표를 만들어 주세요'); return; }
+  const quick = [['','— 연결 안 함 —'], ...ups.map(u => [u.g.id, `${ovLabelOf(u)} ${u.g.text||'(제목 없음)'}`.slice(0,26)])];
+  const v = await askInput({title:'🔗 상위 목표 연결', desc:'이 목표를 어디에 묶을까요?', value:it.g.parent||'', quick});
+  if(v === null) return;
+  it.g.parent = v; markGoals(); renderOverview();
+  toast(v? '상위 목표에 연결했어요' : '연결을 해제했어요');
+}
+
+/* ── Overview 본 화면 — 좁으면 트리, 넓으면 3단 ── */
+function renderOverview(){
+  const y = goalKey;
+  const {years, months, weeks} = ovCollect(y);
+  const box = $('ovWrap'); box.innerHTML = '';
+  const wide = window.innerWidth >= 900;
+  box.className = wide ? 'ov-cols' : 'ov-tree';
+
+  const kidsOf = (id, arr) => arr.filter(x => x.g.parent === id);
+  const total = years.length + months.length + weeks.length;
+  $('goalCount').textContent = total
+    ? `연간 ${years.length} · 월간 ${months.length} · 주간 ${weeks.length}`
+    : '아직 목표가 없어요';
+
+  if(!total){
+    box.innerHTML = `<div class="empty-note">＋ 목표 버튼으로 계획을 세워 보세요.<br>
+      연간 목표를 만들고 ＋ 를 누르면 월간·주간으로 이어집니다.</div>`;
+    return;
+  }
+
+  if(wide){
+    /* 넓은 화면 — 연간 | 월간 | 주간 3단 */
+    const cols = [['🗓 연간', years, 'year'], ['📅 월간', months, 'month'], ['🎯 주간', weeks, 'week']];
+    cols.forEach(([title, arr, scope]) => {
+      const col = document.createElement('div'); col.className = 'ov-col';
+      col.innerHTML = `<h4>${title} <span>${arr.length}</span></h4>`;
+      const body = document.createElement('div'); body.className = 'ov-col-body';
+      if(!arr.length) body.innerHTML = '<div class="ov-empty">아직 없어요</div>';
+      arr.forEach(it => {
+        const kids = scope==='year' ? kidsOf(it.g.id, months)
+                   : scope==='month' ? kidsOf(it.g.id, weeks) : [];
+        const card = ovCard(it, kids.length);
+        if(it.g.parent) card.classList.add('linked');
+        body.appendChild(card);
+      });
+      col.appendChild(body); box.appendChild(col);
+    });
+  }else{
+    /* 좁은 화면 — 세로 트리 */
+    const draw = (it, depth) => {
+      const kids = it.scope==='year' ? kidsOf(it.g.id, months)
+                 : it.scope==='month' ? kidsOf(it.g.id, weeks) : [];
+      const row = document.createElement('div');
+      row.className = 'ov-row';
+      row.style.paddingLeft = (depth*18) + 'px';
+      if(depth) row.innerHTML = '<span class="ov-branch">└</span>';
+      row.appendChild(ovCard(it, kids.length));
+      box.appendChild(row);
+      kids.forEach(k => draw(k, depth+1));
+    };
+    years.forEach(it => draw(it, 0));
+    /* 상위에 안 묶인 것들 */
+    const loose = [...months.filter(m => !m.g.parent || !years.some(v=>v.g.id===m.g.parent)),
+                   ...weeks.filter(wk => !wk.g.parent || !months.some(m=>m.g.id===wk.g.parent))]
+                  .sort((a,b)=> ovSortKey(a).localeCompare(ovSortKey(b)));
+    if(loose.length){
+      const h = document.createElement('div'); h.className = 'ov-loose-h';
+      h.textContent = '연결되지 않은 목표';
+      box.appendChild(h);
+      loose.forEach(it => {
+        const kids = it.scope==='month' ? kidsOf(it.g.id, weeks) : [];
+        const row = document.createElement('div'); row.className = 'ov-row';
+        row.appendChild(ovCard(it, kids.length));
+        box.appendChild(row);
+        kids.forEach(k => draw(k, 1));
+      });
+    }
+  }
+}
+/* 화면 폭이 바뀌면 배치 전환 */
+let ovResizeTm = null;
+window.addEventListener('resize', () => {
+  if(goalScope !== 'ov' || $('goalView').classList.contains('hidden')) return;
+  clearTimeout(ovResizeTm);
+  ovResizeTm = setTimeout(renderOverview, 200);
+});
+
+/* ＋ 목표 — Overview에서는 내용·구분·일정을 한 번에 */
+async function ovAddGoal(){
+  const scope = await askInput({title:'＋ 새 목표', desc:'어느 단위의 목표인가요?', value:'month',
+    quick:[['year','🗓 연간'],['month','📅 월간'],['week','🎯 주간']]});
+  if(scope === null) return;
+  const text = await askInput({title:'＋ 새 목표', desc:'무엇을 이루고 싶으세요?', value:''});
+  if(text === null) return;
+  const when = await askInput({title:'📅 일정', desc:'목표 날짜를 골라 주세요 (건너뛰어도 됩니다)',
+    value: todayStr(), type:'date'});
+  if(when === null) return;
+  const base = when || todayStr();
+  const key = scope==='year' ? base.slice(0,4) : scope==='month' ? monthKey(base) : weekKey(base);
+  ensureGoals();
+  if(!goals[scope][key]) goals[scope][key] = [];
+  const gid = uid8();
+  goals[scope][key].push({id:gid, text:(text||'').trim(), done:false, parent:'',
+    start: when || periodStart(scope, key), due: when || '', note:'', repeat:false, target:1, count:0});
+  markGoals();
+  if(key.slice(0,4) !== goalKey) goalKey = key.slice(0,4);
+  renderOverview();
+  const el = document.querySelector(`.ov-card[data-gid="${gid}"] .ov-txt`);
+  if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
+  toast('목표를 추가했어요 — 끌어서 상위에 묶을 수 있어요');
+}
 </script>
 </body>
 </html>
