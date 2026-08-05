@@ -239,58 +239,67 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 
 
 /* ───────── 🗺 Overview ───────── */
-#ovWrap{margin-bottom:70px}
-.ov-tree{display:flex;flex-direction:column;gap:7px}
-.ov-row{display:flex;align-items:center;gap:4px}
-.ov-branch{color:var(--rule);font-weight:800;flex:none;font-size:1.05rem;line-height:1}
-.ov-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;align-items:start}
-.ov-col{background:var(--paper-deep);border:1.5px solid var(--rule);border-radius:14px;padding:12px 11px}
-.ov-col h4{font-family:'Jua';font-weight:400;font-size:.98rem;color:var(--accent-deep);
-  margin-bottom:9px;display:flex;align-items:center;gap:6px}
-.ov-col h4 span{font-family:Pretendard,sans-serif;font-size:.72rem;font-weight:800;color:var(--ink-soft);
-  background:var(--card);border-radius:999px;padding:2px 8px}
-.ov-col-body{display:flex;flex-direction:column;gap:7px}
-.ov-empty{font-size:.8rem;color:var(--ink-soft);text-align:center;padding:14px 0}
-.ov-loose-h{font-size:.78rem;font-weight:800;color:var(--ink-soft);margin:14px 0 2px;
-  padding-top:10px;border-top:1.5px dashed var(--rule)}
+#ovWrap{margin-bottom:90px}
 
-.ov-card{flex:1;min-width:0;display:flex;align-items:center;gap:6px;
-  background:var(--card);border:1.5px solid var(--rule);border-left:4px solid var(--accent);
-  border-radius:11px;padding:8px 10px;transition:.15s;cursor:grab}
+/* 좁은 화면 — 세로 트리 */
+.ov-tree{display:flex;flex-direction:column;gap:0}
+.ov-row{display:flex;align-items:stretch;position:relative}
+.ov-row + .ov-row{margin-top:8px}
+.ov-branch{flex:none;width:26px;position:relative}
+.ov-branch::before{content:'';position:absolute;left:11px;top:-8px;bottom:50%;
+  border-left:2px solid var(--rule);border-bottom:2px solid var(--rule);
+  border-bottom-left-radius:9px;width:15px}
+.ov-branch.line::before{bottom:0;border-bottom:none;border-bottom-left-radius:0;width:0}
+
+/* 넓은 화면 — 3단 */
+.ov-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
+.ov-col{background:var(--paper-deep);border:1.5px solid var(--rule);border-radius:16px;padding:16px 14px}
+.ov-col h4{font-family:'Jua';font-weight:400;font-size:1.16rem;color:var(--accent-deep);
+  margin-bottom:13px;display:flex;align-items:center;gap:8px}
+.ov-col h4 span{font-family:Pretendard,sans-serif;font-size:.82rem;font-weight:800;color:var(--ink-soft);
+  background:var(--card);border-radius:999px;padding:3px 10px}
+.ov-col-body{display:flex;flex-direction:column;gap:9px}
+.ov-empty{font-size:.92rem;color:var(--ink-soft);text-align:center;padding:22px 0}
+.ov-loose-h{font-size:.9rem;font-weight:800;color:var(--ink-soft);margin:20px 0 10px;
+  padding-top:14px;border-top:1.5px dashed var(--rule)}
+
+/* 목표 칸 — 기간 · 내용 · ＋ · ✕ */
+.ov-card{flex:1;min-width:0;display:flex;align-items:center;gap:10px;
+  background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
+  border-radius:13px;padding:13px 14px;transition:.15s;cursor:grab}
+.ov-card:hover{box-shadow:0 3px 12px rgba(120,80,40,.13)}
 .ov-card:active{cursor:grabbing}
-.ov-card.dragging{opacity:.45}
-.ov-card.over{border-color:var(--accent);box-shadow:0 0 0 2.5px var(--accent) inset;background:var(--paper-deep)}
-.ov-card.done{opacity:.6}
-.ov-card.done .ov-txt{text-decoration:line-through;color:var(--done)}
+.ov-card.dragging{opacity:.4}
+.ov-card.over{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent) inset;background:var(--paper-deep)}
 .ov-year{border-left-color:#3A57C8}
 .ov-month{border-left-color:var(--accent)}
 .ov-week{border-left-color:#2E8B57}
-.ov-card.linked{border-left-style:solid}
 
-.ov-chk{width:20px;height:20px;flex:none;border:2px solid var(--accent);border-radius:6px;
-  background:var(--surface);display:flex;align-items:center;justify-content:center;
-  font-size:.68rem;color:#fff;font-weight:800}
-.ov-chk.on{background:var(--accent)}
-.ov-when{flex:none;font-size:.68rem;font-weight:800;color:var(--ink-soft);
-  background:var(--paper-deep);border-radius:999px;padding:3px 7px;white-space:nowrap}
-.ov-txt{flex:1;min-width:50px;border:none;background:transparent;font-size:.9rem;font-weight:700;
-  color:var(--ink);padding:3px 2px;font-family:inherit}
-.ov-cnt{flex:none;font-size:.7rem;font-weight:800;color:var(--accent-deep)}
-.ov-kid{flex:none;font-size:.68rem;font-weight:800;color:var(--ink-soft);
-  background:var(--paper-deep);border-radius:999px;padding:2px 7px;white-space:nowrap}
-.ov-date,.ov-add,.ov-del{flex:none;width:26px;height:26px;border-radius:7px;font-size:.82rem;
-  display:flex;align-items:center;justify-content:center;color:var(--ink-soft);transition:.12s;background:none;border:none}
-.ov-date:hover,.ov-add:hover{background:var(--paper-deep);color:var(--accent-deep)}
-.ov-add{font-weight:800;color:var(--accent);font-size:1rem}
+.ov-when{flex:none;font-size:.88rem;font-weight:800;color:#fff;
+  border-radius:8px;padding:6px 11px;white-space:nowrap;letter-spacing:-.01em}
+.ov-year .ov-when{background:#3A57C8}
+.ov-month .ov-when{background:var(--accent)}
+.ov-week .ov-when{background:#2E8B57}
+
+.ov-txt{flex:1;min-width:60px;border:none;background:transparent;
+  font-size:1.06rem;font-weight:700;color:var(--ink);padding:4px 2px;font-family:inherit}
+.ov-txt::placeholder{color:var(--ink-soft);opacity:.6;font-weight:600}
+.ov-kid{flex:none;font-size:.8rem;font-weight:800;color:var(--ink-soft);
+  background:var(--paper-deep);border-radius:999px;padding:4px 10px;white-space:nowrap}
+.ov-add,.ov-del{flex:none;width:34px;height:34px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;transition:.12s;background:none;border:none}
+.ov-add{font-size:1.3rem;font-weight:800;color:var(--accent)}
+.ov-add:hover{background:var(--paper-deep)}
+.ov-del{font-size:1rem;color:var(--gray)}
 .ov-del:hover{background:#FBE7E2;color:var(--danger)}
-.ov-card .due-wrap{position:relative;flex:none}
-.ov-card .due-wrap input{position:absolute;inset:0;opacity:0;width:100%;height:100%;border:none}
 
 @media (max-width:640px){
-  .ov-when{font-size:.64rem;padding:2px 6px}
-  .ov-txt{font-size:.86rem}
-  .ov-card{gap:5px;padding:7px 8px}
-  .ov-date,.ov-add,.ov-del{width:24px;height:24px}
+  .ov-card{gap:8px;padding:12px 11px;border-radius:12px}
+  .ov-when{font-size:.82rem;padding:5px 9px}
+  .ov-txt{font-size:1rem}
+  .ov-add,.ov-del{width:32px;height:32px}
+  .ov-branch{width:20px}
+  .ov-branch::before{left:8px;width:11px}
 }
 
 /* ───────── 기록(아카이브) ───────── */
@@ -464,7 +473,9 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   padding:8px 11px;font-size:.78rem;font-weight:700;margin-bottom:10px}
 .goal-tabs{display:flex;gap:6px;flex-wrap:wrap}
 #goalNav{max-width:900px;margin:18px auto 0;padding:0 26px;display:flex;align-items:center;justify-content:center;gap:8px}
-#goalWrap{max-width:900px;margin:14px auto 60px;padding:0 26px}
+#goalWrap{max-width:900px;margin:14px auto 60px;padding:0 26px;transition:max-width .2s}
+body.ov-mode #goalWrap,
+body.ov-mode #goalNav{max-width:1400px}
 .goal-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .goal-count{margin-left:auto;font-size:.85rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
 #fabGoal{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));height:54px;padding:0 22px;
@@ -1950,6 +1961,7 @@ function switchTab(mode){
   $('fabCat').classList.toggle('hidden', !today);
   $('schedOpen').classList.toggle('hidden', !today);
   $('fabGoal').classList.toggle('hidden', !goal);
+  if(!goal) document.body.classList.remove('ov-mode');
   applyTheme();
   if(arch){ arcYear = +curDate.slice(0,4); arcMonth = curDate.slice(5,7); refreshArchive(); }
   if(goal){ if(!goalKey) goalKey = yearKey(curDate); renderGoals(); }
@@ -4289,6 +4301,7 @@ function renderGoals(){
   $('goalLabel').textContent = goalLabelOf(goalScope, goalKey);
   /* Overview 화면 */
   const isOV = goalScope==='ov';
+  document.body.classList.toggle('ov-mode', isOV);
   $('goalList').classList.toggle('hidden', isOV);
   $('ovWrap').classList.toggle('hidden', !isOV);
   if(isOV){
@@ -5074,42 +5087,22 @@ function ovLabelOf(it){
   const {mon, sun} = weekRange(it.key);
   return `${mon.getMonth()+1}/${mon.getDate()}~${sun.getMonth()+1}/${sun.getDate()}`;
 }
-/* 목표 한 칸 */
+/* 목표 한 칸 — 기간 · 내용 · ＋ · ✕ 만 */
 function ovCard(it, childCount){
   const {g, scope} = it;
   const el = document.createElement('div');
   el.className = `ov-card ov-${scope}` + (g.done? ' done':'');
   el.dataset.gid = g.id; el.dataset.scope = scope; el.dataset.key = it.key;
   el.draggable = true;
-  const dd = g.due ? `<b class="pk-d ${ddayCls(g)}">${ddayLabel(g)}</b>` : '';
-  const cnt = g.target>1 ? `<span class="ov-cnt">${g.count||0}/${g.target}</span>` : '';
-  const kid = childCount ? `<span class="ov-kid">▽ ${childCount}</span>` : '';
   el.innerHTML = `
-    <button class="ov-chk ${g.done?'on':''}" title="달성 체크">${g.done?'✔':''}</button>
     <span class="ov-when">${ovLabelOf(it)}</span>
     <input class="ov-txt" value="${esc(g.text||'')}" placeholder="목표를 적어 주세요"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-    ${cnt}${kid}${dd}
-    <span class="due-wrap"><button class="ov-date" title="${g.start||''} ~ ${g.due||'기간 지정'}">📅</button>
-      <input type="date" value="${g.due||''}"></span>
-    ${scope!=='week' ? '<button class="ov-add" title="하위 목표 추가">＋</button>' : ''}
+    ${childCount? `<span class="ov-kid">${childCount}</span>` : ''}
+    ${scope!=='week' ? `<button class="ov-add" title="${scope==='year'?'월간':'주간'} 목표 추가">＋</button>` : ''}
     <button class="ov-del" title="삭제">✕</button>`;
 
-  /* 편집 */
   el.querySelector('.ov-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
-  el.querySelector('.ov-txt').addEventListener('change', () => renderOverview());
-  el.querySelector('.ov-chk').onclick = () => {
-    if(g.target>1 && !g.done){ g.count=(g.count||0)+1; if(g.count>=g.target) g.done=true; }
-    else { g.done=!g.done; if(g.target>1) g.count = g.done? g.target : 0; }
-    markGoals(); renderOverview();
-  };
-  const dEl = el.querySelector('.due-wrap input');
-  el.querySelector('.ov-date').onclick = () => dEl.showPicker? dEl.showPicker() : dEl.click();
-  dEl.addEventListener('change', e => {
-    g.due = e.target.value;
-    if(!g.start) g.start = e.target.value;
-    markGoals(); renderOverview();                        /* 날짜 순으로 재정렬 */
-  });
   el.querySelector('.ov-del').onclick = () => {
     if(g.text.trim() && !confirm(`"${g.text}" 목표를 삭제할까요?`)) return;
     const arr = goalsOf(it.scope, it.key);
@@ -5135,7 +5128,7 @@ function ovCard(it, childCount){
     e.preventDefault(); el.classList.remove('over');
     if(!ovDrag || !ovCanLink(ovDrag, it)) return;
     ovDrag.g.parent = g.id; markGoals(); renderOverview();
-    toast(`"${ovDrag.g.text||'목표'}" → "${g.text||'상위 목표'}" 아래로 옮겼어요`);
+    toast(`"${ovDrag.g.text||'목표'}" 를 옮겼어요`);
   });
   /* 모바일: 길게 눌러 상위 선택 */
   let lp=null;
@@ -5149,12 +5142,35 @@ function ovCanLink(child, parent){
   return (child.scope==='week' && parent.scope==='month')
       || (child.scope==='month' && parent.scope==='year');
 }
-/* 상위의 ＋ 로 하위 목표 바로 만들기 */
+/* 상위의 ＋ 로 하위 목표 만들기 — 시기만 고르면 됨 */
 async function ovAddChild(parent){
-  const isYear = parent.scope==='year';
+  const isYear = parent.scope === 'year';
   const scope  = isYear ? 'month' : 'week';
-  const base   = parent.g.start || parent.g.due || periodStart(parent.scope, parent.key);
-  const key    = isYear ? monthKey(base) : weekKey(base);
+  const y = goalKey;
+  let key;
+  if(isYear){
+    const m = await askInput({title:'📅 월간 목표 추가', desc:'몇 월인가요?', value:'',
+      quick: Array.from({length:12}, (_,i) => [String(i+1).padStart(2,'0'), `${i+1}월`])});
+    if(m === null) return;
+    key = `${y}-${String(m).padStart(2,'0')}`;
+  }else{
+    /* 그 달에 속한 주 목록 */
+    const mk = parent.key;                                  /* YYYY-MM */
+    const first = new Date(`${mk}-01T12:00:00`);
+    const last  = new Date(first.getFullYear(), first.getMonth()+1, 0);
+    const opts = [], seen = new Set();
+    for(let d = new Date(first); d <= last; d.setDate(d.getDate()+1)){
+      const p2 = n => String(n).padStart(2,'0');
+      const wk = weekKey(`${d.getFullYear()}-${p2(d.getMonth()+1)}-${p2(d.getDate())}`);
+      if(seen.has(wk)) continue;
+      seen.add(wk);
+      const {mon, sun} = weekRange(wk);
+      opts.push([wk, `${mon.getMonth()+1}/${mon.getDate()}~${sun.getMonth()+1}/${sun.getDate()}`]);
+    }
+    const v = await askInput({title:'🎯 주간 목표 추가', desc:'어느 주인가요?', value:'', quick:opts});
+    if(v === null) return;
+    key = v;
+  }
   ensureGoals();
   if(!goals[scope][key]) goals[scope][key] = [];
   const gid = uid8();
@@ -5221,8 +5237,12 @@ function renderOverview(){
                  : it.scope==='month' ? kidsOf(it.g.id, weeks) : [];
       const row = document.createElement('div');
       row.className = 'ov-row';
-      row.style.paddingLeft = (depth*18) + 'px';
-      if(depth) row.innerHTML = '<span class="ov-branch">└</span>';
+      row.dataset.depth = depth;
+      for(let i=0; i<depth; i++){                       /* 단계마다 가지 하나씩 */
+        const br = document.createElement('span');
+        br.className = 'ov-branch' + (i < depth-1 ? ' line' : '');
+        row.appendChild(br);
+      }
       row.appendChild(ovCard(it, kids.length));
       box.appendChild(row);
       kids.forEach(k => draw(k, depth+1));
@@ -5254,29 +5274,17 @@ window.addEventListener('resize', () => {
   ovResizeTm = setTimeout(renderOverview, 200);
 });
 
-/* ＋ 목표 — Overview에서는 내용·구분·일정을 한 번에 */
-async function ovAddGoal(){
-  const scope = await askInput({title:'＋ 새 목표', desc:'어느 단위의 목표인가요?', value:'month',
-    quick:[['year','🗓 연간'],['month','📅 월간'],['week','🎯 주간']]});
-  if(scope === null) return;
-  const text = await askInput({title:'＋ 새 목표', desc:'무엇을 이루고 싶으세요?', value:''});
-  if(text === null) return;
-  const when = await askInput({title:'📅 일정', desc:'목표 날짜를 골라 주세요 (건너뛰어도 됩니다)',
-    value: todayStr(), type:'date'});
-  if(when === null) return;
-  const base = when || todayStr();
-  const key = scope==='year' ? base.slice(0,4) : scope==='month' ? monthKey(base) : weekKey(base);
+/* ＋ 목표 — 연간 목표를 만들고, 하위는 카드의 ＋ 로 채움 */
+function ovAddGoal(){
   ensureGoals();
-  if(!goals[scope][key]) goals[scope][key] = [];
+  const y = goalKey;
+  if(!goals.year[y]) goals.year[y] = [];
   const gid = uid8();
-  goals[scope][key].push({id:gid, text:(text||'').trim(), done:false, parent:'',
-    start: when || periodStart(scope, key), due: when || '', note:'', repeat:false, target:1, count:0});
-  markGoals();
-  if(key.slice(0,4) !== goalKey) goalKey = key.slice(0,4);
-  renderOverview();
+  goals.year[y].push({id:gid, text:'', done:false, parent:'',
+    start:`${y}-01-01`, due:`${y}-12-31`, note:'', repeat:false, target:1, count:0});
+  markGoals(); renderOverview();
   const el = document.querySelector(`.ov-card[data-gid="${gid}"] .ov-txt`);
   if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); el.focus(); }
-  toast('목표를 추가했어요 — 끌어서 상위에 묶을 수 있어요');
 }
 </script>
 </body>
