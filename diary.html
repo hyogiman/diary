@@ -239,7 +239,7 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 
 
 /* ───────── 🗺 Overview ───────── */
-#ovWrap{margin-bottom:90px}
+#ovWrap{margin-bottom:90px;max-width:100%;overflow-x:hidden}
 
 /* 좁은 화면 — 세로 트리 */
 .ov-tree{display:flex;flex-direction:column;gap:0}
@@ -252,7 +252,13 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 .ov-branch.line::before{bottom:0;border-bottom:none;border-bottom-left-radius:0;width:0}
 
 /* 넓은 화면 — 3단 */
-.ov-cols{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;align-items:start}
+.ov-cols{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:16px;align-items:start}
+.ov-focus-bar{grid-column:1 / -1;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--paper-deep);border:1.5px solid var(--accent);border-radius:12px;padding:11px 15px;
+  font-size:.92rem;font-weight:700;color:var(--accent-deep)}
+.ov-focus-bar span{flex:1;min-width:0}
+.ov-card.focused{box-shadow:0 0 0 2.5px var(--accent) inset;background:var(--paper-deep)}
+.ov-cols .ov-card{cursor:pointer}
 .ov-col{background:var(--paper-deep);border:1.5px solid var(--rule);border-radius:16px;padding:16px 14px}
 .ov-col h4{font-family:'Jua';font-weight:400;font-size:1.16rem;color:var(--accent-deep);
   margin-bottom:13px;display:flex;align-items:center;gap:8px}
@@ -266,17 +272,18 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 /* 목표 칸 — 기간 · 내용 · ＋ · ✕ */
 .ov-card{flex:1;min-width:0;display:flex;align-items:center;gap:10px;
   background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
-  border-radius:13px;padding:13px 14px;transition:.15s;cursor:grab}
+  border-radius:13px;padding:13px 14px;transition:.15s}
 .ov-card:hover{box-shadow:0 3px 12px rgba(120,80,40,.13)}
-.ov-card:active{cursor:grabbing}
 .ov-card.dragging{opacity:.4}
 .ov-card.over{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent) inset;background:var(--paper-deep)}
 .ov-year{border-left-color:#3A57C8}
 .ov-month{border-left-color:var(--accent)}
 .ov-week{border-left-color:#2E8B57}
 
-.ov-when{flex:none;font-size:.88rem;font-weight:800;color:#fff;
-  border-radius:8px;padding:6px 11px;white-space:nowrap;letter-spacing:-.01em}
+.ov-when{flex:none;font-size:.88rem;font-weight:800;color:#fff;cursor:grab;
+  border-radius:8px;padding:6px 11px;white-space:nowrap;letter-spacing:-.01em;
+  user-select:none;-webkit-user-select:none}
+.ov-when:active{cursor:grabbing}
 .ov-year .ov-when{background:#3A57C8}
 .ov-month .ov-when{background:var(--accent)}
 .ov-week .ov-when{background:#2E8B57}
@@ -475,7 +482,8 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 #goalNav{max-width:900px;margin:18px auto 0;padding:0 26px;display:flex;align-items:center;justify-content:center;gap:8px}
 #goalWrap{max-width:900px;margin:14px auto 60px;padding:0 26px;transition:max-width .2s}
 body.ov-mode #goalWrap,
-body.ov-mode #goalNav{max-width:1400px}
+body.ov-mode #goalNav,
+body.ov-mode .topbar-in{max-width:min(1400px, 100%)}
 .goal-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
 .goal-count{margin-left:auto;font-size:.85rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
 #fabGoal{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));height:54px;padding:0 22px;
@@ -5054,6 +5062,7 @@ setTimeout(() => {
 
 /* ═══════════════ 🗺 Overview — 연·월·주를 한눈에 ═══════════════ */
 let ovDrag = null;                                        /* 끌고 있는 목표 */
+let ovFocusId = '';                                       /* 선택한 갈래 */
 
 /* 그 해에 속한 월/주 키 목록 */
 const ovMonthsOf = y => Object.keys(goals.month||{}).filter(k => k.startsWith(y+'-')).sort();
@@ -5093,9 +5102,8 @@ function ovCard(it, childCount){
   const el = document.createElement('div');
   el.className = `ov-card ov-${scope}` + (g.done? ' done':'');
   el.dataset.gid = g.id; el.dataset.scope = scope; el.dataset.key = it.key;
-  el.draggable = true;
   el.innerHTML = `
-    <span class="ov-when">${ovLabelOf(it)}</span>
+    <span class="ov-when" title="끌어서 상위 목표에 옮기기">${ovLabelOf(it)}</span>
     <input class="ov-txt" value="${esc(g.text||'')}" placeholder="목표를 적어 주세요"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     ${childCount? `<span class="ov-kid">${childCount}</span>` : ''}
@@ -5113,11 +5121,13 @@ function ovCard(it, childCount){
   const addBtn = el.querySelector('.ov-add');
   if(addBtn) addBtn.onclick = () => ovAddChild(it);
 
-  /* 드래그로 상위 바꾸기 */
-  el.addEventListener('dragstart', e => { ovDrag = it; el.classList.add('dragging');
+  /* 드래그는 기간 배지를 잡고 — 입력칸 조작을 방해하지 않도록 */
+  const handle = el.querySelector('.ov-when');
+  handle.draggable = true;
+  handle.addEventListener('dragstart', e => { ovDrag = it; el.classList.add('dragging');
     if(e.dataTransfer){ e.dataTransfer.effectAllowed='move';
       try{ e.dataTransfer.setData('text/plain', g.id); }catch(err){} } });
-  el.addEventListener('dragend', () => { ovDrag = null; el.classList.remove('dragging');
+  handle.addEventListener('dragend', () => { ovDrag = null; el.classList.remove('dragging');
     document.querySelectorAll('.ov-card.over').forEach(x=>x.classList.remove('over')); });
   el.addEventListener('dragover', e => {
     if(!ovDrag || !ovCanLink(ovDrag, it)) return;
@@ -5130,10 +5140,17 @@ function ovCard(it, childCount){
     ovDrag.g.parent = g.id; markGoals(); renderOverview();
     toast(`"${ovDrag.g.text||'목표'}" 를 옮겼어요`);
   });
-  /* 모바일: 길게 눌러 상위 선택 */
+  /* 모바일: 기간 배지를 길게 눌러 상위 선택 */
   let lp=null;
-  el.addEventListener('touchstart', () => { lp = setTimeout(()=>ovPickParent(it), 550); }, {passive:true});
-  ['touchend','touchmove','touchcancel'].forEach(ev => el.addEventListener(ev, ()=>clearTimeout(lp), {passive:true}));
+  handle.addEventListener('touchstart', () => { lp = setTimeout(()=>ovPickParent(it), 500); }, {passive:true});
+  ['touchend','touchmove','touchcancel'].forEach(ev => handle.addEventListener(ev, ()=>clearTimeout(lp), {passive:true}));
+
+  /* 카드를 누르면 그 갈래만 보기 (배지·버튼 클릭은 제외) */
+  el.addEventListener('click', e => {
+    if(e.target.closest('.ov-add, .ov-del, .ov-when, .ov-txt')) return;
+    ovFocusId = (ovFocusId === g.id) ? '' : g.id;
+    renderOverview();
+  });
   return el;
 }
 /* 연결 가능 여부 — 주간은 월간 아래, 월간은 연간 아래로만 */
@@ -5215,7 +5232,31 @@ function renderOverview(){
 
   if(wide){
     /* 넓은 화면 — 연간 | 월간 | 주간 3단 */
-    const cols = [['🗓 연간', years, 'year'], ['📅 월간', months, 'month'], ['🎯 주간', weeks, 'week']];
+    /* 카드를 하나 고르면 그 갈래만 보여줌 */
+    let mShow = months, wShow = weeks, focusName = '';
+    if(ovFocusId){
+      const fy = years.find(x => x.g.id === ovFocusId);
+      const fm = months.find(x => x.g.id === ovFocusId);
+      if(fy){
+        focusName = fy.g.text || '연간 목표';
+        mShow = kidsOf(fy.g.id, months);
+        wShow = weeks.filter(wk => mShow.some(m => m.g.id === wk.g.parent));
+      }else if(fm){
+        focusName = fm.g.text || '월간 목표';
+        mShow = [fm];
+        wShow = kidsOf(fm.g.id, weeks);
+      }else{ ovFocusId = ''; }
+    }
+    if(ovFocusId){
+      const bar = document.createElement('div');
+      bar.className = 'ov-focus-bar';
+      bar.innerHTML = `<span>🔎 <b>${esc(focusName)}</b> 갈래만 보는 중</span>
+        <button class="mini-btn" id="ovAll">전체 보기</button>`;
+      bar.querySelector('#ovAll').onclick = () => { ovFocusId = ''; renderOverview(); };
+      box.appendChild(bar);
+      box.classList.add('has-focus');
+    }
+    const cols = [['🗓 연간', years, 'year'], ['📅 월간', mShow, 'month'], ['🎯 주간', wShow, 'week']];
     cols.forEach(([title, arr, scope]) => {
       const col = document.createElement('div'); col.className = 'ov-col';
       col.innerHTML = `<h4>${title} <span>${arr.length}</span></h4>`;
@@ -5225,7 +5266,7 @@ function renderOverview(){
         const kids = scope==='year' ? kidsOf(it.g.id, months)
                    : scope==='month' ? kidsOf(it.g.id, weeks) : [];
         const card = ovCard(it, kids.length);
-        if(it.g.parent) card.classList.add('linked');
+        if(it.g.id === ovFocusId) card.classList.add('focused');
         body.appendChild(card);
       });
       col.appendChild(body); box.appendChild(col);
