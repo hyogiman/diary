@@ -1480,7 +1480,7 @@ auth.onAuthStateChanged(async u => {
 });
 $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden'); await flushSave();
   clearTimeout(stickyTimer); if(stickyDirty) await saveStickies();
-  detachAll(); stickies = []; renderStickies(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+  detachAll(); stickies = []; stickyPix = {}; renderStickies(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
@@ -4993,6 +4993,7 @@ $('goalRestoreBtn').onclick = async () => {
 /* ═══════════════ 💡 포스트잇 — 화면에 붙여 두는 짧은 메모 ═══════════════ */
 /* 탭·날짜와 무관하게 화면에 떠 있고, 끌어서 옮기고 모서리로 크기를 바꾼다 */
 let stickies = [], stickyTimer = null, stickyDirty = false, stickyCb = null;
+let stickyPix = {};                 /* Storage를 못 쓸 때 다이어리 안에 보관한 사진 (id → 그림자료) */
 let stickyZ = 1, stickyBusy = false;
 const STICKY_W = 200, STICKY_H = 200, STICKY_MINW = 150, STICKY_MINH = 110;
 /* 좌측 하단 동그라미로 고르는 색 — 값, 이름, 미리보기 색 */
@@ -5041,6 +5042,8 @@ async function loadStickies(){
     stickies = (Array.isArray(v) ? v : Object.values(v||{})).map(normSticky);
   }catch(e){ stickies = stickies || []; }
   renderStickies();
+  await loadStickyPix();                 /* 다이어리 안에 보관된 사진 채우기 */
+  if(Object.keys(stickyPix).length) renderStickies();
 }
 function markStickies(){ stickyDirty = true; clearTimeout(stickyTimer); stickyTimer = setTimeout(saveStickies, 700); }
 async function saveStickies(){
@@ -5073,7 +5076,8 @@ function normBlocks(s){
   let bl = Array.isArray(s.blocks) ? s.blocks : Object.values(s.blocks || {});
   bl = bl.map(b => {
     if(!b) return null;
-    if(b.t === 'img' && b.url) return {t:'img', id:b.id || uid8(), url:b.url, path:b.path || '', name:b.name || ''};
+    if(b.t === 'img' && b.ref)  return {t:'img', id:b.id || uid8(), ref:true, name:b.name || ''};
+    if(b.t === 'img' && b.url)  return {t:'img', id:b.id || uid8(), url:b.url, path:b.path || '', name:b.name || ''};
     return {t:'text', v: typeof b.v === 'string' ? b.v : ''};
   }).filter(Boolean);
   if(!bl.length) bl = [{t:'text', v: typeof s.text === 'string' ? s.text : ''}];   /* 예전 포스트잇 이어받기 */
@@ -5141,8 +5145,16 @@ function stickyEl(s){
     el.appendChild(pal);
   };
 
-  /* 사진 — 커서가 있던 자리에 끼워 넣는다 */
-  el.querySelector('.sticky-img').onclick = e => {
+  /* 사진 — 커서가 있던 자리에 끼워 넣는다.
+     버튼을 누르면 글칸에서 포커스가 빠지므로, 빠지기 전(pointerdown)에 위치를 확정한다 */
+  const imgBtn = el.querySelector('.sticky-img');
+  imgBtn.addEventListener('pointerdown', () => {
+    const a = document.activeElement;
+    if(a && a.tagName === 'TEXTAREA' && el.contains(a)){
+      stickyCaret = {sid:s.id, bi:+a.dataset.bi, pos:a.selectionStart};
+    }
+  });
+  imgBtn.onclick = e => {
     e.stopPropagation();
     closeStickyPalettes();
     if(stickyImgs(s).length >= 6){ toast('포스트잇 한 장에는 사진 6장까지 넣을 수 있어요'); return; }
@@ -5159,7 +5171,7 @@ function stickyEl(s){
       {title:'🗑 포스트잇 떼기', ok:'떼기', danger:true}))) return;
     stickies = stickies.filter(x => x.id !== s.id);
     markStickies(); renderStickies();
-    imgs.forEach(b => deleteStored(b));                  /* Storage 원본도 정리 */
+    imgs.forEach(dropStickyPix);                         /* 원본 사진도 정리 */
     toast('포스트잇을 뗐어요');
   };
 
@@ -5183,6 +5195,7 @@ function renderStickyBody(el, s, focus){
       ta.value = b.v;
       ta.addEventListener('input', e => {
         b.v = e.target.value; s.ts = Date.now();
+        stickyCaret = {sid:s.id, bi:i, pos:e.target.selectionStart};
         growSticky(e.target); markStickies();
       });
       ta.addEventListener('focus', e => { stickyCaret = {sid:s.id, bi:i, pos:e.target.selectionStart}; });
@@ -5197,9 +5210,11 @@ function renderStickyBody(el, s, focus){
       wrap.innerHTML = `<img alt="${esc(b.name||'사진')}" loading="lazy">
         <button class="sb-x" type="button" title="사진 빼기">✕</button>`;
       const im = wrap.querySelector('img');
-      im.src = b.url;
+      const src = b.ref ? (stickyPix[b.id] || '') : b.url;
+      if(src) im.src = src;
+      else { im.alt = '사진을 불러오는 중…'; }
       im.onload = () => growAllSticky(el);
-      im.onclick = () => { $('lightboxImg').src = b.url; $('lightbox').classList.remove('hidden'); };
+      im.onclick = () => { const u = b.ref ? stickyPix[b.id] : b.url; if(!u) return; $('lightboxImg').src = u; $('lightbox').classList.remove('hidden'); };
       wrap.querySelector('.sb-x').onclick = async ev => {
         ev.stopPropagation();
         if(!(await askConfirm('이 사진을 포스트잇에서 뺄까요?', {title:'🖼 사진 빼기', ok:'빼기', danger:true}))) return;
@@ -5214,7 +5229,7 @@ function renderStickyBody(el, s, focus){
         }
         s.ts = Date.now(); markStickies();
         renderStickyBody(el, s);
-        deleteStored(b);
+        dropStickyPix(b);
         toast('사진을 뺐어요');
       };
       body.appendChild(wrap);
@@ -5241,15 +5256,21 @@ function addStickyImage(file, s){
   img.onerror = () => { ui.remove(); URL.revokeObjectURL(objUrl); toast('이미지를 읽지 못했어요'); };
   img.onload = () => {
     URL.revokeObjectURL(objUrl);
-    const MAX = 1000, sc = Math.min(1, MAX / Math.max(img.width, img.height));
-    const cv = document.createElement('canvas');
-    cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    cv.toBlob(async blob => {
+    const shrink = (max, q) => {
+      const sc = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      return cv;
+    };
+    const id   = uid8();
+    const name = file.name || '사진';
+    const safe = name.replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+
+    shrink(1000).toBlob(async blob => {
       if(!blob){ ui.remove(); toast('사진을 준비하지 못했어요'); return; }
-      const id = uid8();
-      const safe = (file.name||'사진').replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
-      const path = `sticky/${USER.uid}/${id}_${safe}.jpg`;
+      /* 1순위 — Storage에 올리고 주소만 저장 (글 칠 때마다 다시 보내지 않아 가볍다) */
+      const path = `docs/${USER.uid}/sticky/${id}_${safe}.jpg`;
       try{
         const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
         task.on('state_changed', sn => {
@@ -5258,12 +5279,51 @@ function addStickyImage(file, s){
         await task;
         const url = await task.snapshot.ref.getDownloadURL();
         ui.remove();
-        insertStickyImage(s, {t:'img', id, url, path, name:file.name||'사진'});
+        insertStickyImage(s, {t:'img', id, url, path, name});
         toast('사진을 넣었어요');
-      }catch(e){ ui.remove(); toast('사진 올리기 실패: ' + (e.code || e.message)); }
+        return;
+      }catch(e){
+        /* 2순위 — Storage 권한이 막혀 있으면 사진을 조금 더 줄여 다이어리 안에 직접 보관 */
+        ui.textContent = '🖼 다른 방법으로 넣는 중…';
+        try{
+          const data = shrink(760).toDataURL('image/jpeg', .72);
+          await withTimeout(db.ref(`diaries/${USER.uid}/stickyPix/${id}`).set(data), 15000);
+          stickyPix[id] = data;
+          ui.remove();
+          insertStickyImage(s, {t:'img', id, ref:true, name});
+          toast('사진을 넣었어요');
+        }catch(e2){
+          ui.remove();
+          toast('사진을 넣지 못했어요: ' + (e2.code || e2.message || e.code || e.message));
+        }
+      }
     }, 'image/jpeg', .82);
   };
   img.src = objUrl;
+}
+/* 사진 원본 정리 — Storage에 있으면 Storage에서, 다이어리 안에 있으면 그 노드를 지운다 */
+async function dropStickyPix(b){
+  if(!b) return;
+  if(b.ref){
+    delete stickyPix[b.id];
+    try{ await db.ref(`diaries/${USER.uid}/stickyPix/${b.id}`).remove(); }catch(e){}
+  }else{
+    deleteStored(b);
+  }
+}
+/* 다이어리 안에 보관된 사진 불러오기 — 실제로 쓰이는 것만 */
+async function loadStickyPix(){
+  const need = [];
+  stickies.forEach(s => (s.blocks||[]).forEach(b => {
+    if(b.t === 'img' && b.ref && !stickyPix[b.id]) need.push(b.id);
+  }));
+  if(!need.length) return;
+  await Promise.all(need.map(async id => {
+    try{
+      const snap = await withTimeout(db.ref(`diaries/${USER.uid}/stickyPix/${id}`).get(), 8000);
+      if(snap.exists()) stickyPix[id] = snap.val();
+    }catch(e){}
+  }));
 }
 /* 커서가 있던 글 블록을 둘로 나누고 그 사이에 사진을 끼운다 */
 function insertStickyImage(s, imgBlock){
