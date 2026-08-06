@@ -645,7 +645,7 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .font-opt .fprev{font-size:1.3rem;color:var(--ink);line-height:1.4}
 .priv-wrap{background:#F5F0FA;border:1.5px dashed #C9B3E8;border-radius:12px;padding:6px 10px 10px;margin-top:4px}
 .priv-wrap .inbox-hint{color:#7B5FA8}
-#inboxArrow,#privArrow{font-size:.76rem;font-weight:700;color:var(--ink-soft);font-family:Pretendard,sans-serif}
+/* (접기 표시는 .sec-fold / .sec-note 로 옮겼습니다) */
 .arc-tools{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:0 0 16px}
 .arc-tools-row{justify-content:flex-start;align-items:center}
 .at-spacer{flex:1;min-width:6px}
@@ -847,6 +847,51 @@ body[data-theme="ink"] #topbar{background:rgba(245,242,234,.93)}
 body[data-theme="forest"] #topbar{background:rgba(35,48,42,.92)}
 body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 
+/* ───────── 확인 모달 (JS confirm 대체) ───────── */
+.cf-btns{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+.cf-btns .btn-primary,.cf-btns .btn-line{width:100%}
+#cfDesc{white-space:pre-line}
+
+/* ───────── 섹션 접기 버튼 (기타 업무함 · 개인 용무함) ───────── */
+.sec-fold{flex:none;width:30px;height:30px;border-radius:50%;
+  background:var(--paper-deep);border:2px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Pretendard,sans-serif;font-size:1.05rem;font-weight:800;line-height:1;
+  color:var(--accent-deep);transition:.13s;padding:0}
+.sec-fold:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.08)}
+.sec-fold.closed{background:var(--accent);border-color:var(--accent);color:#fff}
+.sec-note{font-family:Pretendard,sans-serif;font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+
+/* ───────── 📝 포스트잇 ───────── */
+#stickyLayer{position:fixed;inset:0;z-index:100;pointer-events:none}
+.sticky{position:absolute;pointer-events:auto;display:flex;flex-direction:column;
+  background:linear-gradient(170deg,#FFF6B0 0%,#FFEC7A 62%,#FCE05F 100%);
+  border:1px solid #E5CA48;border-radius:5px;
+  box-shadow:0 10px 22px rgba(120,90,20,.26),0 2px 5px rgba(120,90,20,.20);
+  min-width:150px;min-height:110px;overflow:hidden;transition:box-shadow .15s}
+.sticky.on{box-shadow:0 16px 34px rgba(120,90,20,.4),0 3px 7px rgba(120,90,20,.24)}
+.sticky-head{flex:none;display:flex;align-items:center;gap:4px;height:30px;padding:0 3px 0 9px;
+  background:rgba(140,105,15,.12);border-bottom:1px solid rgba(160,125,25,.18);
+  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.sticky-head:active{cursor:grabbing}
+.sticky-grip{flex:1;min-width:0;font-size:.7rem;font-weight:800;color:#8A6A12;letter-spacing:.03em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+.sticky-x{flex:none;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
+  justify-content:center;font-size:.85rem;font-weight:800;color:#8A6A12;transition:.13s}
+.sticky-x:hover{background:rgba(200,90,74,.2);color:var(--danger)}
+.sticky textarea{flex:1;min-height:0;width:100%;border:none;background:transparent;resize:none;
+  padding:9px 11px 14px;font-family:inherit;font-size:.95rem;line-height:1.55;color:#453714;
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;overflow:auto}
+.sticky textarea:focus{outline:none}
+.sticky textarea::placeholder{color:#BCA555}
+.sticky-rs{position:absolute;right:0;bottom:0;width:24px;height:24px;touch-action:none;
+  cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 0 42%,#CFAE34 42% 51%,transparent 51% 66%,#CFAE34 66% 75%,transparent 75%)}
+.icon-btn{position:relative}
+.icon-badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;
+  background:var(--accent);color:#fff;font-size:.63rem;font-weight:800;line-height:17px;
+  padding:0 4px;text-align:center;box-shadow:0 1px 3px rgba(60,40,10,.3)}
+
 @media (max-width:640px){
   #dateNav{gap:6px;padding:0 10px}
   .date-chip{min-width:0;flex:1 1 auto;max-width:none;padding:9px 10px!important;overflow:hidden}
@@ -871,6 +916,12 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     padding-top:8px;border-top:1.5px solid var(--rule)}
   .icon-group .icon-btn{flex:1 1 0;width:auto;min-width:0;height:38px;font-size:1.08rem}
   #topbar{padding-bottom:8px}
+
+  /* 포스트잇 — 손가락으로 잡기 쉽게 */
+  .sticky-head{height:36px}
+  .sticky-x{width:30px;height:30px;font-size:.95rem}
+  .sticky-rs{width:30px;height:30px}
+  .sticky textarea{font-size:1rem}
 
   /* 섹션 제목 줄: 버튼 줄바꿈 방지 */
   .section-star{flex-wrap:wrap;gap:6px;align-items:center}
@@ -913,6 +964,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <button class="tab" id="tabArchive">기록</button>
       </div>
       <div class="icon-group">
+        <button class="icon-btn" id="stickyBtn" title="포스트잇 — 화면에 붙여 두는 짧은 메모">📝<span class="icon-badge hidden" id="stickyCount"></span></button>
         <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
         <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
         <button class="icon-btn" id="diaryBtn" title="오늘의 일기">㊙️</button>
@@ -957,7 +1009,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <div id="prioList" class="hidden"></div>
         <div class="empty-note hidden" id="emptyTasks">아직 기록이 없어요. 우측 하단 ＋ 버튼으로 오늘을 시작해 보세요.</div>
 
-        <div class="section-star" id="inboxHead" style="cursor:pointer">★ 기타 업무함 <span id="inboxArrow" style="font-size:.9rem">▸</span>
+        <div class="section-star" id="inboxHead" style="cursor:pointer">★ 기타 업무함 <button class="sec-fold" id="inboxArrow" type="button" title="펼치기/접기">＋</button><span class="sec-note" id="inboxNote"></span>
           <div class="actions">
             <button class="mini-btn" id="inboxAddBtn">＋ 업무</button>
           </div>
@@ -967,7 +1019,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
           <div id="inboxList"></div>
         </div>
 
-        <div class="section-star" id="privHead" style="cursor:pointer">★ 개인 용무함 <span id="privArrow" style="font-size:.9rem">▸</span>
+        <div class="section-star" id="privHead" style="cursor:pointer">★ 개인 용무함 <button class="sec-fold" id="privArrow" type="button" title="펼치기/접기">＋</button><span class="sec-note" id="privNote"></span>
           <div class="actions"><button class="mini-btn" id="privAddBtn">＋ 용무</button></div>
         </div>
         <div class="priv-wrap hidden" id="privWrap">
@@ -1221,6 +1273,13 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="bk-btns"><button class="btn-primary" id="askOk">확인</button><button class="btn-line" id="askCancel">취소</button></div>
   </div>
 </div>
+<div id="confirmModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:195;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:410px">
+    <h3 id="cfTitle">확인</h3>
+    <p id="cfDesc" style="text-align:center;font-size:.88rem;line-height:1.65;color:var(--ink);margin:10px 0 16px"></p>
+    <div id="cfBtns" class="cf-btns"></div>
+  </div>
+</div>
 <div id="evModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:178;display:flex;align-items:center;justify-content:center;padding:16px">
   <div class="bk-card" style="max-width:420px">
     <h3 id="evTitle">일정 수정</h3>
@@ -1267,6 +1326,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   <button class="mini-btn" id="installGo">설치</button>
   <button class="icon-btn" id="installNo" title="닫기">✕</button>
 </div>
+<div id="stickyLayer"></div>
 <div id="toast"></div>
 <input type="file" id="fileInput" class="hidden">
 
@@ -1328,7 +1388,7 @@ async function doLogin(){
     await auth.signInWithEmailAndPassword(email, pw);
   }catch(e){
     if(e.code==='auth/user-not-found'){
-      if(confirm('등록되지 않은 이메일입니다. 이 이메일로 새 다이어리를 만들까요?')){
+      if(await askConfirm('등록되지 않은 이메일입니다.\n이 이메일로 새 다이어리를 만들까요?', {title:'📔 새 다이어리', ok:'만들기'})){
         try{ await auth.createUserWithEmailAndPassword(email, pw); }
         catch(e2){ $('loginMsg').textContent = authMsg(e2); }
       }
@@ -1349,6 +1409,7 @@ auth.onAuthStateChanged(async u => {
     await loadName();
     await loadGoals();
     await loadBank();
+    await loadStickies();
     await loadVacs();
     await loadEvents();
     await loadCustomIcon();
@@ -1366,7 +1427,9 @@ auth.onAuthStateChanged(async u => {
     $('loginView').classList.remove('hidden');
   }
 });
-$('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden'); await flushSave(); detachAll(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+$('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden'); await flushSave();
+  clearTimeout(stickyTimer); if(stickyDirty) await saveStickies();
+  detachAll(); stickies = []; renderStickies(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 async function loadDay(dateStr){
@@ -1568,7 +1631,11 @@ function renderCats(){
       const inp = box && box.querySelector(`.task[data-tid="${tid}"] .task-text`);
       if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
     };
-    del.onclick  = () => { if(!cat.tasks.length || confirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`)){ day.cats.splice(ci,1); markDirty(); renderCats(); } };
+    del.onclick  = async () => {
+      if(cat.tasks.length && !(await askConfirm(`'${cat.name||'카테고리'}'와 하위 업무를 모두 삭제할까요?`,
+        {title:'🗑 카테고리 삭제', ok:'삭제', danger:true}))) return;
+      day.cats.splice(ci,1); markDirty(); renderCats();
+    };
     const list = el.querySelector('.task-list');
     const order = taskOrder(cat.tasks);
     order.forEach(({t,ti})=> list.appendChild(taskRow(t, {arr:cat.tasks, idx:ti, save:markDirty, rerender:renderCats, cat})));
@@ -1665,11 +1732,10 @@ function taskRow(t, ctx){
     const msg = t.gcalId
       ? '이 업무를 삭제할까요?\n캘린더에 등록된 일정도 함께 지워집니다.'
       : '이 업무를 삭제할까요?';
-    if(!t.text || confirm(msg)){
-      const gone = t.gcalId;
-      ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender();
-      if(gone) await deleteTaskEvent({gcalId:gone});
-    }
+    if(t.text && !(await askConfirm(msg, {title:'🗑 업무 삭제', ok:'삭제', danger:true}))) return;
+    const gone = t.gcalId;
+    ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender();
+    if(gone) await deleteTaskEvent({gcalId:gone});
   };
 
   if(t.open){
@@ -1716,7 +1782,7 @@ function taskRow(t, ctx){
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
     if(tclr) tclr.onclick = async () => {
-      if(t.gcalId && !confirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다. 진행할까요?')) return;
+      if(t.gcalId && !(await askConfirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다.\n진행할까요?', {title:'⏰ 실행 시간 지우기', ok:'지우기', danger:true}))) return;
       await deleteTaskEvent(t, true);
       t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요');
     };
@@ -1888,7 +1954,9 @@ function renderFiles(box, arr, ctx){
       const t = document.createElement('div'); t.className='thumb';
       t.innerHTML = `<img src="${f.data}" alt="${esc(f.name)}"><button class="file-x">✕</button>`;
       t.querySelector('img').onclick = () => { $('lightboxImg').src=f.data; $('lightbox').classList.remove('hidden'); };
-      t.querySelector('.file-x').onclick = e => { e.stopPropagation(); if(confirm('사진을 삭제할까요?')){ arr.splice(i,1); save(); rerender(); } };
+      t.querySelector('.file-x').onclick = async e => { e.stopPropagation();
+        if(!(await askConfirm('사진을 삭제할까요?', {title:'🖼 사진 삭제', ok:'삭제', danger:true}))) return;
+        arr.splice(i,1); save(); rerender(); };
       box.appendChild(t);
     }else if(f.type==='doc'){
       const dv = document.createElement('div'); dv.className='file-doc';
@@ -1896,7 +1964,9 @@ function renderFiles(box, arr, ctx){
       dv.innerHTML = `<span>📎</span><a href="${f.url}" target="_blank" rel="noopener">${esc(f.name)}</a>
         <span style="color:var(--ink-soft);font-size:.72rem">${sz}</span>
         <button class="file-x" style="position:static">✕</button>`;
-      dv.querySelector('.file-x').onclick = async () => { if(confirm('파일을 삭제할까요?')){ const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); } };
+      dv.querySelector('.file-x').onclick = async () => {
+        if(!(await askConfirm('파일을 삭제할까요?', {title:'📎 파일 삭제', ok:'삭제', danger:true}))) return;
+        const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); };
       box.appendChild(dv);
     }else{
       const a = document.createElement('div'); a.className='audio-row';
@@ -1904,7 +1974,9 @@ function renderFiles(box, arr, ctx){
       const sz = f.size? ` · ${(f.size/1024/1024).toFixed(1)}MB` : '';
       a.innerHTML = `<span>🎵</span><audio controls preload="none" src="${src}"></audio>
         <span class="audio-name">${esc(f.name)}${sz}</span><button class="file-x" style="position:static">✕</button>`;
-      a.querySelector('.file-x').onclick = async () => { if(confirm('녹음을 삭제할까요?')){ const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); } };
+      a.querySelector('.file-x').onclick = async () => {
+        if(!(await askConfirm('녹음을 삭제할까요?', {title:'🎵 녹음 삭제', ok:'삭제', danger:true}))) return;
+        const g=arr[i]; arr.splice(i,1); save(); rerender(); await deleteStored(g); };
       box.appendChild(a);
     }
   });
@@ -2280,9 +2352,11 @@ $('bkStart').onclick = async () => {
   const incJson  = $('bkIncJson').checked;
   const delAfter = $('bkDelete').checked;
   if(delAfter && !incJson){
-    if(!confirm('삭제를 선택했는데 JSON(복원용 데이터)을 포함하지 않았어요.\nJSON 없이 삭제하면 앱으로 되돌릴 수 없습니다. 그래도 진행할까요?')) return;
+    if(!(await askConfirm('삭제를 선택했는데 JSON(복원용 데이터)을 포함하지 않았어요.\nJSON 없이 삭제하면 앱으로 되돌릴 수 없습니다.\n그래도 진행할까요?',
+      {title:'⚠ 복원 데이터 없음', ok:'그래도 진행', danger:true}))) return;
   }
-  if(delAfter && !confirm(`백업이 끝나면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터가 서버에서 삭제됩니다.\n계속할까요?`)) return;
+  if(delAfter && !(await askConfirm(`백업이 끝나면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터가 서버에서 삭제됩니다.\n계속할까요?`,
+    {title:'⚠ 백업 후 삭제', ok:'계속', danger:true}))) return;
 
   bkRunning = true; bkAbort = false;
   $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
@@ -2345,7 +2419,8 @@ $('bkStart').onclick = async () => {
     bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`);
 
     if(delAfter){
-      if(confirm(`ZIP 다운로드가 시작됐습니다.\n파일이 단말기에 정상 저장된 것을 확인하셨나요?\n[확인]을 누르면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터를 서버에서 삭제합니다.`)){
+      if(await askConfirm(`ZIP 다운로드가 시작됐습니다.\n파일이 단말기에 정상 저장된 것을 확인하셨나요?\n확인을 누르면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터를 서버에서 삭제합니다.`,
+        {title:'🗑 서버 데이터 삭제', ok:'저장 확인 · 삭제', cancel:'삭제하지 않기', danger:true})){
         for(const mm of months) await db.ref(`diaries/${USER.uid}/${bkYear}/${mm}`).remove();
         delete yearCache[bkYear];
         if(+curDate.slice(0,4)===bkYear && months.includes(curDate.slice(5,7))){ day = emptyDay(); renderSheet(); }
@@ -2374,7 +2449,8 @@ $('bkRestore').onclick = () => {
       const dds = Object.keys(days);
       const exist = await db.ref(`diaries/${USER.uid}/${year}/${month}`).get();
       const dup = exist.exists()? dds.filter(d => exist.val()[d]) : [];
-      if(dup.length && !confirm(`${year}년 ${+month}월에 이미 ${dup.length}일의 기록이 있습니다.\n백업 내용으로 덮어쓸까요? (겹치지 않는 날은 그대로 추가됩니다)`)) return;
+      if(dup.length && !(await askConfirm(`${year}년 ${+month}월에 이미 ${dup.length}일의 기록이 있습니다.\n백업 내용으로 덮어쓸까요?\n(겹치지 않는 날은 그대로 추가됩니다)`,
+        {title:'📂 복원', ok:'덮어쓰기', danger:true}))) return;
       const updates = {};
       dds.forEach(d => updates[d] = days[d]);
       await db.ref(`diaries/${USER.uid}/${year}/${month}`).update(updates);
@@ -2438,8 +2514,17 @@ function renderInbox(){
   $('inboxWrap').classList.toggle('hidden', hide || (!prioMode && !inboxOpen));
   if(hide) return;
   const undoneCnt = list.filter(t=>!t.done && t.text.trim()).length;
-  $('inboxArrow').textContent = prioMode ? '▾ 우선순위에서 내린 업무'
-    : (inboxOpen ? '▾' : `▸ ${undoneCnt? '('+undoneCnt+')' : ''}`);
+  const arrow = $('inboxArrow'), note = $('inboxNote');
+  if(prioMode){
+    arrow.classList.add('hidden');
+    note.textContent = '우선순위에서 내린 업무';
+  }else{
+    arrow.classList.remove('hidden');
+    arrow.textContent = inboxOpen ? '－' : '＋';
+    arrow.classList.toggle('closed', !inboxOpen);
+    arrow.title = inboxOpen ? '접기' : '펼치기';
+    note.textContent = (!inboxOpen && undoneCnt) ? `(${undoneCnt})` : '';
+  }
   if(!prioMode && !inboxOpen) return;
   const box = $('inboxList'); box.innerHTML = '';
   taskOrder(list).forEach(({t}) =>
@@ -2825,10 +2910,11 @@ function renderNotes(){
     ta.addEventListener('focus', () => grow(ta, 112));
     ta.addEventListener('click', () => grow(ta, 112));
     el.querySelectorAll('.bn-t').forEach(b => b.onclick = () => insertOutline(ta, b.dataset.k));
-    el.querySelector('.bn-head .del').onclick = () => {
-      if((!n.title.trim() && !n.body.trim() && !n.files.length) || confirm(`'${n.title.trim()||'메모장'}'을(를) 통째로 삭제할까요?`)){
-        day.notes.splice(ni,1); markDirty(); renderNotes();
-      }
+    el.querySelector('.bn-head .del').onclick = async () => {
+      const hasStuff = n.title.trim() || n.body.trim() || n.files.length;
+      if(hasStuff && !(await askConfirm(`'${n.title.trim()||'메모장'}'을(를) 통째로 삭제할까요?`,
+        {title:'🗑 메모장 삭제', ok:'삭제', danger:true}))) return;
+      day.notes.splice(ni,1); markDirty(); renderNotes();
     };
     el.querySelector('.bn-img').onclick = () => pickFile('image/*', f => addImage(f, n.files));
     el.querySelector('.bn-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, n.files, null, el.querySelector('.bn-files')));
@@ -3035,9 +3121,11 @@ $('settingsMenu').addEventListener('click', e => { if(e.target.id==='settingsMen
 $('delTodayBtn').onclick = async () => {
   const d = new Date(curDate+'T12:00:00');
   const label = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
-  if(!confirm(`${label} 내용을 전체 삭제하시겠습니까?\n업무·회의록·메모·첨부·일기가 모두 지워지며 복구할 수 없습니다.`)) return;
+  if(!(await askConfirm(`${label} 내용을 전체 삭제하시겠습니까?\n업무·회의록·메모·첨부·일기가 모두 지워지며 복구할 수 없습니다.`,
+    {title:'🗑 이 날짜 전체 삭제', ok:'전체 삭제', danger:true}))) return;
   const evTasks = day.cats.flatMap(c => c.tasks).filter(t => t.gcalId);
-  if(evTasks.length && !confirm(`이 날짜에 캘린더로 등록한 일정이 ${evTasks.length}건 있습니다.\n캘린더 일정도 함께 지울까요?\n[취소]를 누르면 캘린더 일정은 남겨 둡니다.`)){
+  if(evTasks.length && !(await askConfirm(`이 날짜에 캘린더로 등록한 일정이 ${evTasks.length}건 있습니다.\n캘린더 일정도 함께 지울까요?`,
+    {title:'📅 캘린더 일정', ok:'함께 지우기', cancel:'캘린더는 남기기', danger:true}))){
     evTasks.length = 0;                     // 캘린더는 건드리지 않음
   }
   clearTimeout(saveTimer); dirty = false;
@@ -3501,8 +3589,17 @@ function renderPriv(){
   $('privWrap').classList.toggle('hidden', hide || (!prioMode && !privOpen));
   if(hide) return;
   const undone = list.filter(t=>!t.done && t.text.trim()).length;
-  $('privArrow').textContent = prioMode ? '▾ 우선순위에서 내린 용무'
-    : (privOpen ? '▾' : `▸ ${undone? '('+undone+')' : ''}`);
+  const pArrow = $('privArrow'), pNote = $('privNote');
+  if(prioMode){
+    pArrow.classList.add('hidden');
+    pNote.textContent = '우선순위에서 내린 용무';
+  }else{
+    pArrow.classList.remove('hidden');
+    pArrow.textContent = privOpen ? '－' : '＋';
+    pArrow.classList.toggle('closed', !privOpen);
+    pArrow.title = privOpen ? '접기' : '펼치기';
+    pNote.textContent = (!privOpen && undone) ? `(${undone})` : '';
+  }
   if(!prioMode && !privOpen) return;
   const box = $('privList'); box.innerHTML = '';
   taskOrder(list).forEach(({t}) =>
@@ -3607,6 +3704,7 @@ function detachAll(){
   if(privCb){ db.ref(`diaries/${USER.uid}/priv`).off('value', privCb); privCb = null; }
   if(goalCb){ db.ref(`diaries/${USER.uid}/goals`).off('value', goalCb); goalCb = null; }
   if(bankCb){ db.ref(`diaries/${USER.uid}/bank`).off('value', bankCb); bankCb = null; }
+  if(stickyCb){ db.ref(`diaries/${USER.uid}/stickies`).off('value', stickyCb); stickyCb = null; }
   pendingRemote = null;
 }
 /* 보고 있는 날짜를 실시간 구독 */
@@ -3640,11 +3738,12 @@ function applyRemote(v, ts){
   $('saveState').style.cursor = '';
   $('saveState').textContent = '🔄 다른 기기의 변경을 반영했어요 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
 }
-$('saveState').onclick = () => {
+$('saveState').onclick = async () => {
   if(!pendingRemote && pendingRemote !== null) return;
   if(pendingRemote === null && !dirty) return;
   if(pendingRemote !== null){
-    if(dirty && !confirm('지금 화면의 수정 내용을 버리고 다른 기기의 최신 내용을 불러올까요?')) return;
+    if(dirty && !(await askConfirm('지금 화면의 수정 내용을 버리고\n다른 기기의 최신 내용을 불러올까요?',
+      {title:'⟳ 다른 기기의 변경', ok:'불러오기', danger:true}))) return;
     dirty = false; clearTimeout(saveTimer);
     applyRemote(pendingRemote);
   }
@@ -3673,6 +3772,16 @@ function attachBoxListeners(){
       if(!$('bankModal').classList.contains('hidden') && !bankCur) renderBankList();
     };
     db.ref(`diaries/${USER.uid}/bank`).on('value', bankCb);
+  }
+  if(!stickyCb){
+    stickyCb = snap => {
+      if(stickyDirty || stickyBusy || isEditing()) return;      /* 쓰는 중·끄는 중이면 건너뜀 */
+      const v = snap.exists() ? snap.val() : [];
+      const next = (Array.isArray(v) ? v : Object.values(v||{})).map(normSticky);
+      if(JSON.stringify(next) === JSON.stringify(stickies)) return;
+      stickies = next; renderStickies();
+    };
+    db.ref(`diaries/${USER.uid}/stickies`).on('value', stickyCb);
   }
   if(!goalCb){
     goalCb = snap => {
@@ -4054,7 +4163,8 @@ $('evSave').onclick = async () => {
 };
 $('evDelete').onclick = async () => {
   if(!evEditing) return;
-  if(!confirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`)) return;
+  if(!(await askConfirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`,
+    {title:'🗑 시간 계획 취소', ok:'취소하기', cancel:'그대로 두기', danger:true}))) return;
   if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
   try{
     const calId = calTarget || 'primary';
@@ -4074,7 +4184,7 @@ $('evDelete').onclick = async () => {
 
 /* 예쁜 입력 모달 — prompt 대체 */
 let askResolve = null;
-function askInput({title, desc, value, quick, type}){
+function askInput({title, desc, value, quick, type, pickOnly}){
   return new Promise(resolve => {
     askResolve = resolve;
     $('askTitle').textContent = title;
@@ -4089,8 +4199,12 @@ function askInput({title, desc, value, quick, type}){
       b.onclick = () => { $('askInput').value = v; finishAsk(true); };
       q.appendChild(b);
     });
+    /* 버튼으로만 고르는 경우엔 쓸 데 없는 입력칸·확인 버튼을 감춤 */
+    $('askInput').classList.toggle('hidden', !!pickOnly);
+    $('askOk').classList.toggle('hidden', !!pickOnly);
+    $('askCancel').textContent = pickOnly ? '닫기' : '취소';
     $('askModal').classList.remove('hidden');
-    setTimeout(()=>$('askInput').focus(), 50);
+    if(!pickOnly) setTimeout(()=>$('askInput').focus(), 50);
   });
 }
 function finishAsk(ok){
@@ -4102,6 +4216,48 @@ $('askOk').onclick = () => finishAsk(true);
 $('askCancel').onclick = () => finishAsk(false);
 $('askInput').addEventListener('keydown', e => { if(e.key==='Enter') finishAsk(true); });
 $('askModal').addEventListener('click', e => { if(e.target.id==='askModal') finishAsk(false); });
+
+/* 예쁜 확인 모달 — confirm 대체 (선택지 여러 개도 가능) */
+let cfResolve = null;
+function askChoice({title, desc, options}){
+  return new Promise(resolve => {
+    if(cfResolve){ const prev = cfResolve; cfResolve = null; prev(null); }   // 겹치면 앞의 것부터 정리
+    cfResolve = resolve;
+    $('cfTitle').textContent = title || '확인';
+    $('cfDesc').textContent = desc || '';
+    $('cfDesc').classList.toggle('hidden', !desc);
+    const box = $('cfBtns'); box.innerHTML = '';
+    (options || []).forEach(o => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = o.kind === 'primary' ? 'btn-primary' : 'btn-line';
+      if(o.kind === 'danger'){ b.style.color = 'var(--danger)'; b.style.borderColor = '#E4B3AA'; }
+      if(o.kind === 'cancel') b.style.borderStyle = 'dashed';
+      b.textContent = o.label;
+      b.onclick = () => finishChoice(o.value);
+      box.appendChild(b);
+    });
+    $('confirmModal').classList.remove('hidden');
+  });
+}
+function finishChoice(v){
+  $('confirmModal').classList.add('hidden');
+  const r = cfResolve; cfResolve = null;
+  if(r) r(v === undefined ? null : v);
+}
+/* confirm(...) 자리에 그대로 쓰는 예/아니오 — true/false 반환 */
+function askConfirm(desc, opt){
+  const o = opt || {};
+  return askChoice({
+    title: o.title || '확인',
+    desc,
+    options: [
+      {value:true,  label:o.ok || '확인',  kind:o.danger ? 'danger' : 'primary'},
+      {value:false, label:o.cancel || '취소', kind:'cancel'}
+    ]
+  }).then(v => v === true);
+}
+$('confirmModal').addEventListener('click', e => { if(e.target.id==='confirmModal') finishChoice(null); });
 
 /* ═══════════════ 🎯 목표 (연간 → 월간 → 주간) ═══════════════ */
 let goalScope = 'year', goalKey = '', goals = {}, goalTimer = null, goalDirty = false;
@@ -4410,14 +4566,25 @@ function renderGoals(){
     up.onclick = () => { const j=all.indexOf(g), k=all.indexOf(list[i-1]); if(i>0){ [all[j],all[k]]=[all[k],all[j]]; markGoals(); renderGoals(); } };
     down.onclick = () => { const j=all.indexOf(g), k=i<list.length-1? all.indexOf(list[i+1]):-1; if(k>=0){ [all[j],all[k]]=[all[k],all[j]]; markGoals(); renderGoals(); } };
     const removeAt = () => all.splice(all.indexOf(g), 1);
-    del.onclick = () => {
+    del.onclick = async () => {
       if(g.repeat && g.text.trim()){
-        const stop = confirm(`"${g.text}"\n\n[확인] 앞으로도 반복하지 않고 삭제\n[취소] 이번 기간만 삭제(다음 기간엔 다시 나타남)`);
-        if(stop){ removeAt(); all.push({id:uid8(), seed:g.seed||g.id, stopped:true, text:'', done:false, repeat:false, target:1, count:0, due:''}); }
-        else removeAt();
+        const pick = await askChoice({
+          title:'🗑 반복 목표 삭제',
+          desc:`"${g.text}"\n\n반복으로 이어지는 목표예요.\n어떻게 지울까요?`,
+          options:[
+            {value:'stop', label:'앞으로도 반복하지 않고 삭제', kind:'danger'},
+            {value:'once', label:'이번 기간만 삭제 (다음 기간엔 다시 나타남)', kind:'primary'},
+            {value:null,   label:'취소', kind:'cancel'}
+          ]
+        });
+        if(pick === null) return;
+        removeAt();
+        if(pick === 'stop') all.push({id:uid8(), seed:g.seed||g.id, stopped:true, text:'', done:false, repeat:false, target:1, count:0, due:''});
         markGoals(); renderGoals(); return;
       }
-      if(!g.text.trim() || confirm('이 목표를 삭제할까요?')){ removeAt(); markGoals(); renderGoals(); }
+      if(g.text.trim() && !(await askConfirm(`"${g.text}"\n\n이 목표를 삭제할까요?`,
+        {title:'🗑 목표 삭제', ok:'삭제', danger:true}))) return;
+      removeAt(); markGoals(); renderGoals();
     };
     box.appendChild(el);
   });
@@ -4674,14 +4841,181 @@ $('bankBody').addEventListener('input', e => {
 });
 $('bankBody').addEventListener('focus', e => grow(e.target, 240));
 $('bankBody').addEventListener('click', e => grow(e.target, 240));
-$('bankDel').onclick = () => {
+$('bankDel').onclick = async () => {
   const b = bank.find(x => x.id === bankCur); if(!b) return;
-  if(!(!b.title.trim() && !b.body.trim()) && !confirm(`"${b.title.trim()||'제목 없음'}" 메모를 삭제할까요?`)) return;
+  if(!(!b.title.trim() && !b.body.trim())
+    && !(await askConfirm(`"${b.title.trim()||'제목 없음'}"\n\n이 메모를 삭제할까요?`,
+      {title:'🗑 장기 메모 삭제', ok:'삭제', danger:true}))) return;
   (b.files||[]).forEach(f => deleteStored(f));
   bank = bank.filter(x => x.id !== bankCur);
   bankCur = null; markBank(); renderBankList();
   toast('메모를 삭제했어요');
 };
+
+
+/* ═══════════════ 📝 포스트잇 — 화면에 붙여 두는 짧은 메모 ═══════════════ */
+/* 탭·날짜와 무관하게 화면에 떠 있고, 끌어서 옮기고 모서리로 크기를 바꾼다 */
+let stickies = [], stickyTimer = null, stickyDirty = false, stickyCb = null;
+let stickyZ = 1, stickyBusy = false;
+const STICKY_W = 200, STICKY_H = 200, STICKY_MINW = 150, STICKY_MINH = 110;
+
+function normSticky(s){
+  s = s || {};
+  return {
+    id:   s.id || uid8(),
+    text: typeof s.text === 'string' ? s.text : '',
+    x: Number.isFinite(+s.x) ? +s.x : 24,
+    y: Number.isFinite(+s.y) ? +s.y : 120,
+    w: Math.max(STICKY_MINW, +s.w || STICKY_W),
+    h: Math.max(STICKY_MINH, +s.h || STICKY_H),
+    ts: s.ts || Date.now()
+  };
+}
+/* 화면 밖으로 나가지 않게 — 크기 조절 중에는 위치를 기준으로 크기만 제한 */
+function clampSticky(s, resizing){
+  const vw = window.innerWidth, vh = window.innerHeight;
+  if(resizing){
+    s.w = Math.max(STICKY_MINW, Math.min(s.w, Math.max(STICKY_MINW, vw - s.x - 4)));
+    s.h = Math.max(STICKY_MINH, Math.min(s.h, Math.max(STICKY_MINH, vh - s.y - 4)));
+  }else{
+    s.w = Math.max(STICKY_MINW, Math.min(s.w, Math.max(STICKY_MINW, vw - 8)));
+    s.h = Math.max(STICKY_MINH, Math.min(s.h, Math.max(STICKY_MINH, vh - 8)));
+    s.x = Math.min(Math.max(4, s.x), Math.max(4, vw - s.w - 4));
+    s.y = Math.min(Math.max(4, s.y), Math.max(4, vh - s.h - 4));
+  }
+}
+async function loadStickies(){
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/stickies`).get(), 5000);
+    const v = snap.exists() ? snap.val() : [];
+    stickies = (Array.isArray(v) ? v : Object.values(v||{})).map(normSticky);
+  }catch(e){ stickies = stickies || []; }
+  renderStickies();
+}
+function markStickies(){ stickyDirty = true; clearTimeout(stickyTimer); stickyTimer = setTimeout(saveStickies, 700); }
+async function saveStickies(){
+  if(!USER) return;
+  stickyDirty = false;
+  try{
+    if(stickies.length) await db.ref(`diaries/${USER.uid}/stickies`).set(JSON.parse(JSON.stringify(stickies)));
+    else await db.ref(`diaries/${USER.uid}/stickies`).remove();
+  }catch(e){ stickyDirty = true; }
+}
+function applyStickyBox(el, s){
+  el.style.left = s.x + 'px'; el.style.top = s.y + 'px';
+  el.style.width = s.w + 'px'; el.style.height = s.h + 'px';
+}
+function stickyBadge(){
+  const n = stickies.length, b = $('stickyCount');
+  if(!b) return;
+  b.textContent = n > 9 ? '9+' : String(n);
+  b.classList.toggle('hidden', !n);
+}
+function renderStickies(){
+  const layer = $('stickyLayer');
+  if(!layer) return;
+  layer.innerHTML = '';
+  stickies.forEach(s => { clampSticky(s); layer.appendChild(stickyEl(s)); });
+  stickyBadge();
+}
+function stickyEl(s){
+  const el = document.createElement('div');
+  el.className = 'sticky';
+  el.dataset.sid = s.id;
+  el.style.zIndex = ++stickyZ;
+  applyStickyBox(el, s);
+  el.innerHTML = `
+    <div class="sticky-head">
+      <span class="sticky-grip">📝 포스트잇</span>
+      <button class="sticky-x" type="button" title="이 포스트잇 떼기">✕</button>
+    </div>
+    <textarea placeholder="여기에 적어 두세요" spellcheck="false"
+      autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <div class="sticky-rs" title="끌어서 크기 조절"></div>`;
+
+  const ta = el.querySelector('textarea');
+  ta.value = s.text;
+  ta.addEventListener('input', e => { s.text = e.target.value; s.ts = Date.now(); markStickies(); });
+  ta.addEventListener('blur', () => { if(stickyDirty){ clearTimeout(stickyTimer); saveStickies(); } });
+  /* 글자를 쓰려고 누른 것이므로 맨 앞으로 */
+  ta.addEventListener('focus', () => { el.style.zIndex = ++stickyZ; });
+
+  el.querySelector('.sticky-x').onclick = async e => {
+    e.stopPropagation();
+    if(s.text.trim() && !(await askConfirm(`"${s.text.trim().slice(0,40)}${s.text.trim().length>40?'…':''}"\n\n이 포스트잇을 뗄까요?`,
+      {title:'🗑 포스트잇 떼기', ok:'떼기', danger:true}))) return;
+    stickies = stickies.filter(x => x.id !== s.id);
+    markStickies(); renderStickies();
+    toast('포스트잇을 뗐어요');
+  };
+
+  bindStickyDrag(el, s, el.querySelector('.sticky-head'), 'move');
+  bindStickyDrag(el, s, el.querySelector('.sticky-rs'),   'size');
+  return el;
+}
+/* 마우스·터치를 한 코드로 — 포인터 이벤트 */
+function bindStickyDrag(el, s, handle, mode){
+  if(!handle) return;
+  handle.addEventListener('pointerdown', e => {
+    if(e.target.closest('.sticky-x')) return;
+    if(e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    el.style.zIndex = ++stickyZ;
+    el.classList.add('on');
+    stickyBusy = true;
+    const sx = e.clientX, sy = e.clientY;
+    const ox = s.x, oy = s.y, ow = s.w, oh = s.h;
+    try{ handle.setPointerCapture(e.pointerId); }catch(err){}
+    const move = ev => {
+      const dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if(mode === 'move'){ s.x = ox + dx; s.y = oy + dy; clampSticky(s); }
+      else               { s.w = ow + dx; s.h = oh + dy; clampSticky(s, true); }
+      applyStickyBox(el, s);
+    };
+    const up = () => {
+      handle.removeEventListener('pointermove', move);
+      handle.removeEventListener('pointerup', up);
+      handle.removeEventListener('pointercancel', up);
+      el.classList.remove('on');
+      stickyBusy = false;
+      s.ts = Date.now(); markStickies();
+    };
+    handle.addEventListener('pointermove', move);
+    handle.addEventListener('pointerup', up);
+    handle.addEventListener('pointercancel', up);
+  });
+}
+$('stickyBtn').onclick = () => {
+  const n = stickies.length;
+  const s = normSticky({
+    x: 20 + (n % 6) * 24,
+    y: Math.max(80, Math.round(window.innerHeight * 0.2)) + (n % 6) * 24,
+    w: STICKY_W, h: STICKY_H
+  });
+  clampSticky(s);
+  stickies.push(s);
+  markStickies(); renderStickies();
+  const ta = document.querySelector(`.sticky[data-sid="${s.id}"] textarea`);
+  if(ta) ta.focus();
+  toast(n ? '포스트잇을 붙였어요' : '띠를 잡아 옮기고, 오른쪽 아래 모서리로 크기를 바꿔요');
+};
+/* 화면 크기가 바뀌면 위치만 손봄 — 다시 그리지 않아야 모바일 키보드가 닫히지 않음 */
+let stickyResizeTm = null;
+window.addEventListener('resize', () => {
+  clearTimeout(stickyResizeTm);
+  stickyResizeTm = setTimeout(() => {
+    if(!stickies.length || stickyBusy || isEditing()) return;
+    let moved = false;
+    stickies.forEach(s => {
+      const b = {x:s.x, y:s.y, w:s.w, h:s.h};
+      clampSticky(s);
+      if(b.x!==s.x || b.y!==s.y || b.w!==s.w || b.h!==s.h) moved = true;
+      const el = document.querySelector(`.sticky[data-sid="${s.id}"]`);
+      if(el) applyStickyBox(el, s);
+    });
+    if(moved) markStickies();
+  }, 260);
+});
 
 
 /* ═══════════════ 🏖 휴가 · 🇰🇷 공휴일 ═══════════════ */
@@ -4820,7 +5154,7 @@ function renderVacList(){
     }).join('');
   box.querySelectorAll('button[data-id]').forEach(b => b.onclick = async () => {
     const v = vacs.find(x => x.id === b.dataset.id); if(!v) return;
-    if(!confirm('이 휴가를 삭제할까요? (캘린더 일정도 함께 지웁니다)')) return;
+    if(!(await askConfirm('이 휴가를 삭제할까요?\n캘린더 일정도 함께 지웁니다.', {title:'🏖 휴가 삭제', ok:'삭제', danger:true}))) return;
     if(v.gcalId && GOOGLE_CLIENT_ID && await ensureToken(false)){
       try{ await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calTarget||'primary')}/events/${encodeURIComponent(v.gcalId)}`,
         {method:'DELETE', headers:{Authorization:'Bearer '+gToken}}); }catch(e){}
@@ -4943,7 +5277,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['askModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -4953,12 +5287,15 @@ function topOverlay(){
   return null;
 }
 function closeAllOverlays(){
+  if(cfResolve) finishChoice(null);                 /* 기다리는 확인창이 있으면 취소로 정리 */
+  if(askResolve) finishAsk(false);
   OVERLAYS.forEach(id => { const el = $(id); if(el) el.classList.add('hidden'); });
   if(!$('schedDrawer').classList.contains('hidden')) closeSchedDrawer();
 }
 function closeOneOverlay(){
   const el = topOverlay();
   if(el){
+    if(el.id === 'confirmModal'){ finishChoice(null); return true; }
     /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
@@ -5108,8 +5445,9 @@ function ovCard(it, childCount){
   };
 
   el.querySelector('.ov-txt').addEventListener('input', e => { g.text = e.target.value; markGoals(); });
-  el.querySelector('.ov-del').onclick = () => {
-    if(g.text.trim() && !confirm(`"${g.text}" 목표를 삭제할까요?`)) return;
+  el.querySelector('.ov-del').onclick = async () => {
+    if(g.text.trim() && !(await askConfirm(`"${g.text}"\n\n이 목표를 삭제할까요?`,
+      {title:'🗑 목표 삭제', ok:'삭제', danger:true}))) return;
     const arr = goalsOf(it.scope, it.key);
     const i = arr.findIndex(x => x.id === g.id);
     if(i >= 0) arr.splice(i,1);
@@ -5157,7 +5495,7 @@ async function ovAddChild(parent){
   const y = goalKey;
   let key;
   if(isYear){
-    const m = await askInput({title:'📅 월간 목표 추가', desc:'몇 월인가요?', value:'',
+    const m = await askInput({title:'📅 월간 목표 추가', desc:'몇 월인가요?', value:'', pickOnly:true,
       quick: Array.from({length:12}, (_,i) => [String(i+1).padStart(2,'0'), `${i+1}월`])});
     if(m === null) return;
     key = `${y}-${String(m).padStart(2,'0')}`;
@@ -5175,7 +5513,7 @@ async function ovAddChild(parent){
       const {mon, sun} = weekRange(wk);
       opts.push([wk, `${mon.getMonth()+1}/${mon.getDate()}~${sun.getMonth()+1}/${sun.getDate()}`]);
     }
-    const v = await askInput({title:'🎯 주간 목표 추가', desc:'어느 주인가요?', value:'', quick:opts});
+    const v = await askInput({title:'🎯 주간 목표 추가', desc:'어느 주인가요?', value:'', quick:opts, pickOnly:true});
     if(v === null) return;
     key = v;
   }
@@ -5195,7 +5533,7 @@ async function ovPickParent(it){
   const ups = it.scope==='week' ? ovCollect(y).months : ovCollect(y).years;
   if(!ups.length){ toast(it.scope==='week'? '먼저 월간 목표를 만들어 주세요' : '먼저 연간 목표를 만들어 주세요'); return; }
   const quick = [['','— 연결 안 함 —'], ...ups.map(u => [u.g.id, `${ovLabelOf(u)} ${u.g.text||'(제목 없음)'}`.slice(0,26)])];
-  const v = await askInput({title:'🔗 상위 목표 연결', desc:'이 목표를 어디에 묶을까요?', value:it.g.parent||'', quick});
+  const v = await askInput({title:'🔗 상위 목표 연결', desc:'이 목표를 어디에 묶을까요?', value:it.g.parent||'', quick, pickOnly:true});
   if(v === null) return;
   it.g.parent = v; markGoals(); renderOverview();
   toast(v? '상위 목표에 연결했어요' : '연결을 해제했어요');
