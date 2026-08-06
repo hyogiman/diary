@@ -847,6 +847,56 @@ body[data-theme="ink"] #topbar{background:rgba(245,242,234,.93)}
 body[data-theme="forest"] #topbar{background:rgba(35,48,42,.92)}
 body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 
+/* ───────── 검색 결과 → 그 자리로 이동 ───────── */
+.sr-line.hitline{cursor:pointer;border-radius:7px;padding-right:20px;position:relative;transition:.13s}
+.sr-line.hitline:hover{background:rgba(214,122,84,.1)}
+.sr-go{position:absolute;right:4px;top:50%;transform:translateY(-50%);
+  font-size:.72rem;color:var(--accent);opacity:0;transition:.13s}
+.sr-line.hitline:hover .sr-go{opacity:1}
+@keyframes jumpFlash{
+  0%,100%{box-shadow:0 0 0 0 rgba(214,122,84,0);   background-color:transparent}
+  12%    {box-shadow:0 0 0 4px rgba(214,122,84,.42);background-color:rgba(255,224,130,.55)}
+  70%    {box-shadow:0 0 0 4px rgba(214,122,84,.22);background-color:rgba(255,224,130,.35)}
+}
+.jump-hit{animation:jumpFlash 2.5s ease-out;border-radius:9px}
+
+/* ───────── 일기 모아보기 목록 ───────── */
+.dg-card{display:flex;gap:12px;align-items:flex-start;background:var(--card);border:1px solid var(--rule);
+  border-left:5px solid var(--accent);border-radius:12px;padding:12px 14px;margin-bottom:10px;
+  cursor:pointer;transition:.14s}
+.dg-card:hover{transform:translateX(3px);box-shadow:0 4px 14px rgba(120,80,40,.14)}
+.dg-date{flex:none;width:52px;text-align:center}
+.dg-date .d{font-family:'Jua';font-size:1.5rem;color:var(--accent-deep);line-height:1.1}
+.dg-date .w{font-size:.68rem;color:var(--ink-soft);font-weight:700}
+.dg-body{flex:1;min-width:0}
+.dg-tag{display:inline-block;font-size:.66rem;font-weight:800;color:#fff;background:var(--accent);
+  border-radius:999px;padding:1px 8px;margin-bottom:5px}
+.dg-txt{font-family:var(--hand);font-size:calc(1.12rem * var(--hand-size));line-height:1.6;color:var(--ink);
+  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dg-dn{font-size:.78rem;color:var(--ink-soft);margin-top:6px;padding-top:6px;border-top:1px dashed var(--rule);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ───────── 일기 속 '어제와 다른 오늘' 메모 ───────── */
+.dn-box{border:1.5px dashed var(--rule);border-radius:10px;background:var(--paper-deep);
+  margin:0 0 14px;overflow:hidden}
+.dn-head{width:100%;display:flex;align-items:center;gap:7px;padding:9px 12px;text-align:left;
+  font-family:'Jua',sans-serif;font-size:.95rem;color:var(--accent-deep);transition:.13s}
+.dn-head:hover{background:rgba(214,122,84,.08)}
+.dn-head b{font-weight:400}
+.dn-fold{flex:none;width:17px;height:17px;border-radius:50%;
+  background:var(--card);border:1.5px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Pretendard,sans-serif;font-size:.66rem;font-weight:800;line-height:1;
+  color:var(--accent-deep)}
+.dn-fold.open{background:var(--accent);border-color:var(--accent);color:#fff}
+.dn-sub{margin-left:auto;font-family:Pretendard,sans-serif;font-size:.72rem;font-weight:700;
+  color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%}
+#dnoteWrap{padding:0 12px 11px}
+#dnoteText{width:100%;min-height:96px;border:none;background:transparent;resize:vertical;
+  font-family:var(--hand);font-size:calc(1.2rem * var(--hand-size));line-height:1.7;color:var(--ink);
+  border-top:1px solid var(--rule);padding-top:9px}
+#dnoteText:focus{outline:none}
+
 /* ───────── 확인 모달 (JS confirm 대체) ───────── */
 .cf-btns{display:flex;flex-direction:column;gap:9px;margin-top:4px}
 .cf-btns .btn-primary,.cf-btns .btn-line{width:100%}
@@ -1245,6 +1295,16 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <div class="login-msg" id="diaryMsg" style="text-align:center"></div>
     </div>
     <div id="diaryBody" class="hidden">
+      <div class="dn-box">
+        <button class="dn-head" id="dnoteHead" type="button">
+          <span class="dn-fold" id="dnoteFold">＋</span>
+          <b>🌱 어제와 다른 오늘</b>
+          <span class="dn-sub" id="dnoteSub"></span>
+        </button>
+        <div id="dnoteWrap" class="hidden">
+          <textarea id="dnoteText" placeholder="오늘의 굵직한 사건과 내 상태 — 나중에 이 날을 떠올릴 실마리"></textarea>
+        </div>
+      </div>
       <textarea id="diaryText" placeholder="오늘 하루, 나에게만 남기는 이야기"
         style="width:100%;min-height:280px;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);line-height:32px;font-family:var(--hand);font-size:calc(1.35rem * var(--hand-size));resize:vertical;color:var(--ink)"></textarea>
       <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
@@ -1424,7 +1484,7 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', prioOrder:[] }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', dnote:'', prioOrder:[] }; }
 function dayRef(dateStr){
   const [y,m,d] = dateStr.split('-');
   return db.ref(`diaries/${USER.uid}/${y}/${m}/${d}`);
@@ -1532,7 +1592,7 @@ function normTask(t){
 }
 function normalize(v){
   return {
-    note: v.note||'', memo: v.memo||'', diary: v.diary||'',
+    note: v.note||'', memo: v.memo||'', diary: v.diary||'', dnote: v.dnote||'',
     prioOrder: Array.isArray(v.prioOrder)? v.prioOrder : [],
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
     notes: (Array.isArray(v.notes)? v.notes : Object.values(v.notes||{})).map(n => ({
@@ -2206,6 +2266,38 @@ async function renderArchive(){
   /* 그 달의 일자 카드 */
   const list = $('dayList'); list.innerHTML = '';
   const keys = Object.keys(md).sort((a,b)=>b.localeCompare(a));
+
+  /* 일기 모아보기 — 업무 목록 대신 그 달의 일기를 늘어놓는다 */
+  if(arcDiary && diaryUnlocked){
+    const dks = keys.filter(dd => {
+      const v = normalize(md[dd]);
+      return (v.diary||'').trim() || (v.dnote||'').trim();
+    });
+    if(!dks.length){
+      list.innerHTML = `<div class="empty-note">${+arcMonth}월에는 쓴 일기가 없어요.<br>달력의 날짜를 누르면 그날 일기를 펼칩니다.</div>`;
+      return;
+    }
+    const head = document.createElement('div');
+    head.className = 'empty-note'; head.style.padding = '2px 0 12px';
+    head.textContent = `📖 ${+arcMonth}월 일기 ${dks.length}편`;
+    list.appendChild(head);
+    dks.forEach(dd => {
+      const v  = normalize(md[dd]);
+      const dt = new Date(`${arcYear}-${arcMonth}-${dd}T12:00:00`);
+      const dn = (v.dnote||'').trim(), dy = (v.diary||'').trim();
+      const card = document.createElement('div'); card.className = 'dg-card';
+      card.innerHTML = `
+        <div class="dg-date"><div class="d">${+dd}</div><div class="w">${DOW[dt.getDay()]}요일</div></div>
+        <div class="dg-body">
+          ${dy ? `<div class="dg-txt">${esc(dy)}</div>` : '<div class="dg-tag">어제와 다른 오늘</div>'}
+          ${dn ? `<div class="dg-dn">🌱 ${esc(dn)}</div>` : ''}
+        </div>`;
+      card.onclick = () => openDiaryOn(`${arcYear}-${arcMonth}-${dd}`);
+      list.appendChild(card);
+    });
+    return;
+  }
+
   if(!keys.length){
     list.innerHTML = `<div class="empty-note">이 달에는 기록이 없어요. 달력의 날짜를 누르면 그날을 새로 기록할 수 있어요.</div>`;
     return;
@@ -2799,12 +2891,12 @@ async function doSearch(q){
   const list = $('dayList'); list.innerHTML = '';
   const ibLines = [];
   inbox.forEach(t => {
-    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'기타함', h:hl(t.text,q)+(t.done?' ✔':'')});
-    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'기타함·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
+    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'기타함', h:hl(t.text,q)+(t.done?' ✔':''), tg:{box:'inbox', tid:t.id}});
+    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'기타함·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`, tg:{box:'inbox', tid:t.id, open:true}});
   });
   priv.forEach(t => {
-    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무', h:hl(t.text,q)+(t.done?' ✔':'')});
-    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`});
+    if(t.text.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무', h:hl(t.text,q)+(t.done?' ✔':''), tg:{box:'priv', tid:t.id}});
+    else if(t.note.toLowerCase().includes(ql)) ibLines.push({k:'개인 용무·퀵메모', h:`${esc(t.text)} — ${hl(snippet(t.note,q),q)}`, tg:{box:'priv', tid:t.id, open:true}});
   });
   const bkLines = [];
   bank.forEach(b => {
@@ -2817,34 +2909,45 @@ async function doSearch(q){
     for(const dd of Object.keys(yd[mm]).sort().reverse()){
       const v = normalize(yd[mm][dd]);
       const lines = [];
-      if(v.note.toLowerCase().includes(ql)) lines.push({k:'남김말', h:hl(v.note,q)});
+      if(v.note.toLowerCase().includes(ql)) lines.push({k:'남김말', h:hl(v.note,q), tg:{field:'note'}});
       v.cats.forEach(c => {
         const cn = c.name.trim()||'(무제)', col = catColor(c);
         if(cn.toLowerCase().includes(ql))
-          lines.push({k:'카테고리', h:`<span class="sr-cat" style="color:${col}">${hl(cn,q)}</span>`});
+          lines.push({k:'카테고리', h:`<span class="sr-cat" style="color:${col}">${hl(cn,q)}</span>`, tg:{cid:c.id}});
         c.tasks.forEach(t => {
           if(t.text.toLowerCase().includes(ql))
-            lines.push({k:'업무', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} ›</span> ${hl(t.text,q)}${t.done?' ✔':''}`});
+            lines.push({k:'업무', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} ›</span> ${hl(t.text,q)}${t.done?' ✔':''}`,
+                        tg:{cid:c.id, tid:t.id}});
           else if(t.note.toLowerCase().includes(ql))
-            lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`});
+            lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`,
+                        tg:{cid:c.id, tid:t.id, open:true, field:'tnote'}});
         });
       });
       v.notes.forEach(n => {
         const nt = n.title.trim()||'(제목 없음)';
-        if(n.title.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${hl(n.title,q)}</b>`});
-        if(n.body.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${esc(nt)}</b> — ${hl(snippet(n.body,q),q)}`});
+        if(n.title.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${hl(n.title,q)}</b>`, tg:{nid:n.id, field:'bntitle'}});
+        if(n.body.toLowerCase().includes(ql)) lines.push({k:'회의록', h:`<b>${esc(nt)}</b> — ${hl(snippet(n.body,q),q)}`, tg:{nid:n.id, field:'bnbody'}});
         const ms = [n.meta.when,n.meta.where,n.meta.who,n.meta.agenda].filter(Boolean).join(' · ');
-        if(ms.toLowerCase().includes(ql)) lines.push({k:'회의록·개요', h:`<b>${esc(nt)}</b> — ${hl(snippet(ms,q),q)}`});
+        if(ms.toLowerCase().includes(ql)) lines.push({k:'회의록·개요', h:`<b>${esc(nt)}</b> — ${hl(snippet(ms,q),q)}`, tg:{nid:n.id, field:'bnmeta'}});
       });
-      if(v.memo.toLowerCase().includes(ql)) lines.push({k:'메모', h:hl(snippet(v.memo,q),q)});
+      if(v.memo.toLowerCase().includes(ql)) lines.push({k:'메모', h:hl(snippet(v.memo,q),q), tg:{field:'memo'}});
+      if(diaryUnlocked){                                  /* 일기는 잠금을 푼 상태에서만 함께 찾는다 */
+        if((v.dnote||'').toLowerCase().includes(ql))
+          lines.push({k:'어제와 다른 오늘', h:hl(snippet(v.dnote,q),q), tg:{field:'dnote'}});
+        if((v.diary||'').toLowerCase().includes(ql))
+          lines.push({k:'일기', h:hl(snippet(v.diary,q),q), tg:{field:'diary'}});
+      }
       if(lines.length) out.push({mm, dd, lines});
     }
   }
   if(ibLines.length){
     const ib = document.createElement('div'); ib.className = 'day-card';
     ib.innerHTML = `<div class="dc-date"><div class="d">📥</div><div class="w">보관함</div></div>
-      <div class="dc-body">${ibLines.slice(0,5).map(l=>`<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('')}</div>`;
-    ib.onclick = () => { switchTab(true); setTimeout(()=>$('inboxList').scrollIntoView({behavior:'smooth', block:'center'}), 200); };
+      <div class="dc-body">${ibLines.slice(0,5).map((l,i)=>`<div class="sr-line hitline" data-i="${i}"><span class="sr-kind">${l.k}</span>${l.h}<span class="sr-go">↗</span></div>`).join('')}</div>`;
+    ib.onclick = e => {
+      const row = e.target.closest('.hitline');
+      jumpToHit(null, row ? ibLines[+row.dataset.i].tg : {box:'inbox'}, q);
+    };
     list.appendChild(ib);
   }
   if(bkLines.length){
@@ -2871,15 +2974,97 @@ async function doSearch(q){
   }
   out.forEach(r => {
     const dt = new Date(`${arcYear}-${r.mm}-${r.dd}T12:00:00`);
+    const ds = `${arcYear}-${r.mm}-${r.dd}`;
     const card = document.createElement('div'); card.className = 'day-card';
-    const shown = r.lines.slice(0,5).map(l => `<div class="sr-line"><span class="sr-kind">${l.k}</span>${l.h}</div>`).join('');
+    const shown = r.lines.slice(0,5).map((l,i) =>
+      `<div class="sr-line hitline" data-i="${i}"><span class="sr-kind">${l.k}</span>${l.h}<span class="sr-go">↗</span></div>`).join('');
     const more = r.lines.length>5 ? `<div class="sr-line" style="color:var(--ink-soft)">＋ ${r.lines.length-5}건 더</div>` : '';
     card.innerHTML = `
       <div class="dc-date"><div class="d">${+r.dd}</div><div class="w">${+r.mm}월 ${DOW[dt.getDay()]}</div></div>
       <div class="dc-body">${shown}${more}</div>`;
-    card.onclick = () => { switchTab(true); loadDay(`${arcYear}-${r.mm}-${r.dd}`); };
+    card.onclick = e => {
+      const row = e.target.closest('.hitline');
+      const tg  = row ? r.lines[+row.dataset.i].tg : null;
+      jumpToHit(ds, tg, q);                       /* 줄을 누르면 그 자리로, 카드를 누르면 그 날로 */
+    };
     list.appendChild(card);
   });
+}
+
+/* 검색 결과 → 그 내용이 실제로 있는 자리로 이동해 잠깐 빛나게 한다 */
+async function jumpToHit(dateStr, tg, q){
+  switchTab(true);
+  if(dateStr && dateStr !== curDate) await loadDay(dateStr);
+  await new Promise(r => setTimeout(r, 120));
+  if(!tg) return;
+
+  /* 일기 안(일기·어제와 다른 오늘)은 잠금을 푼 상태에서 일기창을 열어 보여준다 */
+  if(tg.field === 'diary' || tg.field === 'dnote'){
+    if(!diaryUnlocked){ toast('일기 비밀번호를 풀면 그 자리로 이동해요'); return; }
+    const d = new Date(curDate+'T12:00:00');
+    showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
+    if(tg.field === 'dnote'){
+      dnoteOpen = true; renderDnote();
+      await new Promise(r => setTimeout(r, 80));
+      flashHit($('dnoteText'), q);
+    }else{
+      flashHit($('diaryText'), q);
+    }
+    return;
+  }
+
+  /* 보관함·개인 용무함은 접혀 있으면 펼친다 */
+  if(tg.box){
+    if(tg.box === 'inbox' && !inboxOpen){ inboxOpen = true; try{localStorage.setItem('inboxOpen','1');}catch(e){} renderInbox(); }
+    if(tg.box === 'priv'  && !privOpen ){ privOpen  = true; try{localStorage.setItem('privOpen','1');}catch(e){} renderPriv();  }
+    await new Promise(r => setTimeout(r, 80));
+  }
+
+  const scope = tg.box === 'inbox' ? '#inboxList ' : tg.box === 'priv' ? '#privList ' : '';
+  let host = null, inner = null;
+
+  if(tg.tid){
+    host = document.querySelector(`${scope}.task[data-tid="${tg.tid}"]`);
+    if(host && tg.open && !host.querySelector('.attach-panel')){   /* 퀵메모는 상세를 펼쳐야 보인다 */
+      const nb = host.querySelector('.note-btn');
+      if(nb){ nb.click(); await new Promise(r => setTimeout(r, 140)); }
+      host = document.querySelector(`${scope}.task[data-tid="${tg.tid}"]`);
+    }
+    inner = host && (tg.open ? host.querySelector('.qnote') : host.querySelector('.task-text'));
+  }else if(tg.nid){
+    host  = document.querySelector(`.bignote[data-nid="${tg.nid}"]`);
+    inner = host && host.querySelector(
+      tg.field === 'bnbody' ? '.bn-body' : tg.field === 'bnmeta' ? '.bn-meta textarea, .bn-meta input' : '.bn-title');
+  }else if(tg.cid){
+    host  = document.querySelector(`.cat[data-cid="${tg.cid}"]`);
+    inner = host && host.querySelector('.cat-name');
+  }else if(tg.field === 'note') host = inner = $('dayNote');
+  else if(tg.field === 'memo')  host = inner = $('memoText');
+  else if(tg.box)               host = $(tg.box === 'inbox' ? 'inboxList' : 'privList');
+
+  if(!host){ toast('그 내용을 찾지 못했어요 — 지워졌을 수 있어요'); return; }
+  host.scrollIntoView({behavior:'smooth', block:'center'});
+  flashHit(inner || host, q, host);
+}
+/* 잠깐 빛나게 + 글상자 안이면 찾은 낱말이 있는 줄까지 스크롤 */
+function flashHit(el, q, box){
+  if(!el) return;
+  const mark = box || el;
+  mark.classList.remove('jump-hit');
+  void mark.offsetWidth;                      /* 애니메이션 다시 걸기 */
+  mark.classList.add('jump-hit');
+  setTimeout(() => mark.classList.remove('jump-hit'), 2600);
+  if(!q || !('value' in el)) return;
+  const i = String(el.value).toLowerCase().indexOf(q.toLowerCase());
+  if(i < 0) return;
+  const lineNo = String(el.value).slice(0, i).split('\n').length - 1;
+  const lh = parseFloat(getComputedStyle(el).lineHeight) || 28;
+  if(el.scrollHeight > el.clientHeight + 4){                 /* 상자 안에서 스크롤되는 경우 */
+    el.scrollTop = Math.max(0, lineNo * lh - el.clientHeight / 2);
+  }else{                                                      /* 전체가 펼쳐진 경우 — 화면을 옮긴다 */
+    const top = el.getBoundingClientRect().top + window.scrollY + lineNo * lh;
+    window.scrollTo({top: Math.max(0, top - window.innerHeight / 2), behavior:'smooth'});
+  }
 }
 
 /* ═══════════════ 보고용 텍스트 복사 ═══════════════ */
@@ -3254,9 +3439,34 @@ function showDiaryBody(label){
   const ta = $('diaryText');
   ta.value = day.diary;
   ta.style.height='auto'; ta.style.height = Math.max(280, ta.scrollHeight)+'px';
+  renderDnote(true);
   $('diaryModal').classList.remove('hidden');
   ta.focus();
 }
+/* '어제와 다른 오늘' — 일기와 별개로 그날의 사건·상태를 남기는 칸 */
+let dnoteOpen = false;
+try{ dnoteOpen = localStorage.getItem('dnoteOpen') === '1'; }catch(e){}
+function renderDnote(auto){
+  const v = (day.dnote||'').trim();
+  if(auto && v) dnoteOpen = true;                /* 일기를 새로 열 때, 적어 둔 게 있으면 펼쳐서 보여준다 */
+  const open = dnoteOpen;                        /* 그 뒤로는 내가 접고 편 대로 */
+  $('dnoteText').value = day.dnote || '';
+  $('dnoteWrap').classList.toggle('hidden', !open);
+  const f = $('dnoteFold');
+  f.textContent = open ? '－' : '＋';
+  f.classList.toggle('open', open);
+  $('dnoteSub').textContent = (!open && v) ? v.replace(/\n/g,' ').slice(0,24) + (v.length>24?'…':'')
+                            : (open ? '' : '접힘');
+  if(open) grow($('dnoteText'), 96);
+}
+$('dnoteHead').onclick = () => {
+  dnoteOpen = $('dnoteWrap').classList.contains('hidden');
+  try{ localStorage.setItem('dnoteOpen', dnoteOpen ? '1' : '0'); }catch(e){}
+  renderDnote();
+  if(dnoteOpen) $('dnoteText').focus();
+};
+$('dnoteText').addEventListener('input', e => { day.dnote = e.target.value; markDirty(); grow(e.target, 96); });
+$('dnoteText').addEventListener('focus', e => grow(e.target, 96));
 $('diaryOpenBtn').onclick = () => { if(pinResolver) pinResolver(); };
 $('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter' && pinResolver) pinResolver(); });
 $('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); grow(e.target, 280); });
