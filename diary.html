@@ -279,9 +279,13 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 .ov-txt::placeholder{color:var(--ink-soft);opacity:.6;font-weight:600}
 .ov-kid{flex:none;font-size:.8rem;font-weight:800;color:var(--ink-soft);
   background:var(--paper-deep);border-radius:999px;padding:4px 10px;white-space:nowrap}
-.ov-fold{flex:none;width:26px;height:26px;border-radius:7px;background:none;border:none;
-  display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--ink-soft);transition:.12s}
-.ov-fold:hover{background:var(--paper-deep);color:var(--accent-deep)}
+.ov-fold{flex:none;width:32px;height:32px;border-radius:50%;
+  background:var(--paper-deep);border:2px solid var(--rule);
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.15rem;font-weight:800;line-height:1;color:var(--accent-deep);
+  transition:.13s;padding:0}
+.ov-fold:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.08)}
+.ov-fold.closed{background:var(--accent);border-color:var(--accent);color:#fff}
 .ov-add,.ov-del{flex:none;width:34px;height:34px;border-radius:9px;
   display:flex;align-items:center;justify-content:center;transition:.12s;background:none;border:none}
 .ov-add{font-size:1.3rem;font-weight:800;color:var(--accent)}
@@ -294,7 +298,7 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
   .ov-when{font-size:.82rem;padding:5px 9px}
   .ov-txt{font-size:1rem}
   .ov-add,.ov-del{width:32px;height:32px}
-  .ov-fold{width:24px;height:24px}
+  .ov-fold{width:30px;height:30px;font-size:1.08rem}
   .ov-branch{width:20px}
   .ov-branch::before{left:8px;width:11px}
 }
@@ -5090,7 +5094,7 @@ function ovCard(it, childCount){
   el.dataset.gid = g.id; el.dataset.scope = scope; el.dataset.key = it.key;
   const closed = ovClosed.has(g.id);
   el.innerHTML = `
-    ${childCount? `<button class="ov-fold" title="${closed?'펼치기':'접기'}">${closed?'▸':'▾'}</button>` : ''}
+    ${childCount? `<button class="ov-fold${closed?' closed':''}" title="${closed? `펼치기 (하위 ${childCount}개)`:'접기'}">${closed?'＋':'－'}</button>` : ''}
     <span class="ov-when" title="끌어서 상위 목표에 옮기기">${ovLabelOf(it)}</span>
     <input class="ov-txt" value="${esc(g.text||'')}" placeholder="목표를 적어 주세요"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
