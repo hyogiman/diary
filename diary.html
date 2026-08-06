@@ -853,40 +853,66 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 #cfDesc{white-space:pre-line}
 
 /* ───────── 섹션 접기 버튼 (기타 업무함 · 개인 용무함) ───────── */
-.sec-fold{flex:none;width:30px;height:30px;border-radius:50%;
-  background:var(--paper-deep);border:2px solid var(--rule);
+.sec-fold{flex:none;width:17px;height:17px;border-radius:50%;
+  background:var(--paper-deep);border:1.5px solid var(--rule);
   display:flex;align-items:center;justify-content:center;
-  font-family:Pretendard,sans-serif;font-size:1.05rem;font-weight:800;line-height:1;
+  font-family:Pretendard,sans-serif;font-size:.66rem;font-weight:800;line-height:1;
   color:var(--accent-deep);transition:.13s;padding:0}
 .sec-fold:hover{background:var(--accent);border-color:var(--accent);color:#fff;transform:scale(1.08)}
 .sec-fold.closed{background:var(--accent);border-color:var(--accent);color:#fff}
 .sec-note{font-family:Pretendard,sans-serif;font-size:.82rem;font-weight:700;color:var(--ink-soft)}
 
-/* ───────── 📝 포스트잇 ───────── */
+/* ───────── 💡 포스트잇 ───────── */
 #stickyLayer{position:fixed;inset:0;z-index:100;pointer-events:none}
 .sticky{position:absolute;pointer-events:auto;display:flex;flex-direction:column;
-  background:linear-gradient(170deg,#FFF6B0 0%,#FFEC7A 62%,#FCE05F 100%);
-  border:1px solid #E5CA48;border-radius:5px;
-  box-shadow:0 10px 22px rgba(120,90,20,.26),0 2px 5px rgba(120,90,20,.20);
+  --sc1:#FFF6B0; --sc2:#FFEC7A; --sc3:#FCE05F;          /* 바탕 그러데이션 */
+  --scb:#E5CA48;                                        /* 테두리 */
+  --sct:#8A6A12;                                        /* 머리띠 글자 */
+  --sci:#453714;                                        /* 본문 글자 */
+  --scg:#CFAE34;                                        /* 크기조절 손잡이 */
+  --scs:120,90,20;                                      /* 그림자 색(rgb) */
+  background:linear-gradient(170deg,var(--sc1) 0%,var(--sc2) 62%,var(--sc3) 100%);
+  border:1px solid var(--scb);border-radius:5px;
+  box-shadow:0 10px 22px rgba(var(--scs),.26),0 2px 5px rgba(var(--scs),.20);
   min-width:150px;min-height:110px;overflow:hidden;transition:box-shadow .15s}
-.sticky.on{box-shadow:0 16px 34px rgba(120,90,20,.4),0 3px 7px rgba(120,90,20,.24)}
+.sticky.on{box-shadow:0 16px 34px rgba(var(--scs),.4),0 3px 7px rgba(var(--scs),.24)}
+/* 색상표 — 포스트잇 고전 색 */
+.sticky[data-color="pink"]  {--sc1:#FFD7E4;--sc2:#FFC2D6;--sc3:#FFB3CC;--scb:#EFA0BC;--sct:#9C3A62;--sci:#5A1E36;--scg:#DB86A6;--scs:150,60,95}
+.sticky[data-color="mint"]  {--sc1:#CDF3DE;--sc2:#B4EACD;--sc3:#A3E3C1;--scb:#8CCFAB;--sct:#1F6E48;--sci:#134430;--scg:#78C097;--scs:35,120,85}
+.sticky[data-color="sky"]   {--sc1:#D2EBFA;--sc2:#BADFF6;--sc3:#A9D6F3;--scb:#8FC3E3;--sct:#1C5C82;--sci:#123B55;--scg:#7BB2D6;--scs:35,95,135}
+.sticky[data-color="orange"]{--sc1:#FFE0BE;--sc2:#FFCE9B;--sc3:#FFC287;--scb:#EFAF72;--sct:#96501A;--sci:#5A2F0D;--scg:#DE9B5C;--scs:150,85,30}
+.sticky[data-color="lilac"] {--sc1:#E6DCFA;--sc2:#D6C7F5;--sc3:#CBB9F2;--scb:#B5A2E0;--sct:#5A3C99;--sci:#372360;--scg:#A38FD4;--scs:95,70,155}
+.sticky[data-color="gray"]  {--sc1:#F2EEE6;--sc2:#E6E0D4;--sc3:#DED7C8;--scb:#C9C0AE;--sct:#6B6152;--sci:#40382C;--scg:#B3A994;--scs:110,100,80}
 .sticky-head{flex:none;display:flex;align-items:center;gap:4px;height:30px;padding:0 3px 0 9px;
-  background:rgba(140,105,15,.12);border-bottom:1px solid rgba(160,125,25,.18);
+  background:rgba(var(--scs),.14);border-bottom:1px solid rgba(var(--scs),.2);
   cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .sticky-head:active{cursor:grabbing}
-.sticky-grip{flex:1;min-width:0;font-size:.7rem;font-weight:800;color:#8A6A12;letter-spacing:.03em;
+.sticky-grip{flex:1;min-width:0;font-size:.7rem;font-weight:800;color:var(--sct);letter-spacing:.03em;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
 .sticky-x{flex:none;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
-  justify-content:center;font-size:.85rem;font-weight:800;color:#8A6A12;transition:.13s}
+  justify-content:center;font-size:.85rem;font-weight:800;color:var(--sct);transition:.13s}
 .sticky-x:hover{background:rgba(200,90,74,.2);color:var(--danger)}
 .sticky textarea{flex:1;min-height:0;width:100%;border:none;background:transparent;resize:none;
-  padding:9px 11px 14px;font-family:inherit;font-size:.95rem;line-height:1.55;color:#453714;
+  padding:9px 11px 32px;font-family:inherit;font-size:.95rem;line-height:1.55;color:var(--sci);
   white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;overflow:auto}
 .sticky textarea:focus{outline:none}
-.sticky textarea::placeholder{color:#BCA555}
+.sticky textarea::placeholder{color:rgba(var(--scs),.45)}
 .sticky-rs{position:absolute;right:0;bottom:0;width:24px;height:24px;touch-action:none;
   cursor:nwse-resize;
-  background:linear-gradient(135deg,transparent 0 42%,#CFAE34 42% 51%,transparent 51% 66%,#CFAE34 66% 75%,transparent 75%)}
+  background:linear-gradient(135deg,transparent 0 42%,var(--scg) 42% 51%,transparent 51% 66%,var(--scg) 66% 75%,transparent 75%)}
+/* 좌측 하단 색상 버튼 + 색상표 */
+.sticky-col{position:absolute;left:7px;bottom:7px;width:22px;height:22px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.75);box-shadow:0 1px 4px rgba(var(--scs),.45);
+  background:linear-gradient(150deg,var(--sc2),var(--sc3));transition:.13s;padding:0}
+.sticky-col:hover{transform:scale(1.15)}
+.sticky-pal{position:absolute;left:6px;bottom:34px;display:flex;flex-wrap:wrap;gap:5px;
+  max-width:calc(100% - 12px);padding:6px;border-radius:10px;
+  background:rgba(255,255,255,.94);box-shadow:0 4px 14px rgba(var(--scs),.35);
+  border:1px solid rgba(var(--scs),.22)}
+.sticky-pal button{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(0,0,0,.14);
+  transition:.12s;padding:0}
+.sticky-pal button:hover{transform:scale(1.18)}
+.sticky-pal button.on{outline:2px solid var(--accent);outline-offset:1px}
 .icon-btn{position:relative}
 .icon-badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;
   background:var(--accent);color:#fff;font-size:.63rem;font-weight:800;line-height:17px;
@@ -964,7 +990,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <button class="tab" id="tabArchive">기록</button>
       </div>
       <div class="icon-group">
-        <button class="icon-btn" id="stickyBtn" title="포스트잇 — 화면에 붙여 두는 짧은 메모">📝<span class="icon-badge hidden" id="stickyCount"></span></button>
+        <button class="icon-btn" id="stickyBtn" title="포스트잇 — 화면에 붙여 두는 짧은 메모">💡<span class="icon-badge hidden" id="stickyCount"></span></button>
         <button class="icon-btn" id="memoBankBtn" title="장기 메모">📌</button>
         <button class="icon-btn" id="noteTopBtn" title="회의록·큰 메모장 추가">📋</button>
         <button class="icon-btn" id="diaryBtn" title="오늘의 일기">㊙️</button>
@@ -1173,6 +1199,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="setFontBtn">✒️ 손글씨 글꼴 바꾸기</button>
       <button class="btn-line" id="setPrivPrintBtn">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
       <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
+      <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기 (자동 보관본)</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -1517,6 +1544,14 @@ function markDirty(){
   dirty = true; $('saveState').textContent = '입력 중…';
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 800);
+  peekRefresh();                       /* 🎯 목표 펼침의 업무 연동 숫자도 함께 갱신 */
+}
+/* 목표 미리보기 갱신 — 타자 칠 때마다 다시 그리지 않도록 잠깐 모아서 */
+let peekTimer = null;
+function peekRefresh(){
+  if(!peekOpen) return;
+  clearTimeout(peekTimer);
+  peekTimer = setTimeout(() => { if(peekOpen) renderPeek(); }, 180);
 }
 async function saveNow(){
   if(!dirty || !USER) return;
@@ -1766,7 +1801,10 @@ function taskRow(t, ctx){
         <button class="mini-btn ap-aud">🎵 녹음파일</button>
       </div>
       <div class="file-grid"></div>`;
-    panel.querySelector('.ap-goal').addEventListener('change', e => { t.goal = e.target.value; ctx.save(); ctx.rerender(); });
+    panel.querySelector('.ap-goal').addEventListener('change', e => {
+      t.goal = e.target.value; ctx.save(); ctx.rerender();
+      if(peekOpen) renderPeek();                      /* 연결/해제 즉시 🎯 숫자 반영 */
+    });
     const qn = panel.querySelector('.qnote');
     qn.addEventListener('focus', () => grow(qn, 72));
     qn.addEventListener('click', () => grow(qn, 72));
@@ -4320,22 +4358,71 @@ function ensureGoals(){
 }
 const goalsOf = (scope, key) => (goals && goals[scope] && goals[scope][key]) || [];
 
+/* 목표를 서버에서 제대로 읽어왔는지 — 못 읽었으면 절대 저장하지 않는다.
+   (읽기 실패로 빈 목록이 된 상태를 저장해 서버 목표를 통째로 날리는 사고 방지) */
+let goalsLoaded = false, goalRetryTimer = null;
 async function loadGoals(){
   try{
     const snap = await withTimeout(db.ref(`diaries/${USER.uid}/goals`).get(), 5000);
     goals = snap.exists()? (snap.val()||{}) : {};
-  }catch(e){ goals = goals || {}; }
+    goalsLoaded = true;
+    clearTimeout(goalRetryTimer); goalRetryTimer = null;
+  }catch(e){
+    goals = goals || {};
+    goalsLoaded = false;
+    toast('목표를 불러오지 못했어요 — 덮어쓰기를 막기 위해 저장을 잠시 멈춥니다');
+    clearTimeout(goalRetryTimer);
+    goalRetryTimer = setTimeout(async () => {          /* 조용히 다시 시도 */
+      if(!USER || goalsLoaded) return;
+      await loadGoals();
+      if(goalsLoaded){
+        if(!$('goalView').classList.contains('hidden')) renderGoals();
+        if(peekOpen) renderPeek();
+        toast('목표를 다시 불러왔어요');
+      }
+    }, 5000);
+  }
   ensureGoals();
 }
+/* 목표 개수 — 백업/안전장치 판단에 사용 */
+function goalCount(o){
+  let n = 0;
+  ['year','month','week','dday'].forEach(k =>
+    Object.values((o && o[k]) || {}).forEach(arr => {
+      if(Array.isArray(arr)) n += arr.filter(g => g && !g.stopped && (g.text||'').trim()).length;
+    }));
+  return n;
+}
 function markGoals(){
+  if(!goalsLoaded){                                   /* 아직 못 읽어온 상태면 저장 보류 */
+    toast('아직 목표를 불러오지 못했어요 — 잠시 후 다시 시도해 주세요');
+    return;
+  }
   goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800);
   if(peekOpen) renderPeek();                        // 목록 탭 🎯 내용도 즉시 갱신
 }
 async function saveGoals(){
-  if(!goalDirty || !USER) return;
+  if(!goalDirty || !USER || !goalsLoaded) return;
   goalDirty = false;
-  try{ await db.ref(`diaries/${USER.uid}/goals`).set(JSON.parse(JSON.stringify(goals))); }
+  const snapshot = JSON.parse(JSON.stringify(goals));
+  try{
+    await db.ref(`diaries/${USER.uid}/goals`).set(snapshot);
+    await keepGoalBackup(snapshot);
+  }
   catch(e){ goalDirty = true; }
+}
+/* 마지막으로 목표가 남아 있던 상태를 따로 보관 — 사고가 나도 되돌릴 수 있게.
+   목표가 0개인 상태로는 절대 백업을 덮어쓰지 않는다. */
+async function keepGoalBackup(snapshot){
+  const n = goalCount(snapshot);
+  if(!n) return;
+  try{
+    const b = await db.ref(`diaries/${USER.uid}/goalsBak`).get();
+    const prev = b.exists()? (b.val()||{}) : null;
+    const stale = !prev || (Date.now() - (prev.ts||0)) > 7*24*3600*1000;
+    if(prev && n < (prev.n||0) && !stale) return;      /* 줄어든 상태로는 덮어쓰지 않음 */
+    await db.ref(`diaries/${USER.uid}/goalsBak`).set({ts:Date.now(), n, data:snapshot});
+  }catch(e){}
 }
 document.querySelectorAll('.goal-tabs .mini-btn').forEach(b => b.onclick = () => {
   goalScope = b.dataset.g;
@@ -4853,11 +4940,48 @@ $('bankDel').onclick = async () => {
 };
 
 
-/* ═══════════════ 📝 포스트잇 — 화면에 붙여 두는 짧은 메모 ═══════════════ */
+/* 자동 보관본에서 목표 되살리기 */
+$('goalRestoreBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+  let prev = null;
+  try{
+    const b = await withTimeout(db.ref(`diaries/${USER.uid}/goalsBak`).get(), 5000);
+    prev = b.exists()? (b.val()||null) : null;
+  }catch(e){ toast('보관본을 확인하지 못했어요 — 연결을 확인해 주세요'); return; }
+  if(!prev || !prev.data || !prev.n){
+    toast('아직 보관된 목표가 없어요 (목표를 저장하면 이때부터 자동 보관됩니다)');
+    return;
+  }
+  const when = new Date(prev.ts||Date.now()).toLocaleString('ko-KR',
+    {year:'numeric', month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  const now = goalCount(goals);
+  if(!(await askConfirm(
+    `보관본: ${when}\n담긴 목표 ${prev.n}개\n\n지금 화면의 목표(${now}개)를 이 보관본으로 되돌립니다.`,
+    {title:'🎯 목표 되살리기', ok:'되살리기', danger:true}))) return;
+  goals = prev.data;
+  ensureGoals();
+  goalsLoaded = true;
+  goalDirty = true; await saveGoals();
+  renderGoals(); if(peekOpen) renderPeek();
+  toast(`목표 ${prev.n}개를 되살렸어요`);
+};
+
+/* ═══════════════ 💡 포스트잇 — 화면에 붙여 두는 짧은 메모 ═══════════════ */
 /* 탭·날짜와 무관하게 화면에 떠 있고, 끌어서 옮기고 모서리로 크기를 바꾼다 */
 let stickies = [], stickyTimer = null, stickyDirty = false, stickyCb = null;
 let stickyZ = 1, stickyBusy = false;
 const STICKY_W = 200, STICKY_H = 200, STICKY_MINW = 150, STICKY_MINH = 110;
+/* 좌측 하단 동그라미로 고르는 색 — 값, 이름, 미리보기 색 */
+const STICKY_COLORS = [
+  ['yellow', '노랑',   '#FFE96B'],
+  ['pink',   '분홍',   '#FFC2D6'],
+  ['orange', '주황',   '#FFCE9B'],
+  ['mint',   '연두',   '#B4EACD'],
+  ['sky',    '하늘',   '#BADFF6'],
+  ['lilac',  '연보라', '#D6C7F5'],
+  ['gray',   '회색',   '#E6E0D4']
+];
+const stickyColorOk = c => STICKY_COLORS.some(x => x[0] === c);
 
 function normSticky(s){
   s = s || {};
@@ -4868,6 +4992,7 @@ function normSticky(s){
     y: Number.isFinite(+s.y) ? +s.y : 120,
     w: Math.max(STICKY_MINW, +s.w || STICKY_W),
     h: Math.max(STICKY_MINH, +s.h || STICKY_H),
+    color: stickyColorOk(s.color) ? s.color : 'yellow',
     ts: s.ts || Date.now()
   };
 }
@@ -4922,15 +5047,17 @@ function stickyEl(s){
   const el = document.createElement('div');
   el.className = 'sticky';
   el.dataset.sid = s.id;
+  el.dataset.color = s.color;
   el.style.zIndex = ++stickyZ;
   applyStickyBox(el, s);
   el.innerHTML = `
     <div class="sticky-head">
-      <span class="sticky-grip">📝 포스트잇</span>
+      <span class="sticky-grip">💡 포스트잇</span>
       <button class="sticky-x" type="button" title="이 포스트잇 떼기">✕</button>
     </div>
     <textarea placeholder="여기에 적어 두세요" spellcheck="false"
       autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    <button class="sticky-col" type="button" title="색 바꾸기"></button>
     <div class="sticky-rs" title="끌어서 크기 조절"></div>`;
 
   const ta = el.querySelector('textarea');
@@ -4940,8 +5067,35 @@ function stickyEl(s){
   /* 글자를 쓰려고 누른 것이므로 맨 앞으로 */
   ta.addEventListener('focus', () => { el.style.zIndex = ++stickyZ; });
 
+  /* 좌측 하단 동그라미 — 눌러서 색 고르기 */
+  const colBtn = el.querySelector('.sticky-col');
+  colBtn.onclick = e => {
+    e.stopPropagation();
+    el.style.zIndex = ++stickyZ;
+    const open = el.querySelector('.sticky-pal');
+    if(open){ open.remove(); return; }
+    closeStickyPalettes();
+    const pal = document.createElement('div');
+    pal.className = 'sticky-pal';
+    STICKY_COLORS.forEach(([key, name, swatch]) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.title = name;
+      b.style.background = swatch;
+      if(s.color === key) b.classList.add('on');
+      b.onclick = ev => {
+        ev.stopPropagation();
+        s.color = key; el.dataset.color = key;
+        s.ts = Date.now(); markStickies();
+        pal.remove();
+      };
+      pal.appendChild(b);
+    });
+    el.appendChild(pal);
+  };
+
   el.querySelector('.sticky-x').onclick = async e => {
     e.stopPropagation();
+    closeStickyPalettes();
     if(s.text.trim() && !(await askConfirm(`"${s.text.trim().slice(0,40)}${s.text.trim().length>40?'…':''}"\n\n이 포스트잇을 뗄까요?`,
       {title:'🗑 포스트잇 떼기', ok:'떼기', danger:true}))) return;
     stickies = stickies.filter(x => x.id !== s.id);
@@ -4953,6 +5107,12 @@ function stickyEl(s){
   bindStickyDrag(el, s, el.querySelector('.sticky-rs'),   'size');
   return el;
 }
+function closeStickyPalettes(){
+  document.querySelectorAll('.sticky-pal').forEach(p => p.remove());
+}
+document.addEventListener('pointerdown', e => {
+  if(!e.target.closest('.sticky-pal') && !e.target.closest('.sticky-col')) closeStickyPalettes();
+}, true);
 /* 마우스·터치를 한 코드로 — 포인터 이벤트 */
 function bindStickyDrag(el, s, handle, mode){
   if(!handle) return;
