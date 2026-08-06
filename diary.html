@@ -892,27 +892,46 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 .sticky-x{flex:none;width:26px;height:26px;border-radius:7px;display:flex;align-items:center;
   justify-content:center;font-size:.85rem;font-weight:800;color:var(--sct);transition:.13s}
 .sticky-x:hover{background:rgba(200,90,74,.2);color:var(--danger)}
-.sticky textarea{flex:1;min-height:0;width:100%;border:none;background:transparent;resize:none;
-  padding:9px 11px 32px;font-family:inherit;font-size:.95rem;line-height:1.55;color:var(--sci);
-  white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;overflow:auto}
-.sticky textarea:focus{outline:none}
-.sticky textarea::placeholder{color:rgba(var(--scs),.45)}
-.sticky-rs{position:absolute;right:0;bottom:0;width:24px;height:24px;touch-action:none;
-  cursor:nwse-resize;
-  background:linear-gradient(135deg,transparent 0 42%,var(--scg) 42% 51%,transparent 51% 66%,var(--scg) 66% 75%,transparent 75%)}
-/* 좌측 하단 색상 버튼 + 색상표 */
-.sticky-col{position:absolute;left:7px;bottom:7px;width:22px;height:22px;border-radius:50%;
-  border:2px solid rgba(255,255,255,.75);box-shadow:0 1px 4px rgba(var(--scs),.45);
+/* 본문 — 글 블록과 사진 블록이 번갈아 쌓인다 */
+.sticky-body{flex:1;min-height:0;overflow:auto;padding:7px 9px 8px;
+  display:flex;flex-direction:column;gap:2px}
+.sticky-body textarea{width:100%;border:none;background:transparent;resize:none;display:block;
+  padding:2px 2px;font-family:inherit;font-size:.95rem;line-height:1.55;color:var(--sci);
+  white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;overflow:hidden}
+.sticky-body textarea:focus{outline:none}
+.sticky-body textarea::placeholder{color:rgba(var(--scs),.45)}
+.sb-img{position:relative;margin:4px 0;line-height:0}
+.sb-img img{width:100%;height:auto;display:block;border-radius:5px;
+  border:1px solid rgba(var(--scs),.28);box-shadow:0 2px 6px rgba(var(--scs),.2)}
+.sb-img .sb-x{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;
+  background:rgba(255,255,255,.88);color:#8A3A2E;font-size:.72rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.25);
+  opacity:.55;transition:.13s}
+.sb-img:hover .sb-x{opacity:1}
+.sb-up{margin:4px 0;padding:8px 10px;border-radius:6px;font-size:.76rem;font-weight:700;
+  color:var(--sct);background:rgba(255,255,255,.5);border:1px dashed rgba(var(--scs),.35)}
+/* 아래 띠 — 색상·사진 버튼을 글에서 떼어 놓는다 */
+.sticky-foot{flex:none;display:flex;align-items:center;gap:7px;height:32px;padding:0 26px 0 8px;
+  background:rgba(var(--scs),.14);border-top:1px solid rgba(var(--scs),.2)}
+.sticky-col{flex:none;width:20px;height:20px;border-radius:50%;
+  border:2px solid rgba(255,255,255,.8);box-shadow:0 1px 3px rgba(var(--scs),.45);
   background:linear-gradient(150deg,var(--sc2),var(--sc3));transition:.13s;padding:0}
 .sticky-col:hover{transform:scale(1.15)}
-.sticky-pal{position:absolute;left:6px;bottom:34px;display:flex;flex-wrap:wrap;gap:5px;
-  max-width:calc(100% - 12px);padding:6px;border-radius:10px;
-  background:rgba(255,255,255,.94);box-shadow:0 4px 14px rgba(var(--scs),.35);
+.sticky-img{flex:none;height:22px;padding:0 8px;border-radius:7px;font-size:.74rem;font-weight:800;
+  color:var(--sct);background:rgba(255,255,255,.45);transition:.13s;
+  display:flex;align-items:center;gap:3px}
+.sticky-img:hover{background:rgba(255,255,255,.85)}
+.sticky-pal{position:absolute;left:6px;bottom:38px;display:flex;flex-wrap:wrap;gap:5px;
+  max-width:calc(100% - 12px);padding:6px;border-radius:10px;z-index:3;
+  background:rgba(255,255,255,.96);box-shadow:0 4px 14px rgba(var(--scs),.35);
   border:1px solid rgba(var(--scs),.22)}
 .sticky-pal button{width:20px;height:20px;border-radius:50%;border:1.5px solid rgba(0,0,0,.14);
   transition:.12s;padding:0}
 .sticky-pal button:hover{transform:scale(1.18)}
 .sticky-pal button.on{outline:2px solid var(--accent);outline-offset:1px}
+.sticky-rs{position:absolute;right:0;bottom:0;width:24px;height:24px;touch-action:none;z-index:4;
+  cursor:nwse-resize;
+  background:linear-gradient(135deg,transparent 0 42%,var(--scg) 42% 51%,transparent 51% 66%,var(--scg) 66% 75%,transparent 75%)}
 .icon-btn{position:relative}
 .icon-badge{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;border-radius:999px;
   background:var(--accent);color:#fff;font-size:.63rem;font-weight:800;line-height:17px;
@@ -947,7 +966,12 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .sticky-head{height:36px}
   .sticky-x{width:30px;height:30px;font-size:.95rem}
   .sticky-rs{width:30px;height:30px}
-  .sticky textarea{font-size:1rem}
+  .sticky-foot{height:38px;padding-right:32px}
+  .sticky-col{width:24px;height:24px}
+  .sticky-img{height:26px;font-size:.8rem;padding:0 10px}
+  .sticky-pal{bottom:44px}
+  .sticky-body textarea{font-size:1rem}
+  .sb-img .sb-x{width:26px;height:26px;opacity:.85}
 
   /* 섹션 제목 줄: 버튼 줄바꿈 방지 */
   .section-star{flex-wrap:wrap;gap:6px;align-items:center}
@@ -4985,9 +5009,8 @@ const stickyColorOk = c => STICKY_COLORS.some(x => x[0] === c);
 
 function normSticky(s){
   s = s || {};
-  return {
+  const out = {
     id:   s.id || uid8(),
-    text: typeof s.text === 'string' ? s.text : '',
     x: Number.isFinite(+s.x) ? +s.x : 24,
     y: Number.isFinite(+s.y) ? +s.y : 120,
     w: Math.max(STICKY_MINW, +s.w || STICKY_W),
@@ -4995,6 +5018,8 @@ function normSticky(s){
     color: stickyColorOk(s.color) ? s.color : 'yellow',
     ts: s.ts || Date.now()
   };
+  out.blocks = normBlocks(s);
+  return out;
 }
 /* 화면 밖으로 나가지 않게 — 크기 조절 중에는 위치를 기준으로 크기만 제한 */
 function clampSticky(s, resizing){
@@ -5043,6 +5068,28 @@ function renderStickies(){
   stickies.forEach(s => { clampSticky(s); layer.appendChild(stickyEl(s)); });
   stickyBadge();
 }
+/* 본문 블록 — 글(text)과 사진(img)이 번갈아 쌓인다 */
+function normBlocks(s){
+  let bl = Array.isArray(s.blocks) ? s.blocks : Object.values(s.blocks || {});
+  bl = bl.map(b => {
+    if(!b) return null;
+    if(b.t === 'img' && b.url) return {t:'img', id:b.id || uid8(), url:b.url, path:b.path || '', name:b.name || ''};
+    return {t:'text', v: typeof b.v === 'string' ? b.v : ''};
+  }).filter(Boolean);
+  if(!bl.length) bl = [{t:'text', v: typeof s.text === 'string' ? s.text : ''}];   /* 예전 포스트잇 이어받기 */
+  if(bl[0].t !== 'text') bl.unshift({t:'text', v:''});
+  if(bl[bl.length-1].t !== 'text') bl.push({t:'text', v:''});
+  return bl;
+}
+/* 저장·검색·삭제 확인에 쓰는 글만 뽑기 */
+const stickyText = s => (s.blocks||[]).filter(b => b.t === 'text').map(b => b.v).join('\n').trim();
+const stickyImgs  = s => (s.blocks||[]).filter(b => b.t === 'img');
+/* 내용 길이만큼 늘어나는 글칸 */
+function growSticky(ta){
+  ta.style.height = 'auto';
+  ta.style.height = Math.max(22, ta.scrollHeight) + 'px';
+}
+
 function stickyEl(s){
   const el = document.createElement('div');
   el.className = 'sticky';
@@ -5055,19 +5102,20 @@ function stickyEl(s){
       <span class="sticky-grip">💡 포스트잇</span>
       <button class="sticky-x" type="button" title="이 포스트잇 떼기">✕</button>
     </div>
-    <textarea placeholder="여기에 적어 두세요" spellcheck="false"
-      autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
-    <button class="sticky-col" type="button" title="색 바꾸기"></button>
+    <div class="sticky-body"></div>
+    <div class="sticky-foot">
+      <button class="sticky-col" type="button" title="색 바꾸기"></button>
+      <button class="sticky-img" type="button" title="사진 넣기 — 글 사이에 들어갑니다">🖼 사진</button>
+    </div>
     <div class="sticky-rs" title="끌어서 크기 조절"></div>`;
 
-  const ta = el.querySelector('textarea');
-  ta.value = s.text;
-  ta.addEventListener('input', e => { s.text = e.target.value; s.ts = Date.now(); markStickies(); });
-  ta.addEventListener('blur', () => { if(stickyDirty){ clearTimeout(stickyTimer); saveStickies(); } });
-  /* 글자를 쓰려고 누른 것이므로 맨 앞으로 */
-  ta.addEventListener('focus', () => { el.style.zIndex = ++stickyZ; });
+  const body = el.querySelector('.sticky-body');
+  renderStickyBody(el, s);
 
-  /* 좌측 하단 동그라미 — 눌러서 색 고르기 */
+  /* 글자를 쓰려고 누른 것이므로 맨 앞으로 */
+  body.addEventListener('focusin', () => { el.style.zIndex = ++stickyZ; });
+
+  /* 색상 버튼 — 아래 띠 왼쪽 */
   const colBtn = el.querySelector('.sticky-col');
   colBtn.onclick = e => {
     e.stopPropagation();
@@ -5093,19 +5141,149 @@ function stickyEl(s){
     el.appendChild(pal);
   };
 
-  el.querySelector('.sticky-x').onclick = async e => {
+  /* 사진 — 커서가 있던 자리에 끼워 넣는다 */
+  el.querySelector('.sticky-img').onclick = e => {
     e.stopPropagation();
     closeStickyPalettes();
-    if(s.text.trim() && !(await askConfirm(`"${s.text.trim().slice(0,40)}${s.text.trim().length>40?'…':''}"\n\n이 포스트잇을 뗄까요?`,
+    if(stickyImgs(s).length >= 6){ toast('포스트잇 한 장에는 사진 6장까지 넣을 수 있어요'); return; }
+    pickFile('image/*', f => addStickyImage(f, s), true);
+  };
+
+  el.querySelector('.sticky-x').onclick = async ev => {
+    ev.stopPropagation();
+    closeStickyPalettes();
+    const txt = stickyText(s), imgs = stickyImgs(s);
+    if((txt || imgs.length) && !(await askConfirm(
+      (txt ? `"${txt.slice(0,40)}${txt.length>40?'…':''}"\n\n` : '') +
+      (imgs.length ? `사진 ${imgs.length}장이 함께 지워집니다.\n\n` : '') + '이 포스트잇을 뗄까요?',
       {title:'🗑 포스트잇 떼기', ok:'떼기', danger:true}))) return;
     stickies = stickies.filter(x => x.id !== s.id);
     markStickies(); renderStickies();
+    imgs.forEach(b => deleteStored(b));                  /* Storage 원본도 정리 */
     toast('포스트잇을 뗐어요');
   };
 
   bindStickyDrag(el, s, el.querySelector('.sticky-head'), 'move');
   bindStickyDrag(el, s, el.querySelector('.sticky-rs'),   'size');
   return el;
+}
+
+/* 본문 다시 그리기 — 글칸은 값만 갈아끼워 커서가 튀지 않게 */
+function renderStickyBody(el, s, focus){
+  const body = el.querySelector('.sticky-body');
+  body.innerHTML = '';
+  s.blocks.forEach((b, i) => {
+    if(b.t === 'text'){
+      const ta = document.createElement('textarea');
+      ta.rows = 1;
+      ta.dataset.bi = i;
+      ta.spellcheck = false;
+      ta.setAttribute('autocomplete','off'); ta.setAttribute('autocorrect','off'); ta.setAttribute('autocapitalize','off');
+      if(s.blocks.length === 1) ta.placeholder = '여기에 적어 두세요';
+      ta.value = b.v;
+      ta.addEventListener('input', e => {
+        b.v = e.target.value; s.ts = Date.now();
+        growSticky(e.target); markStickies();
+      });
+      ta.addEventListener('focus', e => { stickyCaret = {sid:s.id, bi:i, pos:e.target.selectionStart}; });
+      ta.addEventListener('keyup',  e => { stickyCaret = {sid:s.id, bi:i, pos:e.target.selectionStart}; });
+      ta.addEventListener('click',  e => { stickyCaret = {sid:s.id, bi:i, pos:e.target.selectionStart}; });
+      ta.addEventListener('blur', () => { if(stickyDirty){ clearTimeout(stickyTimer); saveStickies(); } });
+      body.appendChild(ta);
+      growSticky(ta);
+    }else{
+      const wrap = document.createElement('div');
+      wrap.className = 'sb-img';
+      wrap.innerHTML = `<img alt="${esc(b.name||'사진')}" loading="lazy">
+        <button class="sb-x" type="button" title="사진 빼기">✕</button>`;
+      const im = wrap.querySelector('img');
+      im.src = b.url;
+      im.onload = () => growAllSticky(el);
+      im.onclick = () => { $('lightboxImg').src = b.url; $('lightbox').classList.remove('hidden'); };
+      wrap.querySelector('.sb-x').onclick = async ev => {
+        ev.stopPropagation();
+        if(!(await askConfirm('이 사진을 포스트잇에서 뺄까요?', {title:'🖼 사진 빼기', ok:'빼기', danger:true}))) return;
+        const idx = s.blocks.indexOf(b);
+        if(idx < 0) return;
+        /* 앞뒤 글 블록을 다시 하나로 합친다 */
+        s.blocks.splice(idx, 1);
+        const prev = s.blocks[idx-1], next = s.blocks[idx];
+        if(prev && next && prev.t === 'text' && next.t === 'text'){
+          prev.v = prev.v + (prev.v && next.v ? '\n' : '') + next.v;
+          s.blocks.splice(idx, 1);
+        }
+        s.ts = Date.now(); markStickies();
+        renderStickyBody(el, s);
+        deleteStored(b);
+        toast('사진을 뺐어요');
+      };
+      body.appendChild(wrap);
+    }
+  });
+  if(focus){
+    const ta = body.querySelector(`textarea[data-bi="${focus.bi}"]`);
+    if(ta){ ta.focus(); const p = Math.min(focus.pos ?? ta.value.length, ta.value.length); ta.setSelectionRange(p, p); }
+  }
+}
+function growAllSticky(el){ el.querySelectorAll('.sticky-body textarea').forEach(growSticky); }
+
+/* 사진 넣기 — 크기를 줄여 Storage에 올리고, 커서 자리에서 글을 나눠 사이에 끼운다 */
+let stickyCaret = null;
+function addStickyImage(file, s){
+  const el = document.querySelector(`.sticky[data-sid="${s.id}"]`);
+  if(!el) return;
+  const body = el.querySelector('.sticky-body');
+  const ui = document.createElement('div');
+  ui.className = 'sb-up'; ui.textContent = '🖼 사진을 넣는 중…';
+  body.appendChild(ui);
+
+  const img = new Image(), objUrl = URL.createObjectURL(file);
+  img.onerror = () => { ui.remove(); URL.revokeObjectURL(objUrl); toast('이미지를 읽지 못했어요'); };
+  img.onload = () => {
+    URL.revokeObjectURL(objUrl);
+    const MAX = 1000, sc = Math.min(1, MAX / Math.max(img.width, img.height));
+    const cv = document.createElement('canvas');
+    cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    cv.toBlob(async blob => {
+      if(!blob){ ui.remove(); toast('사진을 준비하지 못했어요'); return; }
+      const id = uid8();
+      const safe = (file.name||'사진').replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+      const path = `sticky/${USER.uid}/${id}_${safe}.jpg`;
+      try{
+        const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
+        task.on('state_changed', sn => {
+          ui.textContent = `🖼 사진을 넣는 중… ${Math.round(sn.bytesTransferred/sn.totalBytes*100)}%`;
+        });
+        await task;
+        const url = await task.snapshot.ref.getDownloadURL();
+        ui.remove();
+        insertStickyImage(s, {t:'img', id, url, path, name:file.name||'사진'});
+        toast('사진을 넣었어요');
+      }catch(e){ ui.remove(); toast('사진 올리기 실패: ' + (e.code || e.message)); }
+    }, 'image/jpeg', .82);
+  };
+  img.src = objUrl;
+}
+/* 커서가 있던 글 블록을 둘로 나누고 그 사이에 사진을 끼운다 */
+function insertStickyImage(s, imgBlock){
+  let bi = s.blocks.length - 1, pos = null;
+  if(stickyCaret && stickyCaret.sid === s.id && s.blocks[stickyCaret.bi] && s.blocks[stickyCaret.bi].t === 'text'){
+    bi = stickyCaret.bi; pos = stickyCaret.pos;
+  }
+  const tb = s.blocks[bi];
+  if(!tb || tb.t !== 'text'){                       /* 글 블록이 아니면 맨 뒤에 */
+    s.blocks.push(imgBlock, {t:'text', v:''});
+  }else{
+    const at = pos === null ? tb.v.length : Math.min(pos, tb.v.length);
+    const head = tb.v.slice(0, at), tail = tb.v.slice(at);
+    tb.v = head;
+    s.blocks.splice(bi + 1, 0, imgBlock, {t:'text', v:tail});
+  }
+  s.ts = Date.now(); markStickies();
+  const el = document.querySelector(`.sticky[data-sid="${s.id}"]`);
+  if(el) renderStickyBody(el, s, {bi: bi + 2, pos: 0});   /* 사진 다음 글칸으로 커서 이동 */
+  stickyCaret = null;
 }
 function closeStickyPalettes(){
   document.querySelectorAll('.sticky-pal').forEach(p => p.remove());
@@ -5131,6 +5309,7 @@ function bindStickyDrag(el, s, handle, mode){
       if(mode === 'move'){ s.x = ox + dx; s.y = oy + dy; clampSticky(s); }
       else               { s.w = ow + dx; s.h = oh + dy; clampSticky(s, true); }
       applyStickyBox(el, s);
+      if(mode === 'size') growAllSticky(el);      /* 너비가 바뀌면 글 줄바꿈도 달라짐 */
     };
     const up = () => {
       handle.removeEventListener('pointermove', move);
@@ -5155,7 +5334,7 @@ $('stickyBtn').onclick = () => {
   clampSticky(s);
   stickies.push(s);
   markStickies(); renderStickies();
-  const ta = document.querySelector(`.sticky[data-sid="${s.id}"] textarea`);
+  const ta = document.querySelector(`.sticky[data-sid="${s.id}"] .sticky-body textarea`);
   if(ta) ta.focus();
   toast(n ? '포스트잇을 붙였어요' : '띠를 잡아 옮기고, 오른쪽 아래 모서리로 크기를 바꿔요');
 };
