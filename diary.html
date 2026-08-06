@@ -893,8 +893,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   justify-content:center;font-size:.85rem;font-weight:800;color:var(--sct);transition:.13s}
 .sticky-x:hover{background:rgba(200,90,74,.2);color:var(--danger)}
 /* 본문 — 글 블록과 사진 블록이 번갈아 쌓인다 */
-.sticky-body{flex:1;min-height:0;overflow:auto;padding:7px 9px 8px;
+.sticky-body{flex:1;min-height:0;overflow:auto;padding:7px 9px 8px;cursor:text;
   display:flex;flex-direction:column;gap:2px}
+.sticky-body > *{flex:0 0 auto}
+/* 마지막 글칸이 남은 자리를 모두 차지한다 — 빈 곳을 눌러도 커서가 들어가도록 */
+.sticky-body > textarea:last-child{flex:1 0 auto}
 .sticky-body textarea{width:100%;border:none;background:transparent;resize:none;display:block;
   padding:2px 2px;font-family:inherit;font-size:.95rem;line-height:1.55;color:var(--sci);
   white-space:pre-wrap;word-break:break-word;overflow-wrap:break-word;overflow:hidden}
@@ -5090,8 +5093,11 @@ const stickyText = s => (s.blocks||[]).filter(b => b.t === 'text').map(b => b.v)
 const stickyImgs  = s => (s.blocks||[]).filter(b => b.t === 'img');
 /* 내용 길이만큼 늘어나는 글칸 */
 function growSticky(ta){
+  const keep = ta.style.flex;
+  ta.style.flex = '0 0 auto';            /* 잴 때만 늘어나는 성질을 끈다 */
   ta.style.height = 'auto';
   ta.style.height = Math.max(22, ta.scrollHeight) + 'px';
+  ta.style.flex = keep;
 }
 
 function stickyEl(s){
@@ -5118,6 +5124,21 @@ function stickyEl(s){
 
   /* 글자를 쓰려고 누른 것이므로 맨 앞으로 */
   body.addEventListener('focusin', () => { el.style.zIndex = ++stickyZ; });
+
+  /* 글칸이 아닌 여백을 눌러도 커서가 들어가게 — 누른 높이에 가장 가까운 글칸으로.
+     모바일 키보드는 사용자가 누른 동작 안에서 focus 해야 뜨므로 click 에서 처리한다 */
+  body.addEventListener('click', e => {
+    if(e.target !== body) return;                  /* 글칸·사진을 직접 눌렀으면 그대로 */
+    const tas = [...body.querySelectorAll('textarea')];
+    if(!tas.length) return;
+    let pick = tas[tas.length - 1];
+    for(const ta of tas){                          /* 누른 지점보다 위에 있는 마지막 글칸 */
+      if(ta.getBoundingClientRect().top <= e.clientY) pick = ta;
+    }
+    pick.focus();
+    const p = pick.value.length;
+    try{ pick.setSelectionRange(p, p); }catch(err){}
+  });
 
   /* 색상 버튼 — 아래 띠 왼쪽 */
   const colBtn = el.querySelector('.sticky-col');
