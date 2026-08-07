@@ -157,7 +157,7 @@ input:focus,textarea:focus{outline-offset:0}
 .chk.on{background:var(--accent);border-color:var(--accent)}
 .task-text{flex:1;min-width:150px;border:none;background:transparent;font-size:.98rem;padding:3px 2px;color:var(--ink)}
 .task.done .task-text{text-decoration:line-through;color:var(--done)}
-.task-meta{display:flex;align-items:center;gap:6px;flex:none}
+.task-meta{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;min-width:0}
 .status-chip{font-size:.74rem;font-weight:800;padding:5px 10px;border-radius:999px;border:1.5px solid;min-width:56px;text-align:center}
 .st-wait{color:var(--gray);border-color:#D8CBB6;background:#FBF6EA}
 .st-doing{color:var(--blue);border-color:#B9C4EE;background:#EEF1FC}
@@ -991,7 +991,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   padding:0 4px;text-align:center;box-shadow:0 1px 3px rgba(60,40,10,.3)}
 
 @media (max-width:640px){
-  #dateNav{gap:6px;padding:0 10px}
+  #dateNav{gap:5px;padding:0 8px}
+  /* 좌우 묶음이 내용보다 좁게 눌려 '오늘' 버튼이 화면 밖으로 밀려나던 문제 */
+  .dn-side{flex:0 0 auto;gap:5px}
+  #dateNav .date-arrow{width:36px;height:36px}
+  #goToday{padding:0 10px}
   .date-chip{min-width:0;flex:1 1 auto;max-width:none;padding:9px 10px!important;overflow:hidden}
   .date-chip .ymd{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #wxChip{font-size:.7rem}
@@ -1002,7 +1006,14 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   #schedOpen .sh-txt{font-size:.68rem}
   .paper{padding:20px 14px 24px;border-radius:12px}
   .sheet-title{font-size:1.45rem}
-  .task-meta{width:100%;justify-content:flex-end;padding-left:29px}
+  /* 배지 줄 — 좁은 화면에서도 한 줄에 들어가도록 여백을 조금씩 줄인다 */
+  .task-meta{width:100%;justify-content:flex-end;padding-left:24px;gap:5px;row-gap:5px}
+  /* 목표 배지는 폭이 커서 한 줄을 통째로 쓴다 — 예전엔 왼쪽으로 삐져나가 잘렸음 */
+  .task-meta .goal-tag{order:-1;flex:1 1 100%;max-width:100%;text-align:left;padding:3px 9px}
+  .task-meta .time-badge{max-width:100%;padding:4px 8px}
+  .task-meta .status-chip{min-width:50px;padding:5px 8px}
+  .task-meta .due-chip{min-width:46px;padding:5px 8px}
+  .task-text{min-width:0}
   .attach-panel{margin-left:0}
   /* 상단: 제목+탭 한 줄, 아이콘 5개는 아래 줄에 고르게 */
   .topbar-in{gap:8px;row-gap:8px}
@@ -1033,6 +1044,12 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .section-star .actions .mini-btn{padding:6px 10px;font-size:.76rem}
 }
 @media (max-width:400px){
+  /* 아주 좁은 화면 — 글씨 크기는 그대로 두고 여백만 줄여 배지를 한 줄에 담는다 */
+  .task-meta{padding-left:6px;gap:3px}
+  .task-meta .status-chip{min-width:40px;padding:5px 5px}
+  .task-meta .due-chip{min-width:36px;padding:5px 5px}
+  .task-meta .time-badge{padding:4px 4px}
+  .task-meta .ctl{gap:0}
   .section-star .actions .mini-btn .lb{display:none}      /* 좁으면 아이콘만 */
   .section-star .actions .mini-btn{padding:7px 11px;font-size:.95rem}
   .icon-group .icon-btn{height:34px;font-size:1rem}
