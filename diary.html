@@ -109,7 +109,11 @@ input:focus,textarea:focus{outline-offset:0}
 .date-chip .ymd{font-weight:800;font-size:1.12rem;letter-spacing:.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .date-chip input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
 .today-btn{font-size:.82rem;font-weight:700;color:var(--accent-deep);background:var(--card);
-  border:1.5px solid var(--rule);border-radius:999px;padding:8px 13px}
+  border:1.5px solid var(--rule);border-radius:999px;padding:8px 13px;
+  display:flex;align-items:center;justify-content:center;line-height:1}
+/* 날짜를 불러오는 동안 살짝 흐리게 — 눌렸는지 알 수 있게 */
+#sheet.loading{opacity:.45;transition:opacity .12s}
+#sheet{transition:opacity .18s}
 #saveState{max-width:900px;margin:6px auto 0;padding:0 30px;font-size:.75rem;color:var(--ink-soft);
   text-align:right;height:1em}
 
@@ -1058,7 +1062,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   /* 좌우 묶음이 내용보다 좁게 눌려 '오늘' 버튼이 화면 밖으로 밀려나던 문제 */
   .dn-side{flex:0 0 auto;gap:5px}
   #dateNav .date-arrow{width:36px;height:36px}
-  #goToday{padding:0 10px}
+  /* 화살표와 같은 높이로 — 예전엔 세로 여백이 0이라 눌린 모양이었다 */
+  #goToday{height:36px;padding:0 12px;display:flex;align-items:center;justify-content:center;line-height:1}
   .date-chip{min-width:0;flex:1 1 auto;max-width:none;padding:9px 10px!important;overflow:hidden}
   .date-chip .ymd{font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   #wxChip{font-size:.7rem}
@@ -1677,9 +1682,15 @@ $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden')
   detachAll(); stickies = []; stickyPix = {}; renderStickies(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
+let dayLoadSeq = 0, dayReady = false;
 async function loadDay(dateStr){
-  await flushSave();
+  const seq = ++dayLoadSeq;                       /* 빠르게 여러 번 눌러도 마지막 것만 반영 */
   curDate = dateStr;
+  renderDate();                                   /* 날짜부터 바로 바꿔 준다 */
+  dayReady = false;
+  $('sheet').classList.add('loading');
+  await flushSave();
+  if(seq !== dayLoadSeq) return;
   const pending = (await getPending()).includes('day:'+dateStr);
   let local = null;
   if(pending){ try{ local = await idbGet(dayKey(dateStr)); }catch(e){} }
@@ -1710,8 +1721,11 @@ async function loadDay(dateStr){
       $('saveState').textContent = '📴 오프라인 — 이 날짜는 연결 후 불러올 수 있어요 (지금 작성하면 연결 시 자동 저장)';
     }
   }
+  if(seq !== dayLoadSeq) return;                  /* 그새 다른 날짜를 눌렀으면 이 결과는 버린다 */
   day = v ? normalize(v) : emptyDay();
   curTs = (v && v.updatedAt) || 0;
+  dayReady = true;
+  $('sheet').classList.remove('loading');
   renderDate(); renderSheet();
   attachDayListener(dateStr);
 }
@@ -1746,7 +1760,11 @@ function shiftDay(n){
 }
 $('prevDay').onclick = () => shiftDay(-1);
 $('nextDay').onclick = () => shiftDay(1);
-$('goToday').onclick = () => loadDay(todayStr());
+$('goToday').onclick = () => {
+  const t = todayStr();
+  if(curDate === t && dayReady) window.scrollTo({top:0, behavior:'smooth'});   /* 이미 오늘이면 맨 위로 */
+  loadDay(t);
+};
 $('datePick').addEventListener('change', e => { if(e.target.value) loadDay(e.target.value); });
 function renderDate(){
   const d = new Date(curDate+'T12:00:00');
@@ -2584,6 +2602,15 @@ function downloadBlob(blob, name){
 /* ═══════════════ 📖 일기장 인쇄 · 내보내기 ═══════════════ */
 /* 일기는 보고용 A4에서 빠져 있으므로, 따로 일기장 모양으로 묶어 낸다. */
 
+/* 일기장 내보내기의 기준 연월.
+   기록 탭에서 어떤 달을 보고 있으면 그 달, 아니면 지금 보고 있는 날짜의 달.
+   (기록 탭을 한 번도 안 열면 arcMonth 가 비어 있어 엉뚱한 달을 뒤지던 문제를 막는다) */
+function dexYM(){
+  const onArc = !$('archiveView').classList.contains('hidden');
+  if(onArc && arcMonth) return {y:+arcYear, m:arcMonth};
+  return {y:+curDate.slice(0,4), m:curDate.slice(5,7)};
+}
+
 /* 모을 범위의 일기를 날짜순으로 긁어온다 */
 async function collectDiary(scope){
   const out = [];
@@ -2602,10 +2629,11 @@ async function collectDiary(scope){
   if(scope === 'day'){
     push(curDate.slice(0,4), curDate.slice(5,7), curDate.slice(8,10), day);
   }else if(scope === 'month'){
-    const yd = await getYear(arcYear), md = yd[arcMonth] || {};
-    for(const dd of Object.keys(md).sort()) push(arcYear, arcMonth, dd, normalize(md[dd]));
+    const {y, m} = dexYM();
+    const yd = await getYear(y), md = yd[m] || {};
+    for(const dd of Object.keys(md).sort()) push(y, m, dd, normalize(md[dd]));
   }else if(scope === 'year'){
-    await eatYear(arcYear);
+    await eatYear(dexYM().y);
   }else{                                    /* 전체 — 올해부터 거슬러 올라가며 빈 해가 이어지면 멈춘다 */
     const now = new Date().getFullYear();
     let miss = 0;
@@ -2741,11 +2769,23 @@ async function runDiaryExport(scope, kind){
   try{
     await document.fonts.ready;
     const entries = await collectDiary(scope);
-    if(!entries.length){ toast('그 기간에 쓴 일기가 없어요'); armLock(); return; }
+    const {y:dy, m:dm} = dexYM();
+    if(!entries.length){
+      toast(scope==='day'   ? `${curDate.replace(/-/g,'.')} 에 쓴 일기가 없어요`
+          : scope==='month' ? `${dy}년 ${+dm}월에 쓴 일기가 없어요`
+          : scope==='year'  ? `${dy}년에 쓴 일기가 없어요`
+          :                   '아직 쓴 일기가 없어요');
+      armLock(); return;
+    }
     const label = scope==='day'   ? curDate.replace(/-/g,'.')
-                : scope==='month' ? `${arcYear}. ${+arcMonth}.`
-                : scope==='year'  ? `${arcYear}년`
+                : scope==='month' ? `${dy}. ${+dm}.`
+                : scope==='year'  ? `${dy}년`
                 :                   `${entries[0].ds.slice(0,4)}~${entries[entries.length-1].ds.slice(0,4)}`;
+    /* 파일 이름은 날짜를 알아보기 쉽게 (예: 일기장_2026-08) */
+    const stamp = scope==='day'   ? curDate
+                : scope==='month' ? `${dy}-${dm}`
+                : scope==='year'  ? `${dy}년`
+                :                   `${entries[0].ds.slice(0,4)}-${entries[entries.length-1].ds.slice(0,4)}`;
     const pages = buildDiaryPages(entries, label);
     const shots = [];
     for(let i = 0; i < pages.length; i++){
@@ -2753,7 +2793,7 @@ async function runDiaryExport(scope, kind){
       shots.push(await html2canvas(pages[i], {scale:2, backgroundColor:'#FDF6E6', useCORS:true}));
     }
     $('exportStage').innerHTML = '';
-    const fname = `일기장_${label.replace(/[.\s]/g,'')}`;
+    const fname = `일기장_${stamp}`;
     if(kind === 'png'){
       for(let i = 0; i < shots.length; i++){
         const a = document.createElement('a');
@@ -2783,10 +2823,11 @@ $('diaryExpBtn').onclick = () => {
 function renderDiaryExpScope(){
   document.querySelectorAll('#dexScope .mini-btn').forEach(b =>
     b.classList.toggle('on', b.dataset.s === diaryExpScope));
+  const {y, m} = dexYM();
   $('dexHint').textContent =
     diaryExpScope==='day'   ? `${curDate.replace(/-/g,'.')} 하루치` :
-    diaryExpScope==='month' ? `${arcYear}년 ${+arcMonth}월에 쓴 일기` :
-    diaryExpScope==='year'  ? `${arcYear}년에 쓴 일기 전부` :
+    diaryExpScope==='month' ? `${y}년 ${+m}월에 쓴 일기` :
+    diaryExpScope==='year'  ? `${y}년에 쓴 일기 전부` :
                               '지금까지 쓴 일기 전부 (오래 걸릴 수 있어요)';
 }
 $('dexScope').onclick = e => {
