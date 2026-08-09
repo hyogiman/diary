@@ -679,6 +679,43 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
+/* ───────── 📖 일기장 인쇄 ───────── */
+.dex-scope{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.dex-scope .mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dex-hint{font-size:.76rem;color:var(--ink-soft);text-align:center;margin-bottom:12px;min-height:18px}
+#diaryExpMenu{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:158;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+
+/* 한 장 = 하루 */
+.a4.dbook{display:flex;flex-direction:column;height:1123px;min-height:1123px;overflow:hidden;
+  background:#FDF6E6;padding:46px 54px 30px}
+.dbook .db-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;
+  border-bottom:2.5px solid #C98A3C;padding-bottom:8px;flex:none}
+.dbook .db-title{font-family:'Jua';font-size:22px;color:#B4762C}
+.dbook .db-range{font-size:12.5px;font-weight:700;color:#9A8064}
+/* 날짜 · 날씨 띠 */
+.dbook .db-daybar{flex:none;display:flex;align-items:baseline;gap:10px;
+  padding:16px 2px 9px;margin-bottom:6px;border-bottom:1.5px dashed #E0BE86}
+.dbook .db-daybar .d{font-family:'Jua';font-size:26px;color:#C0762A}
+.dbook .db-daybar .w{font-size:14px;font-weight:700;color:#A8906F}
+.dbook .db-daybar .c{font-size:12px;font-weight:700;color:#C0A484}
+.dbook .db-daybar .wx{margin-left:auto;font-size:14.5px;font-weight:700;color:#7E97B2}
+/* 본문 — 남는 자리를 모두 차지해, 메모가 맨 아래로 내려간다 */
+.dbook .db-body{flex:1;min-height:0;overflow:hidden}
+.db-line{font-family:var(--hand);font-size:calc(22px * var(--hand-size));line-height:34px;
+  color:#413324;white-space:pre-wrap;word-break:break-word;
+  background:repeating-linear-gradient(transparent,transparent 33px,#EADCC0 33px,#EADCC0 34px);
+  padding:0 2px}
+.db-empty{font-size:13px;color:#B09877;padding:6px 2px;font-style:italic}
+/* 맨 아래 '어제와 다른 오늘' */
+.dbook .db-seed{flex:none;background:#F3EEDC;border-left:4px solid #9CBF7E;border-radius:0 8px 8px 0;
+  padding:10px 13px;margin-top:14px}
+.dbook .db-seed .lb{font-family:'Jua';font-size:13px;color:#5E8A44;margin-bottom:3px}
+.dbook .db-seed .tx{font-family:var(--hand);font-size:calc(19px * var(--hand-size));line-height:1.5;
+  color:#4A4130;white-space:pre-wrap;word-break:break-word}
+.dbook .db-foot{flex:none;text-align:center;font-size:11.5px;color:#B9A184;padding-top:10px;
+  margin-top:12px;border-top:1px dashed #E0CBA6}
+
 .a4{width:794px;min-height:1123px;background:#FBF2E1;padding:56px 52px;color:#4A3423;
   font-family:"Pretendard Variable",Pretendard,sans-serif;position:relative}
 .a4 .a4-head{display:flex;align-items:flex-end;gap:16px;border-bottom:3px solid #E5762E;padding-bottom:10px}
@@ -1247,7 +1284,31 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-primary" id="expPdf">📄 PDF로 저장</button>
       <button class="btn-line" id="expPng">🖼 이미지(PNG)로 저장</button>
       <button class="btn-line" id="expCopy">📋 텍스트로 복사 (메신저 보고용)</button>
+      <button class="btn-line" id="diaryExpBtn">📖 일기장으로 내보내기 (비밀번호 필요)</button>
       <button class="btn-line" id="expClose" style="border-style:dashed">닫기</button>
+      <div style="font-size:.72rem;color:var(--ink-soft);text-align:center;line-height:1.5">
+        위 세 가지에는 일기가 들어가지 않아요.<br>일기는 아래 일기장으로만 따로 나옵니다.
+      </div>
+    </div>
+  </div>
+</div>
+<div id="diaryExpMenu" class="hidden">
+  <div class="export-card">
+    <h3>📖 일기장으로 내보내기</h3>
+    <div style="font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;margin-bottom:12px">
+      일기와 '어제와 다른 오늘'을 일기장 모양으로 묶어 냅니다.<br>업무·회의록은 들어가지 않아요.
+    </div>
+    <div id="dexScope" class="dex-scope">
+      <button class="mini-btn" data-s="day">이 날짜</button>
+      <button class="mini-btn on" data-s="month">이 달</button>
+      <button class="mini-btn" data-s="year">올해</button>
+      <button class="mini-btn" data-s="all">전체</button>
+    </div>
+    <div id="dexHint" class="dex-hint"></div>
+    <div class="set-list">
+      <button class="btn-primary" id="dexPdf">📄 PDF로 저장</button>
+      <button class="btn-line" id="dexPng">🖼 이미지(PNG)로 저장</button>
+      <button class="btn-line" id="dexClose" style="border-style:dashed">닫기</button>
     </div>
   </div>
 </div>
@@ -1501,14 +1562,15 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', dnote:'', prioOrder:[] }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', dnote:'', prioOrder:[], wx:null }; }
 /* '아무것도 안 쓴 날'인지 판정 — emptyDay()의 항목을 그대로 훑는다.
    예전엔 항목 이름을 손으로 나열하다 새 항목(어제와 다른 오늘)을 빠뜨려,
    그것만 적은 날이 빈 날로 취급돼 서버에서 지워지는 사고가 있었다.
    앞으로 emptyDay()에 항목을 더하면 여기에도 자동으로 반영된다. */
+const EMPTY_SKIP = ['wx'];        /* 내가 쓴 내용이 아니라 자동으로 붙는 것 — 빈 날 판정에서 뺀다 */
 function isDayEmpty(d){
   if(!d) return true;
-  return Object.keys(emptyDay()).every(k => {
+  return Object.keys(emptyDay()).filter(k => !EMPTY_SKIP.includes(k)).every(k => {
     const v = d[k];
     if(Array.isArray(v))          return v.length === 0;
     if(typeof v === 'string')     return !v.trim();
@@ -1622,7 +1684,7 @@ function normTask(t){
 }
 function normalize(v){
   return {
-    note: v.note||'', memo: v.memo||'', diary: v.diary||'', dnote: v.dnote||'',
+    note: v.note||'', memo: v.memo||'', diary: v.diary||'', dnote: v.dnote||'', wx: v.wx||null,
     prioOrder: Array.isArray(v.prioOrder)? v.prioOrder : [],
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
     notes: (Array.isArray(v.notes)? v.notes : Object.values(v.notes||{})).map(n => ({
@@ -2477,6 +2539,219 @@ function downloadBlob(blob, name){
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
 
+/* ═══════════════ 📖 일기장 인쇄 · 내보내기 ═══════════════ */
+/* 일기는 보고용 A4에서 빠져 있으므로, 따로 일기장 모양으로 묶어 낸다. */
+
+/* 모을 범위의 일기를 날짜순으로 긁어온다 */
+async function collectDiary(scope){
+  const out = [];
+  const push = (y, mm, dd, v) => {
+    const dy = (v.diary||'').trim(), dn = (v.dnote||'').trim();
+    if(dy || dn) out.push({ds:`${y}-${mm}-${dd}`, diary:dy, dnote:dn, wx:v.wx||null});
+  };
+  const eatYear = async y => {
+    const yd = await getYear(y);
+    let n = 0;
+    for(const mm of Object.keys(yd).sort())
+      for(const dd of Object.keys(yd[mm]).sort()){ push(y, mm, dd, normalize(yd[mm][dd])); n++; }
+    return n;
+  };
+  if(scope === 'day'){
+    push(curDate.slice(0,4), curDate.slice(5,7), curDate.slice(8,10), day);
+  }else if(scope === 'month'){
+    const yd = await getYear(arcYear), md = yd[arcMonth] || {};
+    for(const dd of Object.keys(md).sort()) push(arcYear, arcMonth, dd, normalize(md[dd]));
+  }else if(scope === 'year'){
+    await eatYear(arcYear);
+  }else{                                    /* 전체 — 올해부터 거슬러 올라가며 빈 해가 이어지면 멈춘다 */
+    const now = new Date().getFullYear();
+    let miss = 0;
+    for(let y = now + 1; y >= now - 20 && miss < 3; y--){
+      const n = await eatYear(y);
+      if(y <= now) miss = n ? 0 : miss + 1;
+    }
+  }
+  return out.sort((a,b) => a.ds.localeCompare(b.ds));
+}
+
+/* 일기 본문을 줄 단위 조각으로 — 길면 다음 장으로 자연스럽게 넘어가도록 */
+function diaryLines(e){
+  const out = [];
+  if(e.diary){
+    e.diary.split('\n').forEach(line => {
+      const p = document.createElement('div');
+      p.className = 'db-line';
+      p.textContent = line || ' ';                   /* 빈 줄도 한 줄로 */
+      out.push(p);
+    });
+  }else if(!e.dnote){
+    const p = document.createElement('div'); p.className='db-empty'; p.textContent='(내용 없음)';
+    out.push(p);
+  }
+  return out;
+}
+
+/* 하루에 한 장 — 내용이 많으면 그 날짜 안에서만 장이 넘어간다.
+   맨 위에 날짜와 날씨, 가운데 일기, 맨 아래에 '어제와 다른 오늘'. */
+function buildDiaryPages(entries, rangeLabel){
+  const stage = $('exportStage');
+  stage.innerHTML = '';
+  const pages = [];
+
+  const newPage = (e, contd) => {
+    const d = new Date(e.ds+'T12:00:00');
+    const wl = wxLabel(e.wx, true);
+    const el = document.createElement('div');
+    el.className = 'a4 dbook';
+    el.innerHTML = `
+      <div class="db-head">
+        <div class="db-title">📖 ${esc(userName||'나')}의 일기장</div>
+        <div class="db-range">${esc(rangeLabel)}</div>
+      </div>
+      <div class="db-daybar">
+        <span class="d">${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.</span>
+        <span class="w">${DOW[d.getDay()]}요일</span>
+        ${contd? '<span class="c">(이어서)</span>' : ''}
+        ${wl? `<span class="wx">${wl}</span>` : ''}
+      </div>
+      <div class="db-body"></div>
+      <div class="db-seed hidden"></div>
+      <div class="db-foot">— —</div>`;
+    stage.appendChild(el);
+    pages.push(el);
+    return el;
+  };
+  const seedNode = e => {
+    const s = document.createElement('div');
+    s.innerHTML = `<div class="lb">🌱 어제와 다른 오늘</div><div class="tx">${esc(e.dnote)}</div>`;
+    return s;
+  };
+
+  entries.forEach(e => {
+    const lines = diaryLines(e);
+    const mine = [];                                   /* 이 날짜가 쓴 장들 */
+    let page = newPage(e, false), body = page.querySelector('.db-body');
+    mine.push(page);
+    lines.forEach(ln => {
+      body.appendChild(ln);
+      if(body.scrollHeight > body.clientHeight){        /* 넘치면 다음 장으로 */
+        ln.remove();
+        page = newPage(e, true); body = page.querySelector('.db-body');
+        mine.push(page);
+        body.appendChild(ln);
+      }
+    });
+    if(e.dnote){
+      /* 마지막 장 아래에 붙이되, 자리가 모자라면 줄을 뒤에서부터 다음 장으로 넘긴다 */
+      let last = mine[mine.length-1];
+      const put = pg => {
+        const box = pg.querySelector('.db-seed');
+        box.classList.remove('hidden');
+        box.innerHTML = ''; box.appendChild(seedNode(e));
+        return box;
+      };
+      put(last);
+      let guard = 0;
+      while(last.querySelector('.db-body').scrollHeight > last.querySelector('.db-body').clientHeight && guard++ < 400){
+        const lb = last.querySelector('.db-body');
+        const moved = lb.lastElementChild;
+        if(!moved) break;                              /* 메모만으로 꽉 차면 그대로 둔다 */
+        moved.remove();
+        const box = last.querySelector('.db-seed');
+        box.classList.add('hidden'); box.innerHTML = '';
+        const np = newPage(e, true);
+        mine.push(np);
+        np.querySelector('.db-body').appendChild(moved);
+        put(np);
+        last = np;
+      }
+    }
+  });
+  /* 쪽번호는 전체 기준으로 매긴다 */
+  pages.forEach((p, i) => { p.querySelector('.db-foot').textContent = `— ${i+1} / ${pages.length} —`; });
+  return pages;
+}
+
+function canvasesToPdfBlob(list){
+  const pdf = new jspdf.jsPDF({unit:'mm', format:'a4'});
+  list.forEach((c, i) => {
+    if(i) pdf.addPage();
+    pdf.addImage(c.toDataURL('image/jpeg', .93), 'JPEG', 0, 0, 210, Math.min(297, c.height * 210 / c.width));
+  });
+  return pdf.output('blob');
+}
+
+/* 실제 내보내기 */
+async function runDiaryExport(scope, kind){
+  $('diaryExpMenu').classList.add('hidden');
+  if(!diaryUnlocked){                                  /* 잠긴 상태면 비밀번호부터 */
+    const ok = await askPin('📖 일기장 내보내기');
+    if(!ok) return;
+    $('diaryModal').classList.add('hidden');
+  }
+  disarmLock();
+  toast('일기장을 만드는 중…');
+  await flushSave();
+  try{
+    await document.fonts.ready;
+    const entries = await collectDiary(scope);
+    if(!entries.length){ toast('그 기간에 쓴 일기가 없어요'); armLock(); return; }
+    const label = scope==='day'   ? curDate.replace(/-/g,'.')
+                : scope==='month' ? `${arcYear}. ${+arcMonth}.`
+                : scope==='year'  ? `${arcYear}년`
+                :                   `${entries[0].ds.slice(0,4)}~${entries[entries.length-1].ds.slice(0,4)}`;
+    const pages = buildDiaryPages(entries, label);
+    const shots = [];
+    for(let i = 0; i < pages.length; i++){
+      toast(`일기장을 만드는 중… ${i+1}/${pages.length}장`);
+      shots.push(await html2canvas(pages[i], {scale:2, backgroundColor:'#FDF6E6', useCORS:true}));
+    }
+    $('exportStage').innerHTML = '';
+    const fname = `일기장_${label.replace(/[.\s]/g,'')}`;
+    if(kind === 'png'){
+      for(let i = 0; i < shots.length; i++){
+        const a = document.createElement('a');
+        a.href = shots[i].toDataURL('image/png');
+        a.download = shots.length>1 ? `${fname}_${i+1}.png` : `${fname}.png`;
+        a.click();
+        if(i < shots.length-1) await new Promise(r => setTimeout(r, 350));   // 연속 내려받기 차단 방지
+      }
+      toast(`이미지 ${shots.length}장을 저장했어요`);
+    }else{
+      downloadBlob(canvasesToPdfBlob(shots), fname+'.pdf');
+      toast(`일기 ${entries.length}편 · ${shots.length}장을 저장했어요`);
+    }
+  }catch(e){
+    $('exportStage').innerHTML = '';
+    toast('일기장 내보내기에 실패했어요: ' + (e.message||''));
+  }
+  armLock();
+}
+
+let diaryExpScope = 'month';
+$('diaryExpBtn').onclick = () => {
+  $('exportMenu').classList.add('hidden');
+  $('diaryExpMenu').classList.remove('hidden');
+  renderDiaryExpScope();
+};
+function renderDiaryExpScope(){
+  document.querySelectorAll('#dexScope .mini-btn').forEach(b =>
+    b.classList.toggle('on', b.dataset.s === diaryExpScope));
+  $('dexHint').textContent =
+    diaryExpScope==='day'   ? `${curDate.replace(/-/g,'.')} 하루치` :
+    diaryExpScope==='month' ? `${arcYear}년 ${+arcMonth}월에 쓴 일기` :
+    diaryExpScope==='year'  ? `${arcYear}년에 쓴 일기 전부` :
+                              '지금까지 쓴 일기 전부 (오래 걸릴 수 있어요)';
+}
+$('dexScope').onclick = e => {
+  const b = e.target.closest('.mini-btn'); if(!b) return;
+  diaryExpScope = b.dataset.s; renderDiaryExpScope();
+};
+$('dexPdf').onclick   = () => runDiaryExport(diaryExpScope, 'pdf');
+$('dexPng').onclick   = () => runDiaryExport(diaryExpScope, 'png');
+$('dexClose').onclick = () => $('diaryExpMenu').classList.add('hidden');
+$('diaryExpMenu').addEventListener('click', e => { if(e.target.id==='diaryExpMenu') $('diaryExpMenu').classList.add('hidden'); });
+
 /* ═══════════════ 💾 월별 백업 · 복원 · 용량 관리 ═══════════════ */
 let bkYear = new Date().getFullYear();
 let bkSel = new Set();       // 선택된 월 'MM'
@@ -3217,32 +3492,72 @@ $('noteTopBtn').onclick = () => {
   if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 
-/* ═══════════════ 위치 기반 오늘 날씨 (Open-Meteo, 키 불필요) ═══════════════ */
-let wxCache = { t:0, text:'' };
+/* ═══════════════ 날씨 (Open-Meteo, 키 불필요) ═══════════════
+   오늘 날씨는 화면에 띄우는 동시에 그날 기록으로 남겨 둔다.
+   일기장을 인쇄할 때 남아 있는 날씨를 쓰고, 없는 날은 과거 기록을 받아 채운다. */
+let wxCache = { t:0, text:'', wx:null };
+let geoPos = null;
+try{ geoPos = JSON.parse(localStorage.getItem('geoPos')||'null'); }catch(e){}
+
 function wmoIcon(c){
   if(c===0) return '☀️'; if(c<=2) return '🌤️'; if(c===3) return '☁️';
   if(c<=48) return '🌫️'; if(c<=57) return '🌦️'; if(c<=67) return '🌧️';
   if(c<=77) return '🌨️'; if(c<=82) return '🌧️'; if(c<=86) return '🌨️'; return '⛈️';
 }
+function wmoWord(c){
+  if(c===0) return '맑음'; if(c<=2) return '구름 조금'; if(c===3) return '흐림';
+  if(c<=48) return '안개'; if(c<=57) return '이슬비'; if(c<=67) return '비';
+  if(c<=77) return '눈';   if(c<=82) return '소나기'; if(c<=86) return '진눈깨비'; return '천둥번개';
+}
+/* 저장 형태 {c:날씨코드, mx:최고, mn:최저} → 보여줄 글자 */
+function wxLabel(w, withWord){
+  if(!w || !Number.isFinite(+w.c)) return '';
+  const t = (Number.isFinite(+w.mn) && Number.isFinite(+w.mx)) ? ` ${Math.round(w.mn)}°~${Math.round(w.mx)}°` : '';
+  return `${wmoIcon(+w.c)}${withWord? ' '+wmoWord(+w.c) : ''}${t}`;
+}
+function rememberGeo(lat, lon){
+  geoPos = {lat, lon};
+  try{ localStorage.setItem('geoPos', JSON.stringify(geoPos)); }catch(e){}
+}
 function loadWeather(){
   const chip = $('wxChip');
-  if(curDate !== todayStr()){ chip.classList.add('hidden'); return; }
-  if(wxCache.text && Date.now()-wxCache.t < 30*60*1000){
-    chip.textContent = wxCache.text; chip.classList.remove('hidden'); return;
+  const shown = day.wx;
+  if(curDate !== todayStr()){                       /* 지난 날짜는 남아 있는 기록만 보여 준다 */
+    if(shown){ chip.textContent = wxLabel(shown); chip.classList.remove('hidden'); }
+    else chip.classList.add('hidden');
+    return;
   }
+  if(wxCache.text && Date.now()-wxCache.t < 30*60*1000){
+    chip.textContent = wxCache.text; chip.classList.remove('hidden');
+    keepTodayWx(wxCache.wx); return;
+  }
+  if(shown){ chip.textContent = wxLabel(shown); chip.classList.remove('hidden'); }
   if(!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(async pos => {
     try{
       const {latitude, longitude} = pos.coords;
+      rememberGeo(latitude, longitude);
       const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`);
       const j = await r.json();
-      wxCache.text = `${wmoIcon(j.current.weather_code)} ${Math.round(j.current.temperature_2m)}° (${Math.round(j.daily.temperature_2m_min[0])}°~${Math.round(j.daily.temperature_2m_max[0])}°)`;
+      const wx = {c:+j.current.weather_code, mx:+j.daily.temperature_2m_max[0], mn:+j.daily.temperature_2m_min[0]};
+      wxCache.wx = wx;
+      wxCache.text = `${wmoIcon(wx.c)} ${Math.round(j.current.temperature_2m)}° (${Math.round(wx.mn)}°~${Math.round(wx.mx)}°)`;
       wxCache.t = Date.now();
-      if(curDate === todayStr()){ chip.textContent = wxCache.text; chip.classList.remove('hidden'); }
+      if(curDate === todayStr()){
+        chip.textContent = wxCache.text; chip.classList.remove('hidden');
+        keepTodayWx(wx);
+      }
     }catch(e){ /* 날씨는 조용히 생략 */ }
   }, ()=>{}, {timeout:6000, maximumAge:600000});
 }
-
+/* 오늘 날씨를 그날 기록에 붙여 둔다 — 날씨만으로 저장을 부르지는 않고,
+   이미 뭐라도 적은 날이면 함께 저장되게 한다 */
+function keepTodayWx(wx){
+  if(!wx || curDate !== todayStr()) return;
+  const before = JSON.stringify(day.wx||null);
+  day.wx = wx;
+  if(before !== JSON.stringify(wx) && !isDayEmpty(day)) markDirty();
+}
 /* ═══════════════ ⚡ 우선순위 화면 (카테고리 무시, 할 일 순서) ═══════════════ */
 let prioMode = false;
 try{ prioMode = localStorage.getItem('prioMode')==='1'; }catch(e){}
@@ -5919,7 +6234,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -5941,7 +6256,8 @@ function closeOneOverlay(){
     /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
-      backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose'}[el.id];
+      backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
+      diaryExpMenu:'dexClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
     else el.classList.add('hidden');
     return true;
