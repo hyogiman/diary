@@ -695,7 +695,7 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .dbook .db-range{font-size:12.5px;font-weight:700;color:#9A8064}
 /* 날짜 · 날씨 띠 */
 .dbook .db-daybar{flex:none;display:flex;align-items:baseline;gap:10px;
-  padding:16px 2px 9px;margin-bottom:6px;border-bottom:1.5px dashed #E0BE86}
+  padding:16px 2px 9px;margin-bottom:10px;border-bottom:1.5px dashed #E0BE86}
 .dbook .db-daybar .d{font-family:'Jua';font-size:26px;color:#C0762A}
 .dbook .db-daybar .w{font-size:14px;font-weight:700;color:#A8906F}
 .dbook .db-daybar .c{font-size:12px;font-weight:700;color:#C0A484}
@@ -708,10 +708,9 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   padding:0 2px}
 .db-empty{font-size:13px;color:#B09877;padding:6px 2px;font-style:italic}
 /* 맨 아래 '어제와 다른 오늘' */
-.dbook .db-mc{flex:none;display:flex;justify-content:center;gap:6px;margin-top:14px;
-  padding:8px 12px;border:1.5px dashed #D8C49A;border-radius:9px;background:#FAF3E2;
+.dbook .db-mc{flex:none;display:flex;justify-content:center;gap:6px;margin:0 0 12px;
+  padding:7px 12px;border:1.5px dashed #D8C49A;border-radius:9px;background:#FAF3E2;
   font-size:14.5px;font-weight:700;color:#8A6B3E;letter-spacing:.02em}
-.dbook .db-mc+.db-seed{margin-top:8px}
 .dbook .db-seed{flex:none;background:#F3EEDC;border-left:4px solid #9CBF7E;border-radius:0 8px 8px 0;
   padding:10px 13px;margin-top:14px}
 .dbook .db-seed .lb{font-family:'Jua';font-size:13px;color:#5E8A44;margin-bottom:3px}
@@ -2645,6 +2644,7 @@ function buildDiaryPages(entries, rangeLabel){
   const newPage = (e, contd) => {
     const d = new Date(e.ds+'T12:00:00');
     const wl = wxLabel(e.wx, true);
+    const mc = mcLabel(e);
     const el = document.createElement('div');
     el.className = 'a4 dbook';
     el.innerHTML = `
@@ -2658,8 +2658,8 @@ function buildDiaryPages(entries, rangeLabel){
         ${contd? '<span class="c">(이어서)</span>' : ''}
         ${wl? `<span class="wx">${wl}</span>` : ''}
       </div>
+      ${mc? `<div class="db-mc">${esc(mc)}</div>` : ''}
       <div class="db-body"></div>
-      <div class="db-mc hidden"></div>
       <div class="db-seed hidden"></div>
       <div class="db-foot">— —</div>`;
     stage.appendChild(el);
@@ -2686,20 +2686,14 @@ function buildDiaryPages(entries, rangeLabel){
         body.appendChild(ln);
       }
     });
-    const mcTxt = mcLabel(e);
-    if(e.dnote || mcTxt){
-      /* 마지막 장 아래에 붙이되, 자리가 모자라면 줄을 뒤에서부터 다음 장으로 넘긴다 */
+    if(e.dnote){
+      /* '어제와 다른 오늘'은 그 날의 마지막 장 아래에.
+         자리가 모자라면 줄을 뒤에서부터 다음 장으로 넘긴다 */
       let last = mine[mine.length-1];
       const put = pg => {
-        if(mcTxt){
-          const m = pg.querySelector('.db-mc');
-          m.classList.remove('hidden'); m.textContent = mcTxt;
-        }
         const box = pg.querySelector('.db-seed');
-        if(e.dnote){
-          box.classList.remove('hidden');
-          box.innerHTML = ''; box.appendChild(seedNode(e));
-        }
+        box.classList.remove('hidden');
+        box.innerHTML = ''; box.appendChild(seedNode(e));
         return box;
       };
       put(last);
@@ -2711,8 +2705,6 @@ function buildDiaryPages(entries, rangeLabel){
         moved.remove();
         const box = last.querySelector('.db-seed');
         box.classList.add('hidden'); box.innerHTML = '';
-        const mcBox = last.querySelector('.db-mc');
-        mcBox.classList.add('hidden'); mcBox.textContent = '';
         const np = newPage(e, true);
         mine.push(np);
         np.querySelector('.db-body').appendChild(moved);
