@@ -1502,6 +1502,19 @@ let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', dnote:'', prioOrder:[] }; }
+/* '아무것도 안 쓴 날'인지 판정 — emptyDay()의 항목을 그대로 훑는다.
+   예전엔 항목 이름을 손으로 나열하다 새 항목(어제와 다른 오늘)을 빠뜨려,
+   그것만 적은 날이 빈 날로 취급돼 서버에서 지워지는 사고가 있었다.
+   앞으로 emptyDay()에 항목을 더하면 여기에도 자동으로 반영된다. */
+function isDayEmpty(d){
+  if(!d) return true;
+  return Object.keys(emptyDay()).every(k => {
+    const v = d[k];
+    if(Array.isArray(v))          return v.length === 0;
+    if(typeof v === 'string')     return !v.trim();
+    return v === undefined || v === null || v === '';
+  });
+}
 function dayRef(dateStr){
   const [y,m,d] = dateStr.split('-');
   return db.ref(`diaries/${USER.uid}/${y}/${m}/${d}`);
@@ -1663,7 +1676,7 @@ async function saveNow(){
   const ds = curDate;
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
   if(!clean.cats.length) clean.prioOrder = [];
-  const isEmpty = !clean.note && !clean.memo && !clean.diary && !clean.memoFiles.length && !clean.cats.length && !clean.notes.length;
+  const isEmpty = isDayEmpty(clean);
   if(!isEmpty) clean.updatedAt = Date.now();
   lastSelfTs = clean.updatedAt || 0; curTs = lastSelfTs;
   try{                                        // ① 서버 우선
@@ -2236,7 +2249,11 @@ async function renderArchive(){
     if(holi) lines.push(`<span class="cal-line cal-holi-name">${esc(holi)}</span>`);
     if(evt)  lines.push(`<span class="cal-line cal-evt">${esc((evt.icon||'') + (evt.icon&&evt.text? ' ':'') + (evt.text||''))}</span>`);
     if(vac)  lines.push(`<span class="cal-line cal-vac">🏖 ${esc(vac)}</span>`);
-    if(arcDiary && has && normalize(md[dd]).diary.trim()) lines.push('<span class="cal-line">📖 일기</span>');
+    if(arcDiary && has){
+      const dv = normalize(md[dd]);
+      if(dv.diary.trim())      lines.push('<span class="cal-line">📖 일기</span>');
+      else if(dv.dnote.trim()) lines.push('<span class="cal-line">🌱 오늘 메모</span>');
+    }
     cell.innerHTML = `<button class="cal-d" title="${ds} 일지 열기">${d}</button>` + lines.slice(0,2).join('')
       + (has? '<span class="cal-dot"></span>':'');
     cell.title = [ds, holi, evt? ((evt.icon||'')+' '+(evt.text||'')).trim() : '', vac? '휴가: '+vac : '']
@@ -3805,28 +3822,6 @@ $('arcDiaryBtn').onclick = async () => {
   $('arcLockBtn').classList.remove('hidden');
   refreshArchive();
 };
-function renderArcDiary(md){
-  const list = $('dayList'); list.innerHTML = '';
-  const days = Object.keys(md).filter(dd => (normalize(md[dd]).diary||'').trim()).sort().reverse();
-  const head = document.createElement('div');
-  head.className = 'empty-note'; head.style.padding = '0 0 12px';
-  head.textContent = days.length
-    ? `📖 ${+arcMonth}월에 쓴 일기 ${days.length}편 — 달력의 📖 표시가 일기 쓴 날이에요`
-    : `${+arcMonth}월에 쓴 일기가 없어요. 달력 날짜를 눌러 그날의 일기를 쓸 수 있어요.`;
-  list.appendChild(head);
-  days.forEach(dd => {
-    const v = normalize(md[dd]);
-    const ds = `${arcYear}-${arcMonth}-${dd}`;
-    const dt = new Date(ds+'T12:00:00');
-    const card = document.createElement('div'); card.className = 'diary-card';
-    card.innerHTML = `
-      <div class="dh"><b>${arcYear}.${+arcMonth}.${+dd} (${DOW[dt.getDay()]})</b>
-        <span style="font-size:.72rem;color:var(--ink-soft)">${v.diary.trim().length}자 · 열기 ›</span></div>
-      <div class="dtx">${esc(v.diary.trim())}</div>`;
-    card.onclick = () => openDiaryOn(ds);
-    list.appendChild(card);
-  });
-}
 /* 특정 날짜의 일기를 바로 열기 (모아보기에서 진입) */
 async function openDiaryOn(ds){
   await loadDay(ds);                                     // 탭은 그대로 — 닫으면 일기 목록으로 복귀
