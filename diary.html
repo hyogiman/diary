@@ -683,6 +683,20 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
+/* ───────── 🤖 AI에게 물어보기 ───────── */
+#aiModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.ai-help{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;margin-bottom:12px}
+.ai-pick{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px}
+.ai-pick .mini-btn{width:100%;justify-content:center}
+.ai-pick .mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.ai-hint{font-size:.76rem;color:var(--ink-soft);text-align:center;margin-bottom:11px;min-height:18px}
+.ai-warn{font-size:.74rem;line-height:1.6;color:var(--ink);background:var(--paper-deep);
+  border:1.5px dashed var(--rule);border-radius:9px;padding:9px 11px;margin-bottom:12px}
+#aiText{width:100%;height:180px;margin-bottom:12px;font-size:.74rem;line-height:1.5;
+  border:1.5px solid var(--rule);border-radius:9px;padding:9px;background:var(--card);
+  color:var(--ink);resize:vertical;white-space:pre-wrap;font-family:Pretendard,sans-serif}
+
 /* ───────── 🕘 되돌리기 ───────── */
 #undoModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
   display:flex;align-items:center;justify-content:center;padding:16px}
@@ -1331,11 +1345,29 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-primary" id="expPdf">📄 PDF로 저장</button>
       <button class="btn-line" id="expPng">🖼 이미지(PNG)로 저장</button>
       <button class="btn-line" id="expCopy">📋 텍스트로 복사 (메신저 보고용)</button>
+      <button class="btn-line" id="aiAskBtn">🤖 AI에게 물어보기용으로 복사</button>
       <button class="btn-line" id="diaryExpBtn">📖 일기장으로 내보내기 (비밀번호 필요)</button>
       <button class="btn-line" id="expClose" style="border-style:dashed">닫기</button>
       <div style="font-size:.72rem;color:var(--ink-soft);text-align:center;line-height:1.5">
         위 세 가지에는 일기가 들어가지 않아요.<br>일기는 아래 일기장으로만 따로 나옵니다.
       </div>
+    </div>
+  </div>
+</div>
+<div id="aiModal" class="hidden">
+  <div class="bk-card" style="max-width:520px">
+    <h3>🤖 AI에게 물어보기</h3>
+    <div class="ai-help">업무일지를 챗GPT·클로드 같은 곳에 붙여 넣을 수 있게 정리해 복사합니다.<br>
+      무엇을 물어볼지 고르면 질문까지 함께 담깁니다.</div>
+    <div id="aiPick" class="ai-pick"></div>
+    <div id="aiHint" class="ai-hint"></div>
+    <div class="ai-warn">🔒 <b>일기·어제와 다른 오늘·기분/컨디션은 담기지 않습니다.</b><br>
+      다만 업무 내용은 회사 정보일 수 있으니, 외부 AI에 넣어도 되는지 먼저 확인하세요.</div>
+    <textarea id="aiText" class="hidden" readonly></textarea>
+    <div class="set-list">
+      <button class="btn-primary" id="aiCopy">📋 복사하기</button>
+      <button class="btn-line" id="aiPreview">👀 내용 먼저 보기</button>
+      <button class="btn-line" id="aiClose" style="border-style:dashed">닫기</button>
     </div>
   </div>
 </div>
@@ -2674,6 +2706,163 @@ function downloadBlob(blob, name){
   a.href = url; a.download = name; a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
+
+/* ═══════════════ 🤖 AI에게 물어보기용 정리 ═══════════════
+   업무일지를 챗GPT·클로드 같은 곳에 붙여 넣어 조언을 받기 위한 글.
+   일기·어제와 다른 오늘·기분/컨디션은 사생활이라 절대 담지 않는다. */
+const AI_ASKS = {
+  plan: ['📋 하루 계획 조언',
+    '아래는 내 오늘 업무일지야. 이걸 보고\n' +
+    '1) 오늘 무엇부터 손대야 할지 순서를 제안하고\n' +
+    '2) 시간 배치가 무리한 곳이 있으면 짚어 주고\n' +
+    '3) 놓치고 있는 것 같은 일이 있으면 알려줘.'],
+  meeting: ['🗣 회의 준비',
+    '아래는 내 업무일지와 회의록이야. 이걸 보고\n' +
+    '1) 이 회의에서 내가 준비해야 할 것을 정리하고\n' +
+    '2) 나올 만한 질문과 그에 대한 답의 방향을 잡아 주고\n' +
+    '3) 회의에서 반드시 결론 내야 할 것을 짚어 줘.'],
+  priority: ['⚡ 우선순위 점검',
+    '아래는 내 업무 목록이야. 마감과 목표를 함께 보고\n' +
+    '1) 지금 우선순위가 적절한지 점검하고\n' +
+    '2) 순서를 바꾸는 게 나은 일이 있으면 이유와 함께 제안하고\n' +
+    '3) 미루면 위험해지는 일을 알려줘.'],
+  review: ['🔍 주간 회고',
+    '아래는 내 이번 주 업무 기록이야. 이걸 보고\n' +
+    '1) 이번 주에 실제로 진척된 것과 밀린 것을 정리하고\n' +
+    '2) 반복해서 밀리는 일이 있으면 원인을 짚어 주고\n' +
+    '3) 다음 주에 우선 잡아야 할 것을 제안해 줘.']
+};
+
+function aiDayBlock(ds, d, opt){
+  const stMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
+  const dt = new Date(ds+'T12:00:00');
+  const gname = id => {
+    if(!id) return '';
+    for(const sc of ['year','month','week','dday'])
+      for(const arr of Object.values(goals[sc]||{})){
+        const g = (arr||[]).find(x => x && x.id === id);
+        if(g && (g.text||'').trim()) return g.text.trim();
+      }
+    return '';
+  };
+  let out = `\n── ${dt.getFullYear()}.${dt.getMonth()+1}.${dt.getDate()}(${DOW[dt.getDay()]}) ──`;
+  if(d.wx) out += `  날씨 ${wxLabel(d.wx, true)}`;
+  if((d.note||'').trim()) out += `\n남긴 말: ${d.note.trim()}`;
+  (d.cats||[]).forEach(c => {
+    const ts = (c.tasks||[]).filter(t => (t.text||'').trim());
+    if(!ts.length) return;
+    out += `\n\n[${(c.name||'').trim()||'무제'}]`;
+    ts.forEach(t => {
+      const bits = [stMap[t.status]||'대기'];
+      if(t.time) bits.push(timeRange(t));
+      if(t.due)  bits.push(`마감 ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}`);
+      const g = gname(t.goal);
+      if(g) bits.push(`목표: ${g}`);
+      out += `\n - (${bits.join(' · ')}) ${t.text.trim()}`;
+      if(opt.notes && (t.note||'').trim())
+        out += `\n     메모: ${t.note.trim().replace(/\n/g,' / ')}`;
+    });
+  });
+  (d.notes||[]).forEach(n => {
+    if(!((n.title||'').trim() || (n.body||'').trim())) return;
+    out += `\n\n[회의록] ${(n.title||'').trim()||'무제'}`;
+    const m = n.meta||{};
+    [['일시',m.when],['장소',m.where],['참석',m.who],['안건',m.agenda]].forEach(([k,v]) => {
+      if((v||'').trim()) out += `\n · ${k}: ${v.trim()}`;
+    });
+    if((n.body||'').trim()) out += `\n${n.body.trim()}`;
+  });
+  if(opt.memo && (d.memo||'').trim()) out += `\n\n[메모]\n${d.memo.trim()}`;
+  return out;
+}
+
+async function buildAIBrief(purpose){
+  const wide = purpose === 'review';                 /* 주간 회고는 이번 주 전체 */
+  let out = AI_ASKS[purpose][1] + '\n\n' + '═'.repeat(28) + '\n';
+  out += `[업무일지] ${userName||'나'} · ${wide? '이번 주' : '오늘'} 기준\n`;
+
+  if(wide){
+    const d0 = new Date(curDate+'T12:00:00');
+    const mon = new Date(d0); mon.setDate(d0.getDate() - ((d0.getDay()+6)%7));
+    for(let i=0; i<7; i++){
+      const dd = new Date(mon); dd.setDate(mon.getDate()+i);
+      const ds = `${dd.getFullYear()}-${String(dd.getMonth()+1).padStart(2,'0')}-${String(dd.getDate()).padStart(2,'0')}`;
+      let v = null;
+      if(ds === curDate) v = day;
+      else{ try{ const yd = await getYear(dd.getFullYear()); v = (yd[ds.slice(5,7)]||{})[ds.slice(8,10)] || null; }catch(e){} }
+      if(v && !isDayEmpty(normalize(v))) out += aiDayBlock(ds, normalize(v), {notes:false, memo:false});
+    }
+  }else{
+    out += aiDayBlock(curDate, day, {notes:true, memo:true});
+  }
+
+  /* 목표 — 지금 무엇을 향해 가고 있는지 */
+  const gl = [];
+  const push = (lb, arr) => (arr||[]).forEach(g => {
+    if(!g || g.stopped || !(g.text||'').trim()) return;
+    gl.push(` - [${lb}] ${g.text.trim()}${g.target>1? ` (${g.count||0}/${g.target})`:''}${g.done? ' ✔달성':''}`);
+  });
+  push('올해',  (goals.year||{})[curDate.slice(0,4)]);
+  push('이 달', (goals.month||{})[monthKey(curDate)]);
+  push('이번 주',(goals.week||{})[weekKey(curDate)]);
+  if(gl.length) out += `\n\n═══ 지금 목표 ═══\n${gl.join('\n')}`;
+
+  /* 마감이 가까운 일 — 오늘 일지 밖에 있는 것까지 */
+  const soon = [];
+  const lim = new Date(curDate+'T12:00:00'); lim.setDate(lim.getDate()+7);
+  const limS = lim.toISOString().slice(0,10);
+  const scan = (list, where) => (list||[]).forEach(t => {
+    if(!t || t.done || !(t.text||'').trim() || !t.due) return;
+    if(t.due <= limS) soon.push(` - ${t.due.slice(5).replace('-','/')} ${t.text.trim()}${where? ` (${where})`:''}`);
+  });
+  (day.cats||[]).forEach(c => scan(c.tasks, (c.name||'').trim()));
+  scan(inbox, '기타 업무함');
+  if(soon.length) out += `\n\n═══ 일주일 안 마감 ═══\n${soon.sort().join('\n')}`;
+
+  /* 아직 안 끝난 기타 업무 */
+  const ib = (inbox||[]).filter(t => !t.done && (t.text||'').trim());
+  if(ib.length) out += `\n\n═══ 기타 업무함(미완료) ═══\n${ib.map(t=>` - ${t.text.trim()}`).join('\n')}`;
+
+  return out;
+}
+
+let aiPurpose = 'plan';
+$('aiAskBtn').onclick = () => {
+  $('exportMenu').classList.add('hidden');
+  $('aiModal').classList.remove('hidden');
+  renderAiScope();
+};
+function renderAiScope(){
+  const box = $('aiPick');
+  if(!box.children.length){
+    Object.entries(AI_ASKS).forEach(([k, [lb]]) => {
+      const b = document.createElement('button');
+      b.type='button'; b.className='mini-btn'; b.dataset.p = k; b.textContent = lb;
+      b.onclick = () => { aiPurpose = k; renderAiScope(); };
+      box.appendChild(b);
+    });
+  }
+  [...box.children].forEach(b => b.classList.toggle('on', b.dataset.p === aiPurpose));
+  $('aiHint').textContent = aiPurpose === 'review'
+    ? '이번 주(월~일) 기록을 모아서 담습니다'
+    : '오늘 일지와 목표, 일주일 안 마감을 함께 담습니다';
+}
+$('aiCopy').onclick = async () => {
+  try{
+    const txt = await buildAIBrief(aiPurpose);
+    await navigator.clipboard.writeText(txt);
+    $('aiModal').classList.add('hidden');
+    toast('복사했어요 — 챗GPT나 클로드에 그대로 붙여 넣으세요');
+  }catch(e){ toast('복사하지 못했어요: ' + (e.message||'')); }
+};
+$('aiPreview').onclick = async () => {
+  const txt = await buildAIBrief(aiPurpose);
+  $('aiText').value = txt;
+  $('aiText').classList.remove('hidden');
+  $('aiText').select();
+};
+$('aiClose').onclick = () => $('aiModal').classList.add('hidden');
+$('aiModal').addEventListener('click', e => { if(e.target.id==='aiModal') $('aiModal').classList.add('hidden'); });
 
 /* ═══════════════ 🕘 되돌리기 ═══════════════ */
 let undoDate = null;
@@ -6511,7 +6700,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','undoModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -6534,7 +6723,7 @@ function closeOneOverlay(){
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
-      diaryExpMenu:'dexClose', undoModal:'undoClose'}[el.id];
+      diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
     else el.classList.add('hidden');
     return true;
