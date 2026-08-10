@@ -683,6 +683,22 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
+/* ───────── 🕘 되돌리기 ───────── */
+#undoModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.undo-help{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;margin-bottom:12px}
+.undo-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
+.undo-date{font-family:'Jua',sans-serif;font-size:1.05rem;color:var(--accent-deep);min-width:150px;text-align:center}
+.undo-list{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.undo-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--rule);
+  border-radius:10px;background:var(--card);cursor:pointer;transition:.13s;text-align:left;width:100%}
+.undo-item:hover{border-color:var(--accent);transform:translateX(3px)}
+.undo-item .t{flex:none;font-size:.8rem;font-weight:800;color:var(--accent-deep);width:78px}
+.undo-item .s{flex:1;min-width:0;font-size:.76rem;color:var(--ink-soft);line-height:1.5}
+.undo-item .s b{color:var(--ink);font-weight:700}
+.undo-item .go{flex:none;font-size:.8rem;color:var(--accent)}
+.undo-none{font-size:.8rem;color:var(--ink-soft);text-align:center;padding:22px 8px;line-height:1.7}
+
 /* ───────── 📖 일기장 인쇄 ───────── */
 .dex-scope{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
 .dex-scope .mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
@@ -1323,6 +1339,22 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     </div>
   </div>
 </div>
+<div id="undoModal" class="hidden">
+  <div class="bk-card" style="max-width:520px">
+    <h3>🕘 되돌리기</h3>
+    <div class="undo-help">내용이 지워졌거나 엉뚱하게 바뀌었을 때, 자동으로 보관해 둔 예전 상태로 되돌립니다.<br>
+      되돌리기 전의 상태도 함께 보관되니 다시 원래대로 돌아올 수 있어요.</div>
+    <div class="undo-nav">
+      <button class="date-arrow" id="undoPrev">◀</button>
+      <div class="undo-date" id="undoDate">—</div>
+      <button class="date-arrow" id="undoNext">▶</button>
+    </div>
+    <div id="undoList" class="undo-list"></div>
+    <div class="set-list" style="margin-top:12px">
+      <button class="btn-line" id="undoClose" style="border-style:dashed">닫기</button>
+    </div>
+  </div>
+</div>
 <div id="diaryExpMenu" class="hidden">
   <div class="export-card">
     <h3>📖 일기장으로 내보내기</h3>
@@ -1386,6 +1418,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="setPrivPrintBtn">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
       <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
       <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기 (자동 보관본)</button>
+      <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기 (자동 보관본)</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -1683,14 +1716,16 @@ $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden')
 
 /* ───────── 날짜 이동/로드 ───────── */
 let dayLoadSeq = 0, dayReady = false;
+let dayOwner = null;   /* 지금 메모리에 올라온 day 가 어느 날짜의 것인지 — 저장은 항상 이 날짜로 */
 async function loadDay(dateStr){
   const seq = ++dayLoadSeq;                       /* 빠르게 여러 번 눌러도 마지막 것만 반영 */
-  curDate = dateStr;
-  renderDate();                                   /* 날짜부터 바로 바꿔 준다 */
   dayReady = false;
   $('sheet').classList.add('loading');
-  await flushSave();
+  await flushSave();                              /* ① 보던 날짜에 먼저 저장 (순서를 바꾸면 안 됨) */
   if(seq !== dayLoadSeq) return;
+  curDate = dateStr;                              /* ② 저장이 끝난 뒤에 날짜를 옮긴다 */
+  dayOwner = null;                                /* 새 내용이 올라오기 전까지는 저장 금지 */
+  renderDate();
   const pending = (await getPending()).includes('day:'+dateStr);
   let local = null;
   if(pending){ try{ local = await idbGet(dayKey(dateStr)); }catch(e){} }
@@ -1723,6 +1758,8 @@ async function loadDay(dateStr){
   }
   if(seq !== dayLoadSeq) return;                  /* 그새 다른 날짜를 눌렀으면 이 결과는 버린다 */
   day = v ? normalize(v) : emptyDay();
+  dayOwner = dateStr;                             /* 이제부터 이 내용은 이 날짜의 것 */
+  dayBase = v ? JSON.parse(JSON.stringify(v)) : null;   /* 되돌리기 기준 */
   curTs = (v && v.updatedAt) || 0;
   dayReady = true;
   $('sheet').classList.remove('loading');
@@ -1790,18 +1827,57 @@ function peekRefresh(){
   clearTimeout(peekTimer);
   peekTimer = setTimeout(() => { if(peekOpen) renderPeek(); }, 180);
 }
+/* ───────── 되돌리기 지점 ─────────
+   덮어쓰기 전의 내용을 따로 보관해 둔다. 서버는 이력을 남기지 않으므로
+   한번 덮어쓰면 되살릴 방법이 없기 때문. */
+const UNDO_KEEP = 8, UNDO_GAP = 10*60*1000;
+let dayBase = null;                 /* 이 날짜에 마지막으로 저장돼 있던 내용 */
+const undoLast = {};                /* 날짜별 마지막 보관 시각 */
+
+function daySize(d){
+  const cats = d && Array.isArray(d.cats) ? d.cats : [];
+  return { cats: cats.length,
+           tasks: cats.reduce((n,c) => n + ((c.tasks||[]).length), 0),
+           notes: (d && d.notes ? d.notes.length : 0),
+           chars: JSON.stringify(d||{}).length };
+}
+/* 내용이 눈에 띄게 줄거나 통째로 바뀌면 '위험한 변화'로 본다 */
+function riskyChange(before, after){
+  const a = daySize(before), b = daySize(after);
+  return b.tasks < a.tasks - 1 || b.cats < a.cats || b.notes < a.notes
+      || (a.chars > 400 && b.chars < a.chars * 0.7);
+}
+async function pushUndo(ds, data, why){
+  if(!USER || !data) return;
+  try{
+    const ts = Date.now();
+    await db.ref(`diaries/${USER.uid}/undo/${ds}/${ts}`).set({ why: why||'', data });
+    undoLast[ds] = ts;
+    const snap = await db.ref(`diaries/${USER.uid}/undo/${ds}`).get();
+    const keys = Object.keys(snap.exists()? snap.val() : {}).sort((a,b)=>b-a);
+    for(const old of keys.slice(UNDO_KEEP))                   /* 오래된 것부터 정리 */
+      await db.ref(`diaries/${USER.uid}/undo/${ds}/${old}`).remove();
+  }catch(e){ /* 보관 실패해도 저장은 진행 */ }
+}
+
 async function saveNow(){
   if(!dirty || !USER) return;
+  if(!dayOwner){ dirty = false; return; }     /* 어느 날짜의 내용인지 확정 전이면 저장하지 않는다 */
   dirty = false;
-  const ds = curDate;
+  const ds = dayOwner;                        /* 화면이 다른 날짜로 옮겨가도 내용은 제 날짜에 저장 */
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
   if(!clean.cats.length) clean.prioOrder = [];
   const isEmpty = isDayEmpty(clean);
   if(!isEmpty) clean.updatedAt = Date.now();
   lastSelfTs = clean.updatedAt || 0; curTs = lastSelfTs;
+  /* 덮어쓰기 전에 되돌리기 지점을 남긴다 — 위험한 변화이거나 마지막 보관에서 시간이 지났을 때 */
+  if(dayBase && (riskyChange(dayBase, isEmpty? {} : clean) || Date.now() - (undoLast[ds]||0) > UNDO_GAP)){
+    await pushUndo(ds, dayBase, isEmpty ? '전체 삭제 직전' : '내용이 바뀌기 직전');
+  }
   try{                                        // ① 서버 우선
     if(isEmpty) await dayRef(ds).remove();
     else await dayRef(ds).set(clean);
+    dayBase = isEmpty ? null : JSON.parse(JSON.stringify(clean));
     delete yearCache[+ds.slice(0,4)];
     try{ await idbDel(dayKey(ds)); await removePending('day:'+ds); }catch(e){}   // 서버 완료 → 기기 임시본 삭제
     $('saveState').textContent = '✓ 저장됨 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
@@ -2597,6 +2673,77 @@ function downloadBlob(blob, name){
   const a = document.createElement('a');
   a.href = url; a.download = name; a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
+}
+
+/* ═══════════════ 🕘 되돌리기 ═══════════════ */
+let undoDate = null;
+$('undoBtn').onclick = () => {
+  $('settingsMenu').classList.add('hidden');
+  undoDate = curDate;
+  $('undoModal').classList.remove('hidden');
+  renderUndoList();
+};
+$('undoClose').onclick = () => $('undoModal').classList.add('hidden');
+$('undoModal').addEventListener('click', e => { if(e.target.id==='undoModal') $('undoModal').classList.add('hidden'); });
+$('undoPrev').onclick = () => { undoDate = shiftDate(undoDate, -1); renderUndoList(); };
+$('undoNext').onclick = () => { undoDate = shiftDate(undoDate, +1); renderUndoList(); };
+function shiftDate(ds, n){
+  const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+/* 보관본 한 줄 요약 */
+function undoSummary(d){
+  const z = daySize(d);
+  const bits = [];
+  if(z.tasks) bits.push(`업무 <b>${z.tasks}</b>건`);
+  if(z.cats)  bits.push(`카테고리 ${z.cats}개`);
+  if(z.notes) bits.push(`회의록 ${z.notes}건`);
+  const first = (d.cats||[]).flatMap(c => (c.tasks||[]).map(t => (t.text||'').trim())).filter(Boolean)[0]
+             || (d.note||'').trim() || (d.memo||'').trim();
+  if(first) bits.push(`“${esc(first.slice(0,18))}${first.length>18?'…':''}”`);
+  return bits.length ? bits.join(' · ') : '내용 없음';
+}
+async function renderUndoList(){
+  const d = new Date(undoDate+'T12:00:00');
+  $('undoDate').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+  const box = $('undoList');
+  box.innerHTML = '<div class="undo-none">불러오는 중…</div>';
+  let v = {};
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/undo/${undoDate}`).get(), 6000);
+    v = snap.exists()? (snap.val()||{}) : {};
+  }catch(e){ box.innerHTML = '<div class="undo-none">보관본을 확인하지 못했어요 — 연결을 확인해 주세요</div>'; return; }
+  const keys = Object.keys(v).sort((a,b)=>b-a);
+  if(!keys.length){
+    box.innerHTML = '<div class="undo-none">이 날짜에 보관된 예전 상태가 없어요.<br>내용을 고치면 그때부터 자동으로 쌓입니다.</div>';
+    return;
+  }
+  box.innerHTML = '';
+  keys.forEach(ts => {
+    const rec = v[ts] || {};
+    const when = new Date(+ts).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'undo-item';
+    b.innerHTML = `<span class="t">${when}</span><span class="s">${undoSummary(rec.data||{})}</span><span class="go">되돌리기 ↩</span>`;
+    b.onclick = () => restoreUndo(undoDate, ts, rec);
+    box.appendChild(b);
+  });
+}
+async function restoreUndo(ds, ts, rec){
+  const when = new Date(+ts).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  if(!(await askConfirm(
+    `${ds.replace(/-/g,'.')} 의 내용을\n${when} 시점 상태로 되돌립니다.\n\n${undoSummary(rec.data||{}).replace(/<[^>]+>/g,'')}\n\n지금 내용도 보관되니 다시 돌아올 수 있어요.`,
+    {title:'🕘 되돌리기', ok:'되돌리기', danger:true}))) return;
+  try{
+    await flushSave();
+    const cur = await withTimeout(dayRef(ds).get(), 6000);
+    if(cur.exists()) await pushUndo(ds, cur.val(), '되돌리기 직전');
+    await dayRef(ds).set(rec.data);
+    delete yearCache[+ds.slice(0,4)];
+    if(ds === curDate){ dayOwner = null; await loadDay(ds); }
+    $('undoModal').classList.add('hidden');
+    toast(`${ds.replace(/-/g,'.')} 을 ${when} 상태로 되돌렸어요`);
+  }catch(e){ toast('되돌리지 못했어요: ' + (e.code || e.message || '')); }
 }
 
 /* ═══════════════ 📖 일기장 인쇄 · 내보내기 ═══════════════ */
@@ -6364,7 +6511,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','undoModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -6387,7 +6534,7 @@ function closeOneOverlay(){
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
-      diaryExpMenu:'dexClose'}[el.id];
+      diaryExpMenu:'dexClose', undoModal:'undoClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
     else el.classList.add('hidden');
     return true;
