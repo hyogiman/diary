@@ -683,6 +683,63 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
+/* ───────── ⏳ 지연기록 ───────── */
+.delay-btn{position:relative;flex:none;width:30px;height:30px;border-radius:8px;font-size:.95rem;
+  color:#B07A22;background:rgba(214,160,60,.14);border:1.5px solid rgba(200,150,55,.4);
+  display:flex;align-items:center;justify-content:center;transition:.13s}
+.delay-btn:hover{background:rgba(214,160,60,.3)}
+.delay-btn.live{background:rgba(214,160,60,.22);border-color:rgba(190,140,45,.6)}
+.delay-btn .cnt{position:absolute;top:-5px;right:-5px;background:#C08A2C;color:#fff;font-size:.56rem;
+  font-weight:800;border-radius:999px;min-width:14px;height:14px;line-height:14px;padding:0 3px}
+#delayViewBtn.active{background:#C08A2C;border-color:#C08A2C;color:#fff}
+
+#delayModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:161;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+#delayModal .bk-card{max-height:88vh;overflow:auto}
+.dl-task{font-family:'Jua',sans-serif;font-size:1.02rem;color:var(--ink);text-align:center;margin-bottom:3px}
+.dl-sub{font-size:.76rem;color:var(--ink-soft);text-align:center;margin-bottom:12px}
+.dl-which{font-size:.76rem;color:#B07A22;text-align:center;background:rgba(214,160,60,.12);
+  border-radius:999px;padding:5px 10px;margin-bottom:12px}
+.dl-sec{font-family:'Jua',sans-serif;font-size:.86rem;color:var(--accent-deep);margin:12px 0 7px}
+.dl-opt{font-family:Pretendard,sans-serif;font-size:.7rem;color:var(--ink-soft);font-weight:600}
+.dl-time{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.dl-time label{flex:none;width:34px;font-size:.76rem;font-weight:700;color:var(--ink-soft)}
+.dl-time input{flex:none;border:1.5px solid var(--rule);border-radius:8px;background:var(--card);
+  padding:6px 9px;font-size:.86rem;color:var(--ink);font-family:inherit}
+.dl-time input[type=number]{width:82px}
+.dl-actual{flex:1;min-width:0;font-size:.74rem;color:#B07A22;font-weight:700}
+.dl-durs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:7px}
+.dl-durs button{flex:1 1 auto;min-width:56px;border:1.5px solid var(--rule);border-radius:8px;
+  background:var(--card);padding:6px 4px;font-size:.78rem;font-weight:700;color:var(--ink-soft);transition:.13s}
+.dl-durs button:hover{border-color:var(--accent)}
+.dl-durs button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dl-chips{display:flex;flex-wrap:wrap;gap:6px}
+.delay-chip{border:1.5px solid var(--rule);border-radius:999px;background:var(--card);
+  padding:7px 12px;font-size:.8rem;font-weight:700;color:var(--ink);transition:.13s}
+.delay-chip:hover{border-color:#C08A2C}
+.delay-chip.on{background:#C08A2C;border-color:#C08A2C;color:#fff}
+.dl-ask{font-size:.82rem;color:var(--accent-deep);font-weight:700;margin:11px 0 6px}
+#delayDetail{width:100%;border:1.5px solid var(--rule);border-radius:9px;background:var(--surface);
+  padding:9px 10px;font-family:var(--hand);font-size:calc(1.15rem * var(--hand-size));line-height:1.5;
+  color:var(--ink);resize:none;overflow:hidden}
+#delayDetail:focus{outline:none;border-color:var(--accent)}
+.dl-saved{font-size:.7rem;color:var(--ink-soft);text-align:right;margin-top:6px;min-height:14px}
+.dl-hist{display:flex;flex-direction:column;gap:6px}
+.dh-item{border:1.5px solid var(--rule);border-radius:9px;overflow:hidden;background:var(--card)}
+.dh-head{width:100%;display:flex;align-items:center;gap:9px;padding:9px 11px;text-align:left;transition:.13s}
+.dh-head:hover{background:var(--paper-deep)}
+.dh-head .d{flex:none;font-size:.8rem;font-weight:800;color:var(--accent-deep);width:40px}
+.dh-head .p{flex:1;min-width:0;font-size:.73rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh-head .r{flex:none;font-size:.74rem;font-weight:700;color:#B07A22}
+.dh-body{padding:2px 11px 10px;border-top:1px dashed var(--rule)}
+.dh-row{display:flex;gap:8px;font-size:.76rem;line-height:1.7}
+.dh-row b{flex:none;width:76px;color:var(--ink-soft);font-weight:700}
+.dh-row span{flex:1;min-width:0;color:var(--ink);word-break:break-word}
+@media (max-width:400px){
+  .delay-chip{padding:7px 10px;font-size:.76rem}
+  .dl-durs button{min-width:48px;font-size:.74rem}
+}
+
 /* ───────── 🤖 AI에게 물어보기 ───────── */
 #aiModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
   display:flex;align-items:center;justify-content:center;padding:16px}
@@ -1142,6 +1199,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .section-star .actions .mini-btn{padding:6px 10px;font-size:.76rem}
 }
 @media (max-width:400px){
+  /* 업무 상단 버튼 셋 — 좁으면 글자를 줄여 한 줄에 담는다 */
+  .actions .mini-btn{padding:6px 9px;font-size:.75rem}
   /* 아주 좁은 화면 — 글씨 크기는 그대로 두고 여백만 줄여 배지를 한 줄에 담는다 */
   .task-meta{padding-left:6px;gap:3px}
   .task-meta .status-chip{min-width:40px;padding:5px 5px}
@@ -1218,9 +1277,10 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
             <span class="note-label">남김말 :</span>
             <textarea id="dayNote" rows="1" placeholder="오늘 하루를 한 줄로" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
           </div>
-          <div class="actions" style="display:flex;gap:6px;flex:none">
+          <div class="actions" style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
             <button class="mini-btn" id="prioBtn">⚡ 우선순위</button>
+            <button class="mini-btn" id="delayViewBtn">⏳ 지연사유 확인</button>
           </div>
         </div>
         <div id="catList"></div>
@@ -1351,6 +1411,54 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <div style="font-size:.72rem;color:var(--ink-soft);text-align:center;line-height:1.5">
         위 세 가지에는 일기가 들어가지 않아요.<br>일기는 아래 일기장으로만 따로 나옵니다.
       </div>
+    </div>
+  </div>
+</div>
+<div id="delayModal" class="hidden">
+  <div class="bk-card" style="max-width:520px">
+    <h3>⏳ 지연사유 기록</h3>
+    <div class="dl-task" id="delayTitle"></div>
+    <div class="dl-sub" id="delaySub"></div>
+
+    <div id="delayEdit" class="hidden">
+      <div class="dl-which" id="delayWhich"></div>
+
+      <div class="dl-sec">실제 업무시간 <span class="dl-opt">(적지 않아도 괜찮아요)</span></div>
+      <div class="dl-time">
+        <label>시작</label>
+        <input type="time" id="delayStart">
+        <span class="dl-actual" id="delayActual"></span>
+      </div>
+      <div class="dl-durs" id="delayDur">
+        <button type="button" data-m="15">15분</button>
+        <button type="button" data-m="30">30분</button>
+        <button type="button" data-m="45">45분</button>
+        <button type="button" data-m="60">60분</button>
+        <button type="button" data-m="90">90분</button>
+        <button type="button" data-m="120">120분</button>
+      </div>
+      <div class="dl-time">
+        <label>직접</label>
+        <input type="number" id="delayDurIn" min="0" max="1440" step="5" placeholder="분">
+        <span class="dl-opt">분</span>
+      </div>
+
+      <div class="dl-sec">무엇 때문에 미뤄졌나요?</div>
+      <div class="dl-chips" id="delayChips"></div>
+      <div id="delayAskWrap" class="hidden">
+        <div class="dl-ask" id="delayAsk"></div>
+        <textarea id="delayDetail" rows="2" placeholder="적고 싶은 만큼만 — 비워 두어도 됩니다"></textarea>
+      </div>
+      <div class="dl-saved" id="delaySaved"></div>
+    </div>
+
+    <div id="delayHist" class="hidden">
+      <div class="dl-sec">지난 기록</div>
+      <div id="delayHistList" class="dl-hist"></div>
+    </div>
+
+    <div class="set-list" style="margin-top:12px">
+      <button class="btn-line" id="delayClose" style="border-style:dashed">닫기</button>
     </div>
   </div>
 </div>
@@ -1802,8 +1910,32 @@ function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
     time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
-    files: Array.isArray(t.files)? t.files : Object.values(t.files||{}), open: false };
+    files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
+    delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
+    open: false };
 }
+/* ───────── 지연기록 정규화 ─────────
+   잘못된 값이 들어와도 앱이 멈추지 않도록 배열로 맞춰 준다. */
+function normDelays(v){
+  const arr = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+  return arr.filter(r => r && typeof r === 'object' && r.date).map(r => ({
+    id:               r.id || uid8(),
+    date:             String(r.date),
+    plannedStart:     r.plannedStart || '',
+    plannedDuration:  Number.isFinite(+r.plannedDuration) ? +r.plannedDuration : 0,
+    plannedEnd:       r.plannedEnd || '',
+    detectedAt:       +r.detectedAt || 0,
+    reasonCode:       r.reasonCode || '',
+    reasonDetail:     r.reasonDetail || '',
+    actualStart:      r.actualStart || '',
+    actualDuration:   Number.isFinite(+r.actualDuration) ? +r.actualDuration : 0,
+    createdAt:        +r.createdAt || 0,
+    updatedAt:        +r.updatedAt || 0
+  }));
+}
+/* 사유를 고른 기록만 '유효한 지연기록'으로 센다 (실제 시간만 적어 둔 임시 입력은 제외) */
+const validDelays = t => (t.delayHistory||[]).filter(r => r.reasonCode);
+const delayOf = (t, ds) => (t.delayHistory||[]).find(r => r.date === ds) || null;
 function normalize(v){
   return {
     note: v.note||'', memo: v.memo||'', diary: v.diary||'', dnote: v.dnote||'', wx: v.wx||null,
@@ -2022,7 +2154,66 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
+/* ═══════════════ ⏳ 지연기록 — 계획한 시간과 실제가 어긋났을 때 ═══════════════
+   재촉이 목적이 아니라, 어긋난 까닭을 부담 없이 남겨 나중에 패턴을 보기 위한 것. */
+const DELAY_REASONS = [
+  ['urgent',           '긴급·돌발 업무',   '어떤 일이 갑자기 들어왔나요?'],
+  ['priority_changed', '우선순위 변경',    '어떤 업무를 먼저 처리했나요?'],
+  ['waiting',          '회신·승인 대기',   '누구의 어떤 회신이나 승인을 기다렸나요?'],
+  ['missing_info',     '자료·정보 부족',   '어떤 자료나 정보가 부족했나요?'],
+  ['unclear',          '방향·기준 불명확', '어떤 기준이나 결정이 정해지지 않았나요?'],
+  ['overrun',          '예상보다 오래 걸림','어떤 업무나 과정에 예상보다 시간이 더 들었나요?'],
+  ['low_energy',       '컨디션·집중 저하', '집중을 어렵게 한 상태나 상황이 있었나요?'],
+  ['start_resistance', '착수 부담',        '무엇 때문에 업무를 시작하기 어려웠나요?'],
+  ['other',            '기타',             '기타 지연사유를 자유롭게 적어 주세요.']
+];
+const reasonLabel = c => (DELAY_REASONS.find(r => r[0] === c) || [,''])[1] || '';
+const reasonAsk   = c => (DELAY_REASONS.find(r => r[0] === c) || [,,''])[2] || '';
+
+/* 예정 종료 시각 (분) — 시작시간이 없으면 null */
+function plannedEndMin(t){
+  if(!t.time || !/^\d{1,2}:\d{2}$/.test(t.time)) return null;
+  const [h, m] = t.time.split(':').map(Number);
+  if(!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  return h*60 + m + (Number.isFinite(+t.dur) && +t.dur > 0 ? +t.dur : 60);
+}
+function minToHHMM(v){
+  const x = ((v % 1440) + 1440) % 1440;
+  return `${String(Math.floor(x/60)).padStart(2,'0')}:${String(x%60).padStart(2,'0')}`;
+}
+function plannedRange(t){
+  const e = plannedEndMin(t);
+  return (t.time && e !== null) ? `${t.time}~${minToHHMM(e)}` : (t.time || '');
+}
+/* '지금 지연 중'인가 — 저장하지 않고 늘 현재 날짜·시각으로 계산한다.
+   그래서 날이 바뀌면 전날 버튼은 저절로 사라진다. */
+function isDelayedNow(t){
+  if(!t || t.done) return false;
+  if(curDate !== todayStr()) return false;          /* 오늘 일지에서만 */
+  const end = plannedEndMin(t);
+  if(end === null) return false;
+  const n = new Date();
+  return n.getHours()*60 + n.getMinutes() >= end;
+}
+/* 버튼에 보일 횟수 — 오늘 아직 안 적었어도 지연 중이면 한 건 더한 값을 미리 보여 준다 */
+function delayCount(t){
+  const n = validDelays(t).length;
+  const today = todayStr();
+  const hasToday = validDelays(t).some(r => r.date === today);
+  return (isDelayedNow(t) && !hasToday) ? n + 1 : n;
+}
+/* 이 업무에 모래시계를 보일지 — 지금 지연 중이거나, 확인 모드에서 지난 기록이 있을 때 */
+function showDelayBtn(t){
+  return isDelayedNow(t) || (delayViewMode && validDelays(t).length > 0);
+}
+function delayBtnHTML(t){
+  if(!showDelayBtn(t)) return '';
+  const c = delayCount(t);
+  const live = isDelayedNow(t);
+  return `<button class="delay-btn${live? ' live':''}" title="지연사유 기록${c>1? ` · ${c}회`:''}">⏳${c>1? `<span class="cnt">${c}</span>`:''}</button>`;
+}
+
 /* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
 /* 실행 시간 표기: 09:30~10:30 */
 function timeRange(t){
@@ -2069,15 +2260,18 @@ function taskRow(t, ctx){
         <input type="date" value="${t.due}" title="마감일">
       </span>
       <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
+      ${delayBtnHTML(t)}
       <div class="ctl">
         ${(ctx.inbox && prioMode)? (t.offPrio? '<button class="on-prio" title="우선순위로 올리기">↑</button>' : '<span class="ctl-gap"></span>') : ''}
         <button class="del" title="삭제">✕</button>
       </div>
     </div>`;
+  bindDelayBtn(row, t, ctx);
   row.querySelector('.chk').onclick = () => {
     if(ctx.priv && !t.done){ completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
     if(ctx.inbox && !ctx.priv && !t.done){ completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
+    setTimeout(refreshDelayButtons, 0);        /* 완료하면 모래시계를 곧바로 정리 */
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
     if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
@@ -2707,6 +2901,233 @@ function downloadBlob(blob, name){
   setTimeout(()=>URL.revokeObjectURL(url), 4000);
 }
 
+/* ═══════════════ ⏳ 지연기록 — 버튼·모달·자동 갱신 ═══════════════ */
+let delayViewMode = false;                 /* 지연사유 확인 모드 (앱을 다시 열면 꺼짐) */
+let delayCtx = null;                       /* 지금 모달에 열린 업무 */
+let delaySaveTimer = null;
+let delayOpenId = null;                    /* 이력 모드에서 펼친 기록 */
+
+function bindDelayBtn(row, t, ctx){
+  const b = row.querySelector('.delay-btn');
+  if(!b) return;
+  b.onclick = e => { e.stopPropagation(); openDelayModal(t, ctx); };
+}
+
+/* ── 전체를 다시 그리지 않고 모래시계만 갱신 ──
+   업무명·퀵메모를 쓰는 도중에도 커서가 끊기지 않게, 버튼 하나만 손댄다. */
+function refreshDelayButtons(){
+  if($('appView').classList.contains('hidden')) return;
+  const seen = new Map();
+  const pick = tid => {
+    if(seen.has(tid)) return seen.get(tid);
+    let found = null;
+    for(const c of (day.cats||[])){
+      const t = (c.tasks||[]).find(x => x.id === tid);
+      if(t){ found = {t, ctx:{arr:c.tasks, cat:c}}; break; }
+    }
+    if(!found){
+      const t = (inbox||[]).find(x => x.id === tid) || (priv||[]).find(x => x.id === tid);
+      if(t) found = {t, ctx:{inbox:true}};
+    }
+    seen.set(tid, found);
+    return found;
+  };
+  document.querySelectorAll('.task[data-tid]').forEach(row => {
+    const hit = pick(row.dataset.tid);
+    if(!hit) return;
+    const want = delayBtnHTML(hit.t);
+    const cur  = row.querySelector('.delay-btn');
+    if(!want){ if(cur) cur.remove(); return; }
+    if(!cur){                                    /* 새로 생겨야 하면 📝 뒤에 끼워 넣는다 */
+      const note = row.querySelector('.note-btn');
+      if(!note) return;
+      note.insertAdjacentHTML('afterend', want);
+      bindDelayBtn(row, hit.t, hit.ctx);
+      return;
+    }
+    const tmp = document.createElement('div'); tmp.innerHTML = want;
+    if(tmp.firstElementChild.outerHTML !== cur.outerHTML){
+      cur.replaceWith(tmp.firstElementChild);
+      bindDelayBtn(row, hit.t, hit.ctx);
+    }
+  });
+}
+setInterval(refreshDelayButtons, 30000);       /* 30초마다 조용히 확인 */
+document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshDelayButtons(); });
+
+/* ── 확인 모드 버튼 ── */
+$('delayViewBtn').onclick = () => {
+  delayViewMode = !delayViewMode;
+  $('delayViewBtn').classList.toggle('active', delayViewMode);
+  refreshDelayButtons();
+  toast(delayViewMode ? '지연사유가 기록된 업무에 ⏳ 를 함께 보여드려요' : '지연사유 확인 모드를 껐어요');
+};
+
+/* ── 모달 ── */
+function openDelayModal(t, ctx){
+  closeAllOverlays();
+  delayCtx = {t, ctx, ds: todayStr()};
+  delayOpenId = null;
+  $('delayModal').classList.remove('hidden');
+  renderDelayModal();
+}
+function closeDelayModal(){
+  clearTimeout(delaySaveTimer);
+  if(delayCtx) saveDelay();                  /* 닫기 전에 남은 입력을 확정 */
+  delayCtx = null;
+  $('delayModal').classList.add('hidden');
+  refreshDelayButtons();
+}
+function renderDelayModal(){
+  if(!delayCtx) return;
+  const {t} = delayCtx;
+  const today = todayStr();
+  const live = isDelayedNow(t);
+  const past = validDelays(t);
+  const rec  = delayOf(t, today);
+
+  $('delayTitle').textContent = (t.text||'').trim() || '(제목 없는 업무)';
+  const bits = [];
+  if(t.time) bits.push(`계획 ${plannedRange(t)}`);
+  if(past.length) bits.push(`지금까지 ${past.length}회 기록`);
+  $('delaySub').textContent = bits.join('  ·  ');
+
+  /* 오늘 지연 중이면 입력, 아니면 지난 기록 보기 */
+  const editable = live || (rec && rec.date === today);
+  $('delayEdit').classList.toggle('hidden', !editable);
+  $('delayHist').classList.toggle('hidden', !past.length);
+
+  if(editable){
+    const cur = rec || {};
+    $('delayWhich').textContent = live
+      ? `오늘로 ${past.some(r=>r.date===today) ? past.length : past.length+1}번째 기록이에요`
+      : '오늘 기록을 보완할 수 있어요';
+    /* 사유 칩 */
+    const box = $('delayChips');
+    if(!box.children.length){
+      DELAY_REASONS.forEach(([code, label]) => {
+        const b = document.createElement('button');
+        b.type='button'; b.className='delay-chip'; b.dataset.code = code; b.textContent = label;
+        b.onclick = () => {
+          const r = ensureDelayRec();
+          r.reasonCode = (r.reasonCode === code) ? '' : code;
+          markDirty(); renderDelayModal(); queueDelaySave();
+          if(r.reasonCode) setTimeout(()=>$('delayDetail').focus(), 60);
+        };
+        box.appendChild(b);
+      });
+    }
+    [...box.children].forEach(b => b.classList.toggle('on', b.dataset.code === cur.reasonCode));
+    /* 질문 + 상세 */
+    const has = !!cur.reasonCode;
+    $('delayAskWrap').classList.toggle('hidden', !has);
+    if(has) $('delayAsk').textContent = reasonAsk(cur.reasonCode);
+    $('delayDetail').value = cur.reasonDetail || '';
+    /* 실제 업무시간 */
+    $('delayStart').value = cur.actualStart || '';
+    [...$('delayDur').children].forEach(b => b.classList.toggle('on', +b.dataset.m === +cur.actualDuration));
+    $('delayDurIn').value = cur.actualDuration ? String(cur.actualDuration) : '';
+    const ae = (cur.actualStart && cur.actualDuration)
+      ? `${cur.actualStart}~${minToHHMM((+cur.actualStart.slice(0,2))*60 + (+cur.actualStart.slice(3,5)) + (+cur.actualDuration))}` : '';
+    $('delayActual').textContent = ae ? `계획 ${plannedRange(t)} · 실제 ${ae}` : '';
+    $('delaySaved').textContent = (rec && rec.reasonCode) ? '자동 저장됨' : '';
+  }
+  renderDelayHist();
+}
+function renderDelayHist(){
+  const {t} = delayCtx;
+  const list = $('delayHistList'); list.innerHTML = '';
+  validDelays(t).slice().sort((a,b)=>b.date.localeCompare(a.date)).forEach(r => {
+    const wrap = document.createElement('div'); wrap.className = 'dh-item';
+    const head = document.createElement('button');
+    head.type='button'; head.className='dh-head';
+    head.innerHTML = `<span class="d">${+r.date.slice(5,7)}/${+r.date.slice(8,10)}</span>
+      <span class="p">계획 ${esc(r.plannedStart? `${r.plannedStart}~${r.plannedEnd||''}` : '—')}</span>
+      <span class="r">${esc(reasonLabel(r.reasonCode))}</span>`;
+    head.onclick = () => { delayOpenId = (delayOpenId === r.id) ? null : r.id; renderDelayHist(); };
+    wrap.appendChild(head);
+    if(delayOpenId === r.id){
+      const d = document.createElement('div'); d.className = 'dh-body';
+      const rows = [['계획시간', r.plannedStart ? `${r.plannedStart}~${r.plannedEnd||''} (${r.plannedDuration||60}분)` : '—']];
+      if(r.actualStart || r.actualDuration){
+        const ae = (r.actualStart && r.actualDuration)
+          ? `${r.actualStart}~${minToHHMM((+r.actualStart.slice(0,2))*60 + (+r.actualStart.slice(3,5)) + (+r.actualDuration))}`
+          : (r.actualStart || `${r.actualDuration}분`);
+        rows.push(['실제 업무시간', ae]);
+      }
+      rows.push(['지연사유', reasonLabel(r.reasonCode)]);
+      if(r.reasonDetail) rows.push(['상세', r.reasonDetail]);
+      if(r.createdAt) rows.push(['기록', new Date(r.createdAt).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})]);
+      d.innerHTML = rows.map(([k,v]) => `<div class="dh-row"><b>${k}</b><span>${esc(String(v))}</span></div>`).join('');
+      wrap.appendChild(d);
+    }
+    list.appendChild(wrap);
+  });
+}
+/* 오늘 기록을 만들거나 가져온다 — 같은 날엔 언제나 한 건만 */
+function ensureDelayRec(){
+  const {t} = delayCtx, ds = todayStr();
+  if(!Array.isArray(t.delayHistory)) t.delayHistory = [];
+  let r = t.delayHistory.find(x => x.date === ds);
+  if(!r){
+    const end = plannedEndMin(t);
+    r = { id: uid8(), date: ds,
+          plannedStart: t.time || '', plannedDuration: (+t.dur || 60),
+          plannedEnd: end === null ? '' : minToHHMM(end),
+          detectedAt: Date.now(), reasonCode: '', reasonDetail: '',
+          actualStart: '', actualDuration: 0, createdAt: Date.now(), updatedAt: Date.now() };
+    t.delayHistory.push(r);
+  }
+  return r;
+}
+function queueDelaySave(){
+  $('delaySaved').textContent = '저장 중…';
+  clearTimeout(delaySaveTimer);
+  delaySaveTimer = setTimeout(saveDelay, 400);
+}
+function saveDelay(){
+  if(!delayCtx) return;
+  const {t} = delayCtx, ds = todayStr();
+  const r = (t.delayHistory||[]).find(x => x.date === ds);
+  if(r){
+    /* 사유도 없고 실제 시간도 없으면 빈 기록이므로 지운다 (그냥 열었다 닫은 경우) */
+    if(!r.reasonCode && !r.actualStart && !r.actualDuration && !r.reasonDetail){
+      t.delayHistory = t.delayHistory.filter(x => x !== r);
+    }else{
+      r.updatedAt = Date.now();
+    }
+  }
+  markDirty();
+  if($('delaySaved')) $('delaySaved').textContent = (r && r.reasonCode) ? '자동 저장됨' : '';
+  refreshDelayButtons();
+}
+$('delayDetail').addEventListener('input', e => {
+  if(!delayCtx) return;
+  ensureDelayRec().reasonDetail = e.target.value;
+  grow(e.target, 64); queueDelaySave();
+});
+$('delayStart').addEventListener('change', e => {
+  if(!delayCtx) return;
+  ensureDelayRec().actualStart = e.target.value || '';
+  queueDelaySave(); renderDelayModal();
+});
+$('delayDur').onclick = e => {
+  const b = e.target.closest('button'); if(!b || !delayCtx) return;
+  const r = ensureDelayRec();
+  r.actualDuration = (+r.actualDuration === +b.dataset.m) ? 0 : +b.dataset.m;
+  queueDelaySave(); renderDelayModal();
+};
+$('delayDurIn').addEventListener('input', e => {
+  if(!delayCtx) return;
+  const v = Math.max(0, Math.min(1440, +e.target.value || 0));
+  ensureDelayRec().actualDuration = v;
+  queueDelaySave();
+  $('delayActual').textContent = '';
+});
+$('delayDurIn').addEventListener('blur', () => renderDelayModal());
+$('delayClose').onclick = closeDelayModal;
+$('delayModal').addEventListener('click', e => { if(e.target.id==='delayModal') closeDelayModal(); });
+
 /* ═══════════════ 🤖 AI에게 물어보기용 정리 ═══════════════
    업무일지를 챗GPT·클로드 같은 곳에 붙여 넣어 조언을 받기 위한 글.
    일기·어제와 다른 오늘·기분/컨디션은 사생활이라 절대 담지 않는다. */
@@ -2761,6 +3182,14 @@ function aiDayBlock(ds, d, opt){
       out += `\n - (${bits.join(' · ')}) ${t.text.trim()}`;
       if(opt.notes && (t.note||'').trim())
         out += `\n     메모: ${t.note.trim().replace(/\n/g,' / ')}`;
+      /* 그 날짜에 실제로 생긴 지연기록만 — 복사본에 딸려온 지난 기록은 넣지 않는다 */
+      const dr = (t.delayHistory||[]).find(r => r.date === ds && r.reasonCode);
+      if(dr){
+        out += `\n     지연: 계획 ${dr.plannedStart}~${dr.plannedEnd} · 사유 ${reasonLabel(dr.reasonCode)}`;
+        if(dr.reasonDetail) out += `\n           상세: ${dr.reasonDetail.replace(/\n/g,' / ')}`;
+        if(dr.actualStart || dr.actualDuration)
+          out += `\n           실제: ${dr.actualStart||'?'}${dr.actualDuration? ` 부터 ${dr.actualDuration}분`:''}`;
+      }
     });
   });
   (d.notes||[]).forEach(n => {
@@ -3653,6 +4082,13 @@ async function doSearch(q){
           else if(t.note.toLowerCase().includes(ql))
             lines.push({k:'퀵메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(snippet(t.note,q),q)}`,
                         tg:{cid:c.id, tid:t.id, open:true, field:'tnote'}});
+          (t.delayHistory||[]).forEach(r => {                     /* 지연사유·상세도 찾을 수 있게 */
+            if(!r.reasonCode) return;
+            const rl = reasonLabel(r.reasonCode), rd = r.reasonDetail||'';
+            if(rl.toLowerCase().includes(ql) || rd.toLowerCase().includes(ql))
+              lines.push({k:'지연사유', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} › ${esc(t.text)}</span> — ${hl(rl + (rd? ' · '+snippet(rd,q):''), q)}`,
+                          tg:{cid:c.id, tid:t.id, delay:true}});
+          });
         });
       });
       v.notes.forEach(n => {
@@ -3774,6 +4210,18 @@ async function jumpToHit(dateStr, tg, q){
   else if(tg.field === 'memo')  host = inner = $('memoText');
   else if(tg.box)               host = $(tg.box === 'inbox' ? 'inboxList' : 'privList');
 
+  if(tg.delay && host){                            /* 지연사유로 찾아온 경우 그 기록을 펼쳐 준다 */
+    let tk = null;
+    (day.cats||[]).forEach(c => (c.tasks||[]).forEach(x => { if(x.id === tg.tid) tk = x; }));
+    if(!tk) tk = (inbox||[]).find(x => x.id === tg.tid) || (priv||[]).find(x => x.id === tg.tid);
+    if(tk){
+      if(!delayViewMode){ delayViewMode = true; $('delayViewBtn').classList.add('active'); refreshDelayButtons(); }
+      host.scrollIntoView({behavior:'smooth', block:'center'});
+      flashHit(host, q, host);
+      setTimeout(() => openDelayModal(tk, {}), 380);
+      return;
+    }
+  }
   if(!host){ toast('그 내용을 찾지 못했어요 — 지워졌을 수 있어요'); return; }
   host.scrollIntoView({behavior:'smooth', block:'center'});
   flashHit(inner || host, q, host);
@@ -4020,6 +4468,7 @@ function renderPrio(){
     const overdue = t.due && t.due < todayStr();
     const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
     const row = document.createElement('div'); row.className = 'task';
+    row.dataset.tid = t.id;
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
       <span class="pr-rank">${i+1}</span>
@@ -4035,11 +4484,13 @@ function renderPrio(){
           <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
           <input type="date" value="${t.due}">
         </span>
+        ${delayBtnHTML(t)}
         <div class="ctl pr-ctl">
           ${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>' : '<span class="ctl-gap"></span>'}
           <button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button>
         </div>
       </div>`;
+    bindDelayBtn(row, t, {inbox:!!bx});
     row.querySelector('.chk').onclick = () => {
       if(bx==='inbox'){ completeInbox(t, inbox.indexOf(t)); return; }
       if(bx==='priv'){ completePriv(t, priv.indexOf(t)); return; }
@@ -6700,7 +7151,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','delayModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -6723,7 +7174,7 @@ function closeOneOverlay(){
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
-      diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose'}[el.id];
+      diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose', delayModal:'delayClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
     else el.classList.add('hidden');
     return true;
