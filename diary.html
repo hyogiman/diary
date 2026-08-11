@@ -1618,6 +1618,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기 (자동 보관본)</button>
       <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기 (자동 보관본)</button>
       <button class="btn-line hidden" id="photoFixBtn">🖼 예전 사진 정리 (통신량 줄이기)</button>
+      <button class="btn-line" id="bakFixBtn">🧹 무거운 보관본 정리 (저장용량 줄이기)</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -3461,6 +3462,56 @@ function refreshPhotoFixBtn(){
   const b = $('photoFixBtn');
   if(b) b.classList.toggle('hidden', !hasOldPhotosNow());
 }
+
+/* ═══════════════ 🧹 보관본 정리 ═══════════════
+   되돌리기·사진정리는 안전을 위해 '고치기 전 모습'을 통째로 남긴다.
+   그래서 사진을 Storage 로 옮겨도, 보관본 안에는 예전 사진이 그대로 남아
+   저장용량이 줄지 않는다. 여기서 그 무거운 보관본만 골라 치운다. */
+function bakPhotoBytes(v){
+  const s = JSON.stringify(v||'');
+  return s.includes('data:image') ? s.length : 0;
+}
+async function scanBaks(){
+  const found = [];                                   /* {path, label, bytes} */
+  const add = (path, label, v) => { const b = bakPhotoBytes(v); if(b) found.push({path, label, bytes:b}); };
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/undo`).get(), 8000);
+    const all = snap.exists() ? (snap.val()||{}) : {};
+    Object.keys(all).forEach(ds => Object.keys(all[ds]||{}).forEach(ts =>
+      add(`undo/${ds}/${ts}`, `${ds} 되돌리기 지점`, all[ds][ts])));
+  }catch(e){}
+  for(const [key, label] of [['bankBak','장기메모'],['inboxBak','기타 업무함'],['privBak','개인 용무함']]){
+    try{
+      const s2 = await withTimeout(db.ref(`diaries/${USER.uid}/${key}`).get(), 6000);
+      if(s2.exists()) add(key, `${label} 되돌림용 사본`, s2.val());
+    }catch(e){}
+  }
+  return found;
+}
+$('bakFixBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+  toast('보관본을 살펴보는 중…');
+  const found = await scanBaks();
+  if(!found.length){ toast('치울 보관본이 없어요 — 이미 가벼운 상태예요'); return; }
+  const total = found.reduce((a,b)=>a+b.bytes, 0);
+  const mb = (total/1048576).toFixed(2);
+  if(!(await askConfirm(
+    `사진이 통째로 담긴 보관본 ${found.length}건을 찾았어요 (약 ${mb}MB).\n\n` +
+    `사진은 이미 따로 옮겨 두었으니 일지와 사진은 그대로입니다.\n` +
+    `다만 이 보관본들을 지우면 그 시점으로 되돌리는 것은 못 하게 됩니다.\n\n` +
+    found.slice(0,6).map(f => ` · ${f.label}`).join('\n') + (found.length>6? `\n · 외 ${found.length-6}건` : ''),
+    {title:'🧹 무거운 보관본 정리', ok:'정리하기', danger:true}))) return;
+  let done = 0;
+  for(const f of found){
+    try{ await db.ref(`diaries/${USER.uid}/${f.path}`).remove(); done++; }catch(e){}
+  }
+  Object.keys(undoKeys).forEach(k => delete undoKeys[k]);
+  refreshBakFixBtn();
+  toast(`보관본 ${done}건을 치웠어요 — 저장용량은 하루 뒤 다시 계산됩니다`);
+};
+/* 치울 게 있을 때만 설정에 보이게 — 확인은 눌렀을 때만 하므로 평소 통신은 없다 */
+let bakFixSeen = false;
+function refreshBakFixBtn(){ const b = $('bakFixBtn'); if(b) b.classList.toggle('hidden', !bakFixSeen); }
 
 /* ═══════════════ 🖼 예전 사진 정리 ═══════════════
    예전에 넣은 사진은 일지 데이터 안에 글자로 담겨 있어, 그 날짜를 읽을 때마다
