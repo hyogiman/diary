@@ -2050,6 +2050,7 @@ function normTask(t){
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
     time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
+    timeDay: t.timeDay || '',                      /* 이 실행 시간을 어느 날 잡았는지 (보관함용) */
     delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
     open: false };
 }
@@ -2374,7 +2375,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
 /* ═══════════════ ⏳ 지연기록 — 계획한 시간과 실제가 어긋났을 때 ═══════════════
    재촉이 목적이 아니라, 어긋난 까닭을 부담 없이 남겨 나중에 패턴을 보기 위한 것. */
 const DELAY_REASONS = [
@@ -2572,6 +2573,7 @@ function taskRow(t, ctx){
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
     qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
+      if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
       t.time = e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
       t.dur = +e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
@@ -3164,8 +3166,18 @@ function bindDelayBtn(row, t, ctx){
 
 /* ── 전체를 다시 그리지 않고 모래시계만 갱신 ──
    업무명·퀵메모를 쓰는 도중에도 커서가 끊기지 않게, 버튼 하나만 손댄다. */
+let staleDay = '';
 function refreshDelayButtons(){
   if($('appView').classList.contains('hidden')) return;
+  /* 켜 둔 채 자정을 넘겼으면 보관함의 지난 시간도 정리한다 */
+  const td = todayStr();
+  if(staleDay && staleDay !== td){
+    if(typeof clearStaleTimes === 'function'){
+      if(clearStaleTimes(inbox)){ markInbox(); renderInbox(); }
+      if(clearStaleTimes(priv)){  markPriv();  renderPriv();  }
+    }
+  }
+  staleDay = td;
   const seen = new Map();
   const pick = tid => {
     if(seen.has(tid)) return seen.get(tid);
@@ -4468,6 +4480,7 @@ async function loadInbox(){
   }
   if(!got) v = pending ? localData : [];
   inbox = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
+  if(clearStaleTimes(inbox)) markInbox();        /* 지난 날짜에 잡아 둔 시간은 비운다 */
 }
 function markInbox(){
   inboxDirty = true;
@@ -5739,6 +5752,20 @@ async function openDiaryOn(ds){
 let priv = [], privTimer = null, privDirty = false, privOpen = false;
 try{ privOpen = localStorage.getItem('privOpen')==='1'; }catch(e){}
 
+/* 기타 업무함·개인 용무함은 날짜에 매이지 않고 계속 남는 목록이다.
+   그래서 어제 잡아 둔 실행 시간이 오늘도 그대로 보인다 — 오늘 계획이 아닌데도.
+   날짜별 일지는 '미완료 가져오기'가 time 을 비워 주지만 이쪽은 그럴 자리가 없어,
+   목록을 읽을 때 지난 날짜에 잡아 둔 시간을 비워 준다. (캘린더 일정은 건드리지 않는다) */
+function clearStaleTimes(arr){
+  const today = todayStr();
+  let n = 0;
+  (arr||[]).forEach(t => {
+    if(!t || t.done) return;
+    if(t.time && t.timeDay && t.timeDay !== today){ t.time = ''; t.gcalId = ''; n++; }
+    else if(t.time && !t.timeDay) t.timeDay = today;     /* 예전 자료 — 오늘 잡은 것으로 본다 */
+  });
+  return n;
+}
 async function loadPriv(){
   const pending = (await getPending()).includes('priv');
   let local = null;
@@ -5759,6 +5786,7 @@ async function loadPriv(){
   }
   if(!got) v = pending ? localData : [];
   priv = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
+  if(clearStaleTimes(priv)) markPriv();          /* 지난 날짜에 잡아 둔 시간은 비운다 */
 }
 function markPriv(){ privDirty = true; clearTimeout(privTimer); privTimer = setTimeout(savePriv, 800); }
 async function savePriv(){
