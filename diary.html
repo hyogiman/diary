@@ -6120,6 +6120,7 @@ function initGoogle(){
    눌러야 해서, 끝나기 전에 화면 뒤에서 조용히 새로 받아 둔다.
    조용히 받는 것이 막히는 때(다른 계정으로 로그인, 권한 회수 등)에만 창을 띄운다. */
 let gSilentAt = 0;                                  /* 마지막으로 조용히 시도한 시각 */
+let gSilentFail = false;                            /* 조용한 갱신이 막혔는지 — 그때만 창이 필요하다 */
 /* renew:true 면 아직 쓸 수 있어도 새로 받아 둔다 (끝나기 전 미리 받기) */
 function ensureToken(interactive, renew){
   return new Promise(resolve => {
@@ -6127,8 +6128,8 @@ function ensureToken(interactive, renew){
     if(!gReady()) return resolve(false);
     initGoogle();
     if(!gClient) return resolve(false);
-    /* 조용한 갱신은 너무 자주 두드리지 않는다 */
-    if(!interactive && Date.now() - gSilentAt < 30000) return resolve(false);
+    /* 조용한 갱신은 너무 자주 두드리지 않는다 (사용자가 직접 부른 요청은 늘 통과) */
+    if(!interactive && !renew && Date.now() - gSilentAt < 30000) return resolve(false);
     if(!interactive) gSilentAt = Date.now();
     let done = false;
     const finish = v => { if(done) return; done = true; gClient.callback = prev; resolve(v); };
@@ -6138,8 +6139,9 @@ function ensureToken(interactive, renew){
         gToken = resp.access_token;
         gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
         try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
+        gSilentFail = false;
         finish(true);
-      }else finish(false);
+      }else{ if(!interactive) gSilentFail = true; finish(false); }
     };
     /* prompt:'none' — 이미 허락해 둔 사이라면 화면 없이 새 이용권을 준다.
        (예전엔 '' 를 써서 구글이 계정 선택 창을 띄우곤 했다) */
@@ -6193,7 +6195,11 @@ async function loadSchedule(force){
   if(!force){
     try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; renderSchedule(c.events, c.ts); } }catch(e){}
   }
-  if(!(await ensureToken(false))){
+  let haveToken = await ensureToken(false);
+  if(!haveToken && force){                       /* 새로고침·직접 열기 — 막혔으면 연결 창을 띄운다 */
+    haveToken = await ensureToken(true);
+  }
+  if(!haveToken){
     let cached = null;
     try{ cached = await idbGet(cacheKey); }catch(e){}
     renderSchedule(cached? cached.events : [], cached? cached.ts : null);   // 앱 업무는 항상 표시
