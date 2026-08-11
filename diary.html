@@ -2804,6 +2804,7 @@ async function startRecording(arr, btn){
 $('tabToday').onclick = () => switchTab('today');
 $('tabArchive').onclick = () => switchTab('archive');
 function switchTab(mode){
+  if(typeof releaseStamp === 'function') releaseStamp();   /* 탭을 옮기면 시각 찍기 대상을 놓는다 */
   const today = (mode === true || mode === 'today');
   const goal  = (mode === 'goal');
   const arch  = (mode === false || mode === 'archive');
@@ -3804,23 +3805,54 @@ $('photoFixBtn').onclick = async () => {
 /* ═══════════════ 🕒 시각 찍기 ═══════════════
    글칸에 커서를 두고 누르면 그 자리에 [8/11(화) 15:30:17] 을 넣고 줄을 바꾼다.
    업무 로그를 손으로 적던 것을 한 번에 대신한다. */
-const STAMP_OK = ['qnote','cn-text','bn-body','db-text'];      /* 찍을 수 있는 글칸 */
-const STAMP_ID = ['memoText','dayNote','diaryText','dnoteText','delayDetail'];
-let stampTarget = null;                                        /* 마지막으로 만졌던 글칸 */
+/* 찍을 수 있는 곳 — 내가 적어 나가는 '기록' 칸.
+   업무 이름·카테고리 이름·회의록 제목·목표처럼 한 줄 제목을 적는 칸은 넣지 않는다. */
+const STAMP_OK = ['qnote',        /* 업무 퀵메모 */
+                  'cn-text',      /* 카테고리 메모 */
+                  'bn-body',      /* 회의록 본문 */
+                  'be-body'];     /* 장기메모 본문 */
+const STAMP_ID = ['memoText',     /* 회의 및 기타 메모 */
+                  'diaryText',    /* 일기 */
+                  'dnoteText',    /* 어제와 다른 오늘 */
+                  'delayDetail']; /* 지연사유 상세 */
+let stampTarget = null;                                        /* 지금 찍을 글칸 */
+let stampReleased = false;                                     /* 글칸 밖을 눌러 대상을 놓았는지 */
 
 function stampable(el){
   if(!el || el.tagName !== 'TEXTAREA' || el.disabled || el.readOnly) return false;
+  if(!document.contains(el)) return false;
   if(STAMP_ID.includes(el.id)) return true;
+  if(el.closest('#stickyLayer .sticky')) return true;          /* 포스트잇 */
   return STAMP_OK.some(c => el.classList.contains(c));
 }
-/* 커서가 글칸에 있으면 버튼을 또렷하게 */
 function refreshStampBtn(){
+  /* 화면에서 사라졌거나(다시 그려짐) 숨겨진 곳에 들어갔으면 놓아 준다 */
+  if(stampTarget && (!document.contains(stampTarget) || stampTarget.closest('.hidden'))) stampTarget = null;
+  $('fabStamp').classList.toggle('ready', stampable(stampTarget));
+}
+/* 탭을 옮기거나 날짜를 바꾸면 대상을 놓아 준다 */
+function releaseStamp(){ stampTarget = null; stampReleased = true; refreshStampBtn(); }
+/* 어디를 눌렀는지로 대상을 정한다.
+   글칸 밖(빈 공간·다른 버튼)을 누르면 대상을 놓아 준다 — 그래야 엉뚱한 곳에 찍히지 않는다. */
+document.addEventListener('pointerdown', e => {
+  if(e.target.closest('#fabStamp')) return;                    /* 찍기 버튼은 그대로 둔다 */
+  const ta = e.target.closest('textarea');
+  stampTarget = stampable(ta) ? ta : null;
+  stampReleased = !stampTarget;                                /* 글칸 밖을 눌렀다는 표시 */
+  setTimeout(refreshStampBtn, 0);
+}, true);
+/* 버튼을 누르는 순간, 글칸에서 손이 떠나기 전에 대상을 확정한다.
+   단 '놓아 준 대상'을 되살리면 안 되므로, 앞서 글칸 밖을 눌렀다면 집어오지 않는다. */
+$('fabStamp').addEventListener('pointerdown', () => {
+  if(stampReleased) return;
   const a = document.activeElement;
   if(stampable(a)) stampTarget = a;
-  $('fabStamp').classList.toggle('ready', stampable(stampTarget) && document.contains(stampTarget));
-}
-document.addEventListener('focusin',  refreshStampBtn);
-document.addEventListener('focusout', () => setTimeout(refreshStampBtn, 120));
+});
+/* 키보드로 칸을 옮겨 다닐 때도 따라온다 */
+document.addEventListener('focusin', e => {
+  if(stampable(e.target)){ stampTarget = e.target; stampReleased = false; }
+  refreshStampBtn();
+});
 
 const CHEERS = ['🕒 타임스탬프입니다', '글칸을 먼저 눌러 주세요', '오늘도 힘내세요 🌱',
                 '적을 곳을 정해 주세요', '기록하는 당신, 멋져요 ✨'];
@@ -3839,7 +3871,8 @@ function stampText(){
 }
 $('fabStamp').onclick = () => {
   const el = stampTarget;
-  if(!stampable(el) || !document.contains(el)){
+  if(!stampable(el)){
+    stampTarget = null; refreshStampBtn();
     sayBubble(CHEERS[cheerIdx++ % CHEERS.length]);
     return;
   }
