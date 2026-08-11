@@ -418,6 +418,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #fabStamp.ready{opacity:1;background:var(--accent);color:#fff;border-color:var(--accent);
   box-shadow:0 6px 18px rgba(200,110,40,.4)}
 #fabStamp:active{transform:scale(.94)}
+/* 창 위로 올라갈 때 — 업무 버튼은 비켜 주고 시각 버튼이 그 자리로 */
+body.stamp-up #fabCat{opacity:0;pointer-events:none;transform:scale(.9)}
+body.stamp-up #fabStamp{right:18px}
 #fabStamp .fi{font-size:1.05rem;line-height:1}
 #fabStamp .fl{font-family:'Jua',sans-serif;font-size:.92rem;line-height:1;padding-bottom:1px}
 /* 말풍선 */
@@ -3842,8 +3845,11 @@ function refreshStampBtn(){
   /* 화면에서 사라졌거나(다시 그려짐) 숨겨진 곳에 들어갔으면 놓아 준다 */
   if(stampTarget && (!document.contains(stampTarget) || stampTarget.closest('.hidden'))) stampTarget = null;
   const on = stampable(stampTarget);
+  const z  = on ? stampLayer(stampTarget) : 60;
   $('fabStamp').classList.toggle('ready', on);
-  $('fabStamp').style.zIndex = on ? stampLayer(stampTarget) : 60;
+  $('fabStamp').style.zIndex = z;
+  /* 창 안에서 쓸 때는 '＋ 업무'가 어차피 눌리지 않으니, 그 자리를 시각 버튼이 대신 쓴다 */
+  document.body.classList.toggle('stamp-up', z > 60);
 }
 /* 탭을 옮기거나 날짜를 바꾸면 대상을 놓아 준다 */
 function releaseStamp(){ stampTarget = null; stampReleased = true; refreshStampBtn(); }
