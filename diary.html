@@ -411,16 +411,16 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #fabCat .fl{font-family:'Jua',sans-serif;font-size:.95rem;line-height:1;padding-bottom:1px}
 #fabCat:hover{background:var(--accent-deep);transform:scale(1.06)}
 /* 🕒 시각 찍기 — 업무 버튼 왼쪽에 나란히. 글칸에 커서가 있을 때만 또렷해진다 */
-#fabStamp{position:fixed;right:110px;bottom:calc(26px + env(safe-area-inset-bottom));
-  height:44px;padding:0 14px;border-radius:999px;background:var(--card);color:var(--accent-deep);
-  border:1.5px solid var(--rule);z-index:60;box-shadow:0 4px 14px rgba(120,80,40,.22);
-  display:flex;align-items:center;justify-content:center;gap:4px;opacity:.55;transition:.16s}
-#fabStamp.ready{opacity:1;background:var(--accent);color:#fff;border-color:var(--accent);
-  box-shadow:0 6px 18px rgba(200,110,40,.4)}
+/* 우하단 한 자리를 '＋ 업무'와 번갈아 쓴다 — 글칸에 커서가 있을 때만 나타난다 */
+#fabStamp{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));
+  height:44px;padding:0 15px;border-radius:999px;background:var(--accent);color:#fff;
+  border:1.5px solid var(--accent);z-index:60;box-shadow:0 6px 18px rgba(200,110,40,.4);
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  opacity:0;pointer-events:none;transform:scale(.9);transition:.16s}
+#fabStamp.ready{opacity:1;pointer-events:auto;transform:none}
 #fabStamp:active{transform:scale(.94)}
 /* 창 위로 올라갈 때 — 업무 버튼은 비켜 주고 시각 버튼이 그 자리로 */
 body.stamp-up #fabCat{opacity:0;pointer-events:none;transform:scale(.9)}
-body.stamp-up #fabStamp{right:18px}
 #fabStamp .fi{font-size:1.05rem;line-height:1}
 #fabStamp .fl{font-family:'Jua',sans-serif;font-size:.92rem;line-height:1;padding-bottom:1px}
 /* 말풍선 */
@@ -432,8 +432,8 @@ body.stamp-up #fabStamp{right:18px}
 #fabStamp .bub::after{content:'';position:absolute;right:20px;bottom:-5px;width:10px;height:10px;
   background:var(--ink);transform:rotate(45deg)}
 @media (max-width:400px){
-  #fabStamp{right:104px;padding:0 11px}
-  #fabStamp .fl{font-size:.85rem}
+  #fabStamp{padding:0 12px}
+  #fabStamp .fl{font-size:.88rem}
 }
 .due-wrap{position:relative;flex:none}
 .due-chip{min-width:52px;padding:5px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
@@ -827,15 +827,22 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   background:var(--accent);border-radius:999px;padding:1px 7px;vertical-align:middle}
 
 /* ───────── 설정 메뉴 묶음 ───────── */
-.set-grp{font-family:'Jua',sans-serif;font-size:.78rem;color:var(--ink-soft);
-  padding:8px 4px 2px;letter-spacing:.02em}
-.set-grp:first-child{padding-top:0}
-.set-more{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:8px;
+/* 같은 성격끼리 상자로 묶어 경계를 분명히 — 항목이 많아 그냥 나열하면 구분이 안 된다 */
+.set-sec{border:1.5px solid var(--rule);border-radius:12px;background:var(--paper-deep);
+  padding:8px 9px 10px;display:flex;flex-direction:column;gap:8px}
+.set-sec .btn-line{background:var(--card)}
+.set-grp{font-family:'Jua',sans-serif;font-size:.8rem;color:var(--accent-deep);
+  padding:2px 2px 5px;border-bottom:1.5px dashed var(--rule);letter-spacing:.02em}
+.set-sec.danger{border-color:#E4B3AA;background:rgba(200,90,74,.07)}
+.set-sec.danger .set-grp{color:var(--danger);border-bottom-color:#E4B3AA}
+.set-more{display:flex;align-items:center;justify-content:center;gap:6px;
   border-style:dashed;color:var(--ink-soft)}
 .set-more .ar{transition:.15s;display:inline-block}
+.set-more.open{background:var(--paper-deep);color:var(--accent-deep)}
 .set-more.open .ar{transform:rotate(180deg)}
-.set-sub{display:flex;flex-direction:column;gap:9px;padding:9px 9px 3px;margin-top:2px;
-  border:1.5px dashed var(--rule);border-radius:12px;background:var(--paper-deep)}
+#setMoreBox{display:flex;flex-direction:column;gap:10px;
+  padding:10px;border-radius:12px;border:1.5px dashed var(--rule);background:rgba(0,0,0,.03)}
+#setMoreBox.hidden{display:none}
 
 /* ───────── 🕘 되돌리기 ───────── */
 #undoModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
@@ -1646,26 +1653,41 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   <div class="export-card">
     <h3>⚙ 설정</h3>
     <div class="set-list">
-      <div class="set-grp">보기</div>
-      <button class="btn-line" id="setThemeBtn">🎨 오늘 페이지 테마</button>
-      <button class="btn-line" id="setFontBtn">✒️ 손글씨 글꼴 바꾸기</button>
+      <div class="set-sec">
+        <div class="set-grp">🎨 보기</div>
+        <button class="btn-line" id="setThemeBtn">오늘 페이지 테마</button>
+        <button class="btn-line" id="setFontBtn">손글씨 글꼴 바꾸기</button>
+      </div>
 
-      <div class="set-grp">기록</div>
-      <button class="btn-line" id="setPinBtn">📖 일기 비밀번호</button>
-      <button class="btn-line" id="setCalBtn">📅 캘린더 등록 대상</button>
-      <button class="btn-line" id="setPrivPrintBtn">🏠 인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
+      <div class="set-sec">
+        <div class="set-grp">📝 기록</div>
+        <button class="btn-line" id="setPinBtn">일기 비밀번호</button>
+        <button class="btn-line" id="setCalBtn">캘린더 등록 대상</button>
+        <button class="btn-line" id="setPrivPrintBtn">인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
+      </div>
 
-      <div class="set-grp">되돌리기</div>
-      <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기</button>
-      <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기</button>
+      <div class="set-sec">
+        <div class="set-grp">🕘 되돌리기</div>
+        <button class="btn-line" id="undoBtn">이 날짜 되돌리기</button>
+        <button class="btn-line" id="goalRestoreBtn">목표 되살리기</button>
+      </div>
 
       <button class="btn-line set-more" id="setMoreBtn">⚙ 관리 · 정리 <span class="ar">▾</span></button>
-      <div id="setMoreBox" class="hidden set-sub">
-        <button class="btn-line" id="setNameBtn">👤 다이어리 이름 변경</button>
-        <button class="btn-line" id="storeCheckBtn">🔌 저장소 연결 확인</button>
-        <button class="btn-line hidden" id="photoFixBtn">🖼 예전 사진 정리</button>
-        <button class="btn-line" id="bakFixBtn">🧹 무거운 보관본 정리</button>
-        <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
+      <div id="setMoreBox" class="hidden">
+        <div class="set-sec">
+          <div class="set-grp">💾 저장 공간</div>
+          <button class="btn-line" id="storeCheckBtn">저장소 연결 확인</button>
+          <button class="btn-line hidden" id="photoFixBtn">예전 사진 정리</button>
+          <button class="btn-line" id="bakFixBtn">무거운 보관본 정리</button>
+        </div>
+        <div class="set-sec">
+          <div class="set-grp">👤 다이어리</div>
+          <button class="btn-line" id="setNameBtn">이름 변경</button>
+        </div>
+        <div class="set-sec danger">
+          <div class="set-grp">⚠ 되돌릴 수 없음</div>
+          <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
+        </div>
       </div>
 
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
@@ -3849,7 +3871,7 @@ function refreshStampBtn(){
   $('fabStamp').classList.toggle('ready', on);
   $('fabStamp').style.zIndex = z;
   /* 창 안에서 쓸 때는 '＋ 업무'가 어차피 눌리지 않으니, 그 자리를 시각 버튼이 대신 쓴다 */
-  document.body.classList.toggle('stamp-up', z > 60);
+  document.body.classList.toggle('stamp-up', on);   /* 글칸을 쓸 땐 시각, 아닐 땐 업무 — 한 자리를 번갈아 */
 }
 /* 탭을 옮기거나 날짜를 바꾸면 대상을 놓아 준다 */
 function releaseStamp(){ stampTarget = null; stampReleased = true; refreshStampBtn(); }
