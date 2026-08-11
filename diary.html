@@ -1806,12 +1806,13 @@ const firebaseConfig = {
   authDomain: "diary-hyogi.firebaseapp.com",
   databaseURL: "https://diary-hyogi-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "diary-hyogi",
-  storageBucket: "diary-hyogi.firebasestorage.app",
+  storageBucket: "diary-hyogi.firebasestorage.app",   /* 아래 FB_BUCKET 이 이 값을 그대로 씁니다 */
   messagingSenderId: "1068928286903",
   appId: "1:1068928286903:web:f095ba58e4dde0ee128d32"
 };
 /* ═════════════════════════════════════════════════════════════════════════ */
 firebase.initializeApp(firebaseConfig);
+const FB_BUCKET = firebaseConfig.storageBucket || '';   /* 저장소 안내에 쓰는 이름 */
 /* ▼ 구글 캘린더 연동용 — Google Cloud 콘솔에서 발급받은 값을 넣으세요 */
 const GOOGLE_CLIENT_ID = "1068928286903-kath6tjkkn12252cj5glopte09bo6q2v.apps.googleusercontent.com";
 const auth = firebase.auth();
@@ -3513,9 +3514,10 @@ $('storeCheckBtn').onclick = async () => {
     '이제 «예전 사진 정리»를 돌리시면 됩니다.\n\n' +
     (zipOk
       ? '백업에 첨부파일을 담는 것도 정상이에요.'
-      : `다만 백업 ZIP 에 첨부파일을 담는 것은 아직 막혀 있어요 (${zipWhy}).\n` +
-        '사진을 보는 데는 지장이 없고, 백업할 때 첨부만 빠집니다.\n' +
-        '필요하시면 저장소의 CORS 설정을 열어 드릴게요.'),
+      : `다만 백업 ZIP 에 첨부파일(사진·PDF·PPT·녹음)을 담는 것은 아직 막혀 있어요.\n` +
+        '앱에서 보고 여는 데는 지장이 없고, 백업할 때만 빠집니다.\n\n' +
+        '열려면 — Google Cloud 콘솔 → 우측 상단 Cloud Shell → 아래 한 줄 붙여넣기\n\n' +
+        `echo '[{"origin":["https://hyogiman.github.io"],"method":["GET"],"responseHeader":["Content-Type","Content-Disposition"],"maxAgeSeconds":3600}]' > cors.json && gcloud storage buckets update gs://${FB_BUCKET} --cors-file=cors.json`),
     {title: zipOk ? '🔌 저장소 정상' : '🔌 저장소 정상 (백업 첨부만 제한)', ok:'좋아요', cancel:'닫기'});
 };
 
@@ -4070,7 +4072,7 @@ $('diaryExpMenu').addEventListener('click', e => { if(e.target.id==='diaryExpMen
 /* ═══════════════ 💾 월별 백업 · 복원 · 용량 관리 ═══════════════ */
 let bkYear = new Date().getFullYear();
 let bkSel = new Set();       // 선택된 월 'MM'
-let bkRunning = false, bkAbort = false;
+let bkRunning = false, bkAbort = false, bkMissed = 0;
 
 $('backupBtn').onclick = () => { bkYear = arcYear; bkSel.clear(); openBackup(); };
 $('bkCancel').onclick = () => {
@@ -4139,7 +4141,7 @@ $('bkStart').onclick = async () => {
   if(delAfter && !(await askConfirm(`백업이 끝나면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터가 서버에서 삭제됩니다.\n계속할까요?`,
     {title:'⚠ 백업 후 삭제', ok:'계속', danger:true}))) return;
 
-  bkRunning = true; bkAbort = false;
+  bkRunning = true; bkAbort = false; bkMissed = 0;
   $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
   try{
     await flushSave();
@@ -4180,7 +4182,7 @@ $('bkStart').onclick = async () => {
                 bkProgress(done/total*90, `${dateStr} 녹음 내려받는 중… (${i+1}/${files.length})`);
                 const resp = await fetch(f.url);
                 folder.file(fname, await resp.blob());
-              }catch(e){ folder.file(fname + '_다운로드실패.txt', f.url); }
+              }catch(e){ folder.file(fname + '_다운로드실패.txt', f.url); bkMissed++; }
             }else if(f.data){                            // 예전 base64 저장분
               folder.file(fname, dataUrlParts(f.data).b64, {base64:true});
             }
@@ -4197,7 +4199,16 @@ $('bkStart').onclick = async () => {
     );
     const label = months.length===12? '전체' : months.map(m=>+m+'월').join('·');
     downloadBlob(blob, `DailyLog_백업_${bkYear}년_${label}.zip`);
-    bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`);
+    bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`
+                    + (bkMissed? ` · 첨부 ${bkMissed}개 미포함` : ''));
+    if(bkMissed){
+      await askConfirm(
+        `백업은 끝났지만 첨부파일 ${bkMissed}개를 ZIP 에 담지 못했어요.\n` +
+        `일지 본문과 사진 화면은 모두 정상이고, 첨부 원본도 저장소에 그대로 있습니다.\n\n` +
+        `저장소가 다른 곳에서 파일을 내려받는 것을 막고 있어서예요(CORS).\n` +
+        `설정의 «저장소 연결 확인»에 나오는 안내대로 한 번만 열어 주면 다음 백업부터 함께 담깁니다.`,
+        {title:'📦 백업 완료 — 첨부 일부 제외', ok:'알겠어요', cancel:'닫기'});
+    }
 
     if(delAfter){
       if(await askConfirm(`ZIP 다운로드가 시작됐습니다.\n파일이 단말기에 정상 저장된 것을 확인하셨나요?\n확인을 누르면 ${bkYear}년 ${months.map(m=>+m+'월').join(', ')} 데이터를 서버에서 삭제합니다.`,
