@@ -3825,10 +3825,25 @@ function stampable(el){
   if(el.closest('#stickyLayer .sticky')) return true;          /* 포스트잇 */
   return STAMP_OK.some(c => el.classList.contains(c));
 }
+/* 글칸이 창(일기·장기메모·지연사유 등) 안에 있으면 그 창보다 위로 올라가야 누를 수 있다 */
+function stampLayer(el){
+  let n = el;
+  while(n && n !== document.body){
+    const cs = getComputedStyle(n);
+    if(cs.position === 'fixed'){
+      const z = parseInt(cs.zIndex);
+      if(Number.isFinite(z)) return z + 1;
+    }
+    n = n.parentElement;
+  }
+  return 60;                                   /* 그냥 화면 위면 원래 자리 */
+}
 function refreshStampBtn(){
   /* 화면에서 사라졌거나(다시 그려짐) 숨겨진 곳에 들어갔으면 놓아 준다 */
   if(stampTarget && (!document.contains(stampTarget) || stampTarget.closest('.hidden'))) stampTarget = null;
-  $('fabStamp').classList.toggle('ready', stampable(stampTarget));
+  const on = stampable(stampTarget);
+  $('fabStamp').classList.toggle('ready', on);
+  $('fabStamp').style.zIndex = on ? stampLayer(stampTarget) : 60;
 }
 /* 탭을 옮기거나 날짜를 바꾸면 대상을 놓아 준다 */
 function releaseStamp(){ stampTarget = null; stampReleased = true; refreshStampBtn(); }
