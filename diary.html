@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>업무일지</title>
+<title>Daily Log</title>
 <link rel="manifest" href="./manifest.json">
 <meta name="theme-color" content="#E5762E">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="업무일지">
+<meta name="apple-mobile-web-app-title" content="Daily Log">
 <link rel="apple-touch-icon" href="./apple-touch-icon.png">
 <link rel="icon" href="./favicon-32.png" sizes="32x32">
 <link rel="icon" href="./icon-192.png" sizes="192x192">
@@ -129,6 +129,15 @@ input:focus,textarea:focus{outline-offset:0}
 .note-wrap{flex:1;min-width:200px;display:flex;align-items:flex-start;gap:8px}
 .note-label{padding-top:4px}
 .note-label{font-family:'Jua';color:var(--accent);font-size:1.02rem;white-space:nowrap}
+/* '오늘은?' — 옆 사람 눈에 바로 띄지 않게 평소엔 가려 둔다 */
+.note-label{cursor:pointer;transition:.13s}
+.note-label:hover{color:var(--accent-deep)}
+.note-label.on{opacity:.75}
+.note-veil{flex:1;min-width:0;text-align:left;font-family:var(--hand);
+  font-size:calc(1.3rem * var(--hand-size));color:var(--ink-soft);opacity:.5;
+  border-bottom:1.5px dashed var(--rule);padding:2px 2px 4px;transition:.13s}
+.note-veil:hover{opacity:.8;color:var(--accent)}
+.note-veil.filled::after{content:' ✎';font-size:.8em;color:var(--accent);opacity:.7}
 #dayNote{flex:1;min-width:0;border:none;background:transparent;border-bottom:1.5px dashed var(--rule);
   font-family:var(--hand);font-size:calc(1.3rem * var(--hand-size));color:var(--blue);padding:2px 4px;
   line-height:1.45;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;
@@ -274,6 +283,8 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
   border-radius:8px;padding:6px 11px;white-space:nowrap;letter-spacing:-.01em;
   user-select:none;-webkit-user-select:none}
 .ov-when:active{cursor:grabbing}
+.ov-when:hover{filter:brightness(1.12)}
+.ov-when::after{content:' ▾';font-size:.72em;opacity:.75}
 .ov-year .ov-when{background:#3A57C8}
 .ov-month .ov-when{background:var(--accent)}
 .ov-week .ov-when{background:#2E8B57}
@@ -390,9 +401,14 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 button:disabled{opacity:.45;cursor:not-allowed}
 
 /* ───────── v3: 플로팅·마감칩·퀵메모·기타함·검색 ───────── */
-#fabCat{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));width:56px;height:56px;
-  border-radius:50%;background:var(--accent);color:#fff;font-size:1.7rem;z-index:60;
-  box-shadow:0 6px 18px rgba(200,110,40,.45);transition:.15s;display:flex;align-items:center;justify-content:center}
+/* 우하단 버튼 — 이름을 붙이되 예전 원형(56px)보다 커지지 않게 가로로 눕힌다.
+   업무 행의 ✕ 같은 버튼을 가리면 안 되므로 높이를 오히려 줄였다. */
+#fabCat{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));
+  height:44px;padding:0 15px;border-radius:999px;background:var(--accent);color:#fff;z-index:60;
+  box-shadow:0 6px 18px rgba(200,110,40,.45);transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:4px}
+#fabCat .fi{font-size:1.25rem;line-height:1}
+#fabCat .fl{font-family:'Jua',sans-serif;font-size:.95rem;line-height:1;padding-bottom:1px}
 #fabCat:hover{background:var(--accent-deep);transform:scale(1.06)}
 .due-wrap{position:relative;flex:none}
 .due-chip{min-width:52px;padding:5px 10px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
@@ -683,6 +699,20 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .bn-files .thumb{width:min(200px,40vw);height:auto;aspect-ratio:4/3}
 
 /* A4 렌더용 (794×1123 @96dpi) */
+/* ───────── 카테고리 메모 ───────── */
+.cat-note-btn{position:relative}
+.cat-note-btn .dot{position:absolute;top:1px;right:1px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.cat-note-btn .cnt{position:absolute;bottom:-4px;right:-5px;background:var(--accent);color:#fff;font-size:.54rem;
+  font-weight:800;border-radius:999px;padding:1px 4px;line-height:1.3}
+.cat-note{margin:0 0 8px;padding:9px 11px;border-radius:10px;background:var(--paper-deep);
+  border:1.5px dashed var(--rule)}
+.cn-text{width:100%;border:none;background:transparent;resize:none;overflow:hidden;
+  font-family:var(--hand);font-size:calc(1.18rem * var(--hand-size));line-height:1.55;color:var(--ink)}
+.cn-text:focus{outline:none}
+.cn-bar{display:flex;gap:6px;margin-top:6px}
+.cn-bar .mini-btn{padding:5px 10px;font-size:.75rem}
+.cn-files:not(:empty){margin-top:8px}
+
 /* ───────── ⏳ 지연기록 ───────── */
 .delay-btn{position:relative;flex:none;width:30px;height:30px;border-radius:8px;font-size:.95rem;
   color:#B07A22;background:rgba(214,160,60,.14);border:1.5px solid rgba(200,150,55,.4);
@@ -1221,7 +1251,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 <!-- 로그인 -->
 <div id="loginView">
   <div class="login-card">
-    <h1>📔 업무일지</h1>
+    <h1>📔 Daily Log</h1>
     <div class="sub">오늘도 수고하는 나에게</div>
     <input type="email" id="loginEmail" placeholder="이메일" autocomplete="username">
     <input type="password" id="loginPw" placeholder="비밀번호" autocomplete="current-password">
@@ -1234,7 +1264,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 <div id="appView" class="hidden">
   <div id="topbar">
     <div class="topbar-in">
-      <button class="brand" id="brandName" title="오늘 목록으로">📔 업무일지</button>
+      <button class="brand" id="brandName" title="오늘 목록으로">📔 Daily Log</button>
       <div class="tabs">
         <button class="tab on" id="tabToday">목록</button>
         <button class="tab" id="tabGoal">목표</button>
@@ -1274,8 +1304,9 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <div class="paper">
         <div class="sheet-head" style="border-bottom-width:2px">
           <div class="note-wrap">
-            <span class="note-label">남김말 :</span>
-            <textarea id="dayNote" rows="1" placeholder="오늘 하루를 한 줄로" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+            <button class="note-label" id="noteToggle" type="button" title="눌러서 열고 닫기">오늘은?</button>
+            <button class="note-veil" id="noteVeil" type="button">어떤 하루인가요?</button>
+            <textarea id="dayNote" class="hidden" rows="1" placeholder="오늘을 한 줄로" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
           </div>
           <div class="actions" style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
@@ -1322,7 +1353,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     </div>
   </div>
 
-  <button id="fabCat" title="카테고리 추가">＋</button>
+  <button id="fabCat" title="업무 카테고리 추가"><span class="fi">＋</span><span class="fl">업무</span></button>
 
   <div id="goalView" class="hidden">
     <div id="goalNav">
@@ -1465,7 +1496,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 <div id="aiModal" class="hidden">
   <div class="bk-card" style="max-width:520px">
     <h3>🤖 AI에게 물어보기</h3>
-    <div class="ai-help">업무일지를 챗GPT·클로드 같은 곳에 붙여 넣을 수 있게 정리해 복사합니다.<br>
+    <div class="ai-help">Daily Log를 챗GPT·클로드 같은 곳에 붙여 넣을 수 있게 정리해 복사합니다.<br>
       무엇을 물어볼지 고르면 질문까지 함께 담깁니다.</div>
     <div id="aiPick" class="ai-pick"></div>
     <div id="aiHint" class="ai-hint"></div>
@@ -1559,7 +1590,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
       <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기 (자동 보관본)</button>
       <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기 (자동 보관본)</button>
-      <button class="btn-line" id="photoFixBtn">🖼 예전 사진 정리 (통신량 줄이기)</button>
+      <button class="btn-line hidden" id="photoFixBtn">🖼 예전 사진 정리 (통신량 줄이기)</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -1959,6 +1990,9 @@ function normalize(v){
     })),
     cats: (Array.isArray(v.cats)? v.cats : Object.values(v.cats||{})).map(c => ({
       id: c.id||uid8(), name: c.name||'', color: c.color||0, priv: !!c.priv,
+      note: c.note||'',                                          /* 카테고리 전체에 걸친 메모 */
+      files: Array.isArray(c.files)? c.files : Object.values(c.files||{}),
+      open: false,
       tasks: (Array.isArray(c.tasks)? c.tasks : Object.values(c.tasks||{})).map(normTask)
     }))
   };
@@ -2069,12 +2103,43 @@ window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
 function renderSheet(){
   $('dayNote').value = day.note;
   grow($('dayNote'), 0);
+  hideNote();                       /* 날짜를 옮기면 다시 가려 둔다 */
   $('memoText').value = day.memo;
   renderCats(); renderInbox(); renderPriv(); renderNotes(); renderMemoFiles();
 }
-$('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); grow(e.target, 0); });
-$('dayNote').addEventListener('focus', e => grow(e.target, 0));
+$('dayNote').addEventListener('input', e => { day.note = e.target.value; markDirty(); grow(e.target, 0); armNoteHide(); });
+$('dayNote').addEventListener('focus', e => { grow(e.target, 0); armNoteHide(); });
 $('dayNote').addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); e.target.blur(); } });
+$('dayNote').addEventListener('blur', armNoteHide);
+
+/* ───────── '오늘은?' 여닫기 ─────────
+   남이 화면을 볼 때 바로 보이지 않도록 평소엔 가려 두고, 눌렀을 때만 보여 준다.
+   손을 뗀 뒤 30초가 지나면 저절로 다시 가려진다. */
+let noteHideTimer = null;
+function armNoteHide(){
+  clearTimeout(noteHideTimer);
+  noteHideTimer = setTimeout(() => { if(document.activeElement !== $('dayNote')) hideNote(); }, 30000);
+}
+function hideNote(){
+  clearTimeout(noteHideTimer); noteHideTimer = null;
+  $('dayNote').classList.add('hidden');
+  const v = $('noteVeil');
+  v.classList.remove('hidden');
+  const has = (day.note||'').trim();
+  v.textContent = has ? '오늘을 적어 두었어요' : '어떤 하루인가요?';
+  v.classList.toggle('filled', !!has);
+  $('noteToggle').classList.remove('on');
+}
+function showNote(focus){
+  $('noteVeil').classList.add('hidden');
+  $('dayNote').classList.remove('hidden');
+  $('noteToggle').classList.add('on');
+  grow($('dayNote'), 0);
+  if(focus) $('dayNote').focus();
+  armNoteHide();
+}
+$('noteVeil').onclick   = () => showNote(true);
+$('noteToggle').onclick = () => ($('dayNote').classList.contains('hidden') ? showNote(true) : hideNote());
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
 $('memoText').addEventListener('focus', e => autoGrow(e.target));
 $('memoText').addEventListener('click', e => autoGrow(e.target));
@@ -2127,6 +2192,8 @@ function renderCats(){
   const catOrder = day.cats.map((cat,ci)=>({cat,ci}));
   catOrder.sort((a,b)=> (isDoneCat(a.cat)?1:0) - (isDoneCat(b.cat)?1:0));   // 완료 모음 카테고리는 맨 아래
   catOrder.forEach(({cat, ci}) => {
+    if(!Array.isArray(cat.files)) cat.files = [];      /* 이 칸이 없던 예전 카테고리 대비 */
+    if(typeof cat.note !== 'string') cat.note = '';
     const col = catColor(cat);
     const el = document.createElement('div'); el.className='cat'; el.dataset.cid = cat.id;
     el.innerHTML = `
@@ -2135,12 +2202,39 @@ function renderCats(){
         <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button>
-          <button title="업무 추가">＋</button><button class="del" title="삭제">✕</button>
+          <button title="업무 추가">＋</button>
+          <button class="cat-note-btn" title="이 카테고리 메모 — 지시사항·유의점">📝${(cat.note||'').trim()? '<span class="dot"></span>':''}${(cat.files||[]).length? `<span class="cnt">📎${cat.files.length}</span>`:''}</button>
+          <button class="del" title="삭제">✕</button>
         </div>
+      </div>
+      <div class="cat-note ${cat.open? '':'hidden'}">
+        <textarea class="cn-text" rows="2" placeholder="이 카테고리 전체에 걸친 메모 — 지시사항, 유의점, 배경" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"></textarea>
+        <div class="cn-bar">
+          <button class="mini-btn cn-img">🖼 사진</button>
+          <button class="mini-btn cn-doc">📎 파일</button>
+        </div>
+        <div class="file-grid cn-files"></div>
       </div>
       <div class="task-list"></div>`;
     el.querySelector('.cat-dot').onclick = () => { cat.color = ((cat.color||0)+1)%PALETTE.length; markDirty(); renderCats(); };
-    const [up,down,add,del] = el.querySelectorAll('.ctl button');
+    const [up,down,add,noteBtn,del] = el.querySelectorAll('.cat-head .ctl button');
+    /* 카테고리 메모 — 소업무가 끝나 사라져도 남는, 그 묶음 전체에 걸친 기록 */
+    const cnBox = el.querySelector('.cat-note');
+    noteBtn.onclick = () => {
+      cat.open = cnBox.classList.contains('hidden');
+      cnBox.classList.toggle('hidden', !cat.open);
+      if(cat.open){ const ta = cnBox.querySelector('.cn-text'); autoGrow(ta); ta.focus(); }
+    };
+    const cnText = cnBox.querySelector('.cn-text');
+    cnText.value = cat.note || '';
+    cnText.addEventListener('input', e => { cat.note = e.target.value; markDirty(); autoGrow(e.target); });
+    cnText.addEventListener('focus', e => autoGrow(e.target));
+    if(cat.open) autoGrow(cnText);
+    cnBox.querySelector('.cn-img').onclick = () => pickFile('image/*', f =>
+      addImage(f, cat.files, () => { markDirty(); renderCats(); }));
+    cnBox.querySelector('.cn-doc').onclick = () => pickFile('*/*', f =>
+      addDoc(f, cat.files, () => { markDirty(); renderCats(); }, cnBox.querySelector('.cn-files')));
+    renderFiles(cnBox.querySelector('.cn-files'), cat.files, {save:markDirty, rerender:renderCats});
     el.querySelector('.cat-name').addEventListener('input', e => { cat.name = e.target.value; markDirty(); });
     el.querySelector('.cat-name').addEventListener('change', () => {
       cat.tasks.forEach(t => { if(t.gcalId) syncTaskToCalendar(t, cat); });   // 등록된 일정 제목 갱신
@@ -2386,7 +2480,7 @@ function taskRow(t, ctx){
 }
 $('fabCat').onclick = () => {
   const cid = uid8();
-  day.cats.push({id:cid, name:'', color: day.cats.length%PALETTE.length, tasks:[newTask()]});
+  day.cats.push({id:cid, name:'', color: day.cats.length%PALETTE.length, note:'', files:[], tasks:[newTask()]});
   markDirty(); renderCats();
   /* 화면 정렬과 무관하게, 방금 만든 카테고리를 정확히 찾아 커서를 둠 */
   const el = document.querySelector(`.cat[data-cid="${cid}"] .cat-name`);
@@ -2397,7 +2491,7 @@ $('fabCat').onclick = () => {
 $('carryBtn').onclick = async () => {
   await flushSave();
   const prev = await findPrevWorkDay(curDate);
-  if(!prev){ toast('이전에 작성한 업무일지가 없어요'); return; }
+  if(!prev){ toast('이전에 작성한 기록이 없어요'); return; }
 
   let moved = 0, skipped = 0;
   prev.data.cats.forEach(pc => {
@@ -2405,7 +2499,7 @@ $('carryBtn').onclick = async () => {
     const undone = pc.tasks.filter(t => !t.done && t.text.trim());
     if(!undone.length) return;
     let target = day.cats.find(c => c.name.trim() && c.name.trim() === pc.name.trim());
-    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, tasks:[]}; day.cats.push(target); }
+    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, note:'', files:[], tasks:[]}; day.cats.push(target); }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
       target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id), time:'', gcalId:''});   // 원본 계보 유지
@@ -2854,7 +2948,7 @@ function buildA4(dateStr, data){
   el.className = 'a4';
   el.innerHTML = `
     <div class="a4-head" style="justify-content:space-between">
-      <div class="a4-title">${esc(userName||'나')}의 업무일지</div>
+      <div class="a4-title">${esc(userName||'나')}의 Daily Log</div>
       <div class="a4-date">${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}. (${DOW[d.getDay()]})</div>
     </div>
     ${data.note.trim()? `<div class="a4-note" style="padding:12px 2px 0">남김말 : ${esc(data.note)}</div>`:''}
@@ -2884,7 +2978,7 @@ function buildA4(dateStr, data){
     <div class="a4-star">★ 회의 및 기타 메모</div>
     <div class="memo-a4">${esc(data.memo)}</div>
     <div class="memo-imgs">${imgs}</div>${audioNote}
-    <div class="a4-foot">${dateStr} · ${esc(userName||'나')}의 업무일지</div>`;
+    <div class="a4-foot">${dateStr} · ${esc(userName||'나')}의 Daily Log</div>`;
   return el;
 }
 function canvasToPdfBlob(canvas){
@@ -2918,7 +3012,7 @@ async function runExport(kind){
   try{
     await document.fonts.ready;
     const canvas = await renderDayCanvas(curDate, {...day, __priv: privPrint? priv.filter(t=>t.text.trim()) : []});
-    const fname = `업무일지_${curDate}`;
+    const fname = `DailyLog_${curDate}`;
     if(kind==='png'){
       const a = document.createElement('a');
       a.href = canvas.toDataURL('image/png'); a.download = fname+'.png'; a.click();
@@ -3164,16 +3258,16 @@ $('delayClose').onclick = closeDelayModal;
 $('delayModal').addEventListener('click', e => { if(e.target.id==='delayModal') closeDelayModal(); });
 
 /* ═══════════════ 🤖 AI에게 물어보기용 정리 ═══════════════
-   업무일지를 챗GPT·클로드 같은 곳에 붙여 넣어 조언을 받기 위한 글.
+   Daily Log를 챗GPT·클로드 같은 곳에 붙여 넣어 조언을 받기 위한 글.
    일기·어제와 다른 오늘·기분/컨디션은 사생활이라 절대 담지 않는다. */
 const AI_ASKS = {
   plan: ['📋 하루 계획 조언',
-    '아래는 내 오늘 업무일지야. 이걸 보고\n' +
+    '아래는 내 오늘 기록이야. 이걸 보고\n' +
     '1) 오늘 무엇부터 손대야 할지 순서를 제안하고\n' +
     '2) 시간 배치가 무리한 곳이 있으면 짚어 주고\n' +
     '3) 놓치고 있는 것 같은 일이 있으면 알려줘.'],
   meeting: ['🗣 회의 준비',
-    '아래는 내 업무일지와 회의록이야. 이걸 보고\n' +
+    '아래는 내 기록과 회의록이야. 이걸 보고\n' +
     '1) 이 회의에서 내가 준비해야 할 것을 정리하고\n' +
     '2) 나올 만한 질문과 그에 대한 답의 방향을 잡아 주고\n' +
     '3) 회의에서 반드시 결론 내야 할 것을 짚어 줘.'],
@@ -3243,7 +3337,7 @@ function aiDayBlock(ds, d, opt){
 async function buildAIBrief(purpose){
   const wide = purpose === 'review';                 /* 주간 회고는 이번 주 전체 */
   let out = AI_ASKS[purpose][1] + '\n\n' + '═'.repeat(28) + '\n';
-  out += `[업무일지] ${userName||'나'} · ${wide? '이번 주' : '오늘'} 기준\n`;
+  out += `[Daily Log] ${userName||'나'} · ${wide? '이번 주' : '오늘'} 기준\n`;
 
   if(wide){
     const d0 = new Date(curDate+'T12:00:00');
@@ -3327,6 +3421,19 @@ $('aiPreview').onclick = async () => {
 };
 $('aiClose').onclick = () => $('aiModal').classList.add('hidden');
 $('aiModal').addEventListener('click', e => { if(e.target.id==='aiModal') $('aiModal').classList.add('hidden'); });
+
+/* 지금 열려 있는 곳에 '일지 안에 담긴 사진'이 남아 있는지 — 추가 통신 없이 확인 */
+function hasOldPhotosNow(){
+  const old = arr => (arr||[]).some(o => (o.files||[]).some(f => f.type==='image' && f.data && !f.url));
+  const inDay = (day.cats||[]).some(c => old(c.tasks))
+             || old(day.notes)
+             || (day.memoFiles||[]).some(f => f.type==='image' && f.data && !f.url);
+  return inDay || old(bank) || old(inbox) || old(priv);
+}
+function refreshPhotoFixBtn(){
+  const b = $('photoFixBtn');
+  if(b) b.classList.toggle('hidden', !hasOldPhotosNow());
+}
 
 /* ═══════════════ 🖼 예전 사진 정리 ═══════════════
    예전에 넣은 사진은 일지 데이터 안에 글자로 담겨 있어, 그 날짜를 읽을 때마다
@@ -3482,6 +3589,7 @@ $('photoFixBtn').onclick = async () => {
         catch(e){ kept += n; moved -= n; }
       }
     }
+    refreshPhotoFixBtn();
     toast(kept ? `사진 ${moved}장을 옮겼어요 · ${kept}장은 그대로 두었어요 (다시 눌러 주세요)`
                : `사진 ${moved}장을 옮겨 일지가 가벼워졌어요`);
   }catch(e){ toast('사진 정리 중 문제가 생겼어요: ' + (e.message||'')); }
@@ -3896,8 +4004,8 @@ $('bkStart').onclick = async () => {
         bkProgress(done/total*90, `${dateStr} 변환 중… (${done+1}/${total}일)`);
         const data = normalize(daysObj[dd]);
         const canvas = await renderDayCanvas(dateStr, data);   // 개인 용무함은 날짜에 묶이지 않아 월별 백업 문서에는 미포함
-        if(fmt==='png') folder.file(`업무일지_${dateStr}.png`, canvas.toDataURL('image/png').split(',')[1], {base64:true});
-        else            folder.file(`업무일지_${dateStr}.pdf`, canvasToPdfBlob(canvas));
+        if(fmt==='png') folder.file(`DailyLog_${dateStr}.png`, canvas.toDataURL('image/png').split(',')[1], {base64:true});
+        else            folder.file(`DailyLog_${dateStr}.pdf`, canvasToPdfBlob(canvas));
 
         if(incAudio){
           const files = [
@@ -3929,7 +4037,7 @@ $('bkStart').onclick = async () => {
       meta => bkProgress(92 + meta.percent*0.08, `ZIP으로 압축하는 중… ${Math.round(meta.percent)}%`)
     );
     const label = months.length===12? '전체' : months.map(m=>+m+'월').join('·');
-    downloadBlob(blob, `업무일지_백업_${bkYear}년_${label}.zip`);
+    downloadBlob(blob, `DailyLog_백업_${bkYear}년_${label}.zip`);
     bkProgress(100, `✓ 백업 완료 — ${total}일 · ${(blob.size/1024/1024).toFixed(1)}MB`);
 
     if(delAfter){
@@ -4098,7 +4206,7 @@ function calDates(t){
 function calBody(t, cat){
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
   const title = (t.done? '✔ ':'') + (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
-  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
+  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || 'Daily Log에서 등록');
   const base = t.time ? curDate : (t.due || curDate);
   let body;
   if(t.time){
@@ -4142,7 +4250,7 @@ async function openCalendar(t, cat, ctxRerender){
   }
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
   const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
-  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || '업무일지에서 등록');
+  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || 'Daily Log에서 등록');
   window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}`
     + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}&details=${encodeURIComponent(details)}`
     + (calTarget? `&src=${encodeURIComponent(calTarget)}` : ''), '_blank');
@@ -4402,7 +4510,7 @@ async function jumpToHit(dateStr, tg, q){
   }else if(tg.cid){
     host  = document.querySelector(`.cat[data-cid="${tg.cid}"]`);
     inner = host && host.querySelector('.cat-name');
-  }else if(tg.field === 'note') host = inner = $('dayNote');
+  }else if(tg.field === 'note'){ showNote(false); host = inner = $('dayNote'); }
   else if(tg.field === 'memo')  host = inner = $('memoText');
   else if(tg.box)               host = $(tg.box === 'inbox' ? 'inboxList' : 'privList');
 
@@ -4447,7 +4555,7 @@ function flashHit(el, q, box){
 function buildReport(){
   const d = new Date(curDate+'T12:00:00');
   const stMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
-  let out = `[업무일지] ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}.(${DOW[d.getDay()]})`;
+  let out = `[Daily Log] ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}.(${DOW[d.getDay()]})`;
   if(day.note.trim()) out += `\n남김말: ${day.note.trim()}`;
   day.cats.forEach(c => {
     if(c.priv && !privPrint) return;
@@ -4783,7 +4891,10 @@ function renderArcDone(yd){
 }
 
 /* ═══════════════ ⚙ 설정: 당일 전체 삭제 · 일기 비밀번호 ═══════════════ */
-$('settingsBtn').onclick = () => $('settingsMenu').classList.remove('hidden');
+$('settingsBtn').onclick = () => {
+  refreshPhotoFixBtn();                       /* 치울 사진이 남아 있을 때만 정리 버튼을 보여 준다 */
+  $('settingsMenu').classList.remove('hidden');
+};
 $('setClose').onclick = () => $('settingsMenu').classList.add('hidden');
 $('settingsMenu').addEventListener('click', e => { if(e.target.id==='settingsMenu') $('settingsMenu').classList.add('hidden'); });
 
@@ -5096,8 +5207,8 @@ async function loadName(){
 }
 function applyName(){
   const nm = userName || '나';
-  $('brandName').textContent = `📔 ${nm}의 업무일지`;
-  document.title = `${nm}의 업무일지`;
+  $('brandName').textContent = `📔 ${nm}의 Daily Log`;
+  document.title = `${nm}의 Daily Log`;
 }
 $('setNameBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
@@ -5136,7 +5247,7 @@ function buildDoneA4(label, groupsAsc, total){
       <tr><th>완료일</th><th>카테고리</th><th style="text-align:left;padding-left:14px">업무 내용</th></tr>
       ${rows}
     </table>
-    <div class="a4-foot">${label} · ${esc(userName||'나')}의 업무일지</div>`;
+    <div class="a4-foot">${label} · ${esc(userName||'나')}의 Daily Log</div>`;
   return el;
 }
 async function exportArcDone(kind){
@@ -5886,7 +5997,7 @@ $('evSave').onclick = async () => {
     }));
     if(linked){ markDirty(); renderCats(); }
     $('evModal').classList.add('hidden'); evEditing = null;
-    toast(linked? '일정과 업무일지에 함께 반영했어요' : '일정을 수정했어요');
+    toast(linked? '일정과 Daily Log에 함께 반영했어요' : '일정을 수정했어요');
     loadSchedule(true);
   }catch(e){ toast('수정 실패: '+e.message); }
 };
@@ -6462,7 +6573,7 @@ function renderPeek(){
 }
 $('tabGoal').onclick = () => switchTab('goal');
 
-/* ═══════════════ 🖨 목표 전용 출력 (업무일지와 별도) ═══════════════ */
+/* ═══════════════ 🖨 목표 전용 출력 (일지와 별도) ═══════════════ */
 function buildGoalA4(){
   const scopeName = {year:'연간', month:'월간', week:'주간'}[goalScope];
   const list = goalsOf(goalScope, goalKey).filter(g => !g.stopped && (g.text||'').trim());
@@ -7202,7 +7313,7 @@ $('vacSave').onclick = async () => {
   if(GOOGLE_CLIENT_ID && await ensureToken(false)){
     try{
       const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-      let body = {summary:`🏖 ${k.label}`, description: note || '업무일지에서 등록'};
+      let body = {summary:`🏖 ${k.label}`, description: note || 'Daily Log에서 등록'};
       if(k.allDay){
         const nx = new Date(en+'T12:00:00'); nx.setDate(nx.getDate()+1);
         const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -7508,6 +7619,113 @@ function ovLabelOf(it){
   const {mon, sun} = weekRange(it.key);
   return `${mon.getMonth()+1}/${mon.getDate()}~${sun.getMonth()+1}/${sun.getDate()}`;
 }
+/* ═══════════════ 목표 기간 옮기기 ═══════════════
+   기간 배지를 누르면 그 목표를 다른 기간으로 옮긴다.
+   묶여 있는 하위 목표도 같은 만큼 따라 옮겨, 손으로 하나씩 고치지 않아도 되게 한다.
+   - 연간: 2026 → 2027 이면 하위 월간은 달을 그대로 두고 해만 바뀐다 (8월 → 8월)
+   - 월간: 8월 → 9월 이면 하위 주간은 '그 달의 몇 번째 주'를 지켜 옮긴다 (8월 첫 주 → 9월 첫 주)
+   - 주간: 고른 주로 그대로 옮긴다 */
+function weekKeyOf(d){ const {y,w} = isoWeek(d); return `${y}-W${String(w).padStart(2,'0')}`; }
+/* 그 달의 주 목록 — '1일이 들어 있는 주'가 그 달의 첫째 주다.
+   그래서 9월 첫째 주는 8/31~9/6 처럼 앞달 며칠을 품을 수 있다. */
+function weeksInMonth(mKey){
+  const y = +mKey.slice(0,4), m = +mKey.slice(5,7);
+  const first = new Date(y, m-1, 1);
+  const mon0 = new Date(first);
+  mon0.setDate(first.getDate() - ((first.getDay()+6)%7));   /* 1일이 속한 주의 월요일 */
+  const last = new Date(y, m, 0);                            /* 그 달 마지막 날 */
+  const out = [];
+  for(let i=0;i<6;i++){
+    const mon = new Date(mon0); mon.setDate(mon0.getDate()+i*7);
+    if(mon > last) break;                                    /* 월요일이 그 달을 넘어가면 끝 */
+    out.push(weekKeyOf(mon));
+  }
+  return out.length ? out : [weekKeyOf(first)];
+}
+/* 목표 한 건을 다른 칸으로 옮긴다 */
+function moveGoal(scope, fromKey, gid, toKey){
+  if(fromKey === toKey) return null;
+  const from = goalsOf(scope, fromKey);
+  const i = from.findIndex(x => x.id === gid);
+  if(i < 0) return null;
+  const [g] = from.splice(i, 1);
+  if(!goals[scope][toKey]) goals[scope][toKey] = [];
+  goals[scope][toKey].push(g);
+  return g;
+}
+/* 하위 목표까지 함께 옮긴다 */
+function moveGoalTree(it, toKey){
+  const {scope, key, g} = it;
+  if(key === toKey) return 0;
+  let moved = 0;
+  if(scope === 'year'){
+    const dy = +toKey - +key;
+    /* 하위 월간을 먼저 — 달은 그대로, 해만 옮긴다 */
+    ovMonthsOf(+key).forEach(mk => {
+      goalsOf('month', mk).filter(c => c.parent === g.id).forEach(c => {
+        const newMk = `${+mk.slice(0,4) + dy}-${mk.slice(5,7)}`;
+        if(moveGoal('month', mk, c.id, newMk)){
+          moved++;
+          /* 그 월간에 묶인 주간도 같은 순번의 주로 */
+          const oldWs = weeksInMonth(mk), newWs = weeksInMonth(newMk);
+          oldWs.forEach((wk, wi) => {
+            goalsOf('week', wk).filter(w => w.parent === c.id).forEach(w => {
+              const target = newWs[Math.min(wi, newWs.length-1)];
+              if(moveGoal('week', wk, w.id, target)) moved++;
+            });
+          });
+        }
+      });
+    });
+  }else if(scope === 'month'){
+    const oldWs = weeksInMonth(key), newWs = weeksInMonth(toKey);
+    oldWs.forEach((wk, wi) => {
+      goalsOf('week', wk).filter(w => w.parent === g.id).forEach(w => {
+        const target = newWs[Math.min(wi, newWs.length-1)];
+        if(moveGoal('week', wk, w.id, target)) moved++;
+      });
+    });
+  }
+  if(moveGoal(scope, key, g.id, toKey)) moved++;
+  return moved;
+}
+/* 기간 고르기 창 */
+async function ovMovePeriod(it){
+  const {scope, key, g} = it;
+  let quick = [], title = '', desc = '';
+  if(scope === 'year'){
+    const y = +key;
+    title = '📅 연간 목표 기간 옮기기';
+    desc = '하위 월간·주간 목표도 같은 달·같은 순번으로 따라옵니다';
+    for(let d=-2; d<=3; d++) quick.push([String(y+d), `${y+d}년`]);
+  }else if(scope === 'month'){
+    title = '📅 월간 목표 기간 옮기기';
+    desc = '하위 주간 목표도 그 달의 같은 순번 주로 따라옵니다';
+    const y = +key.slice(0,4);
+    for(let yy of [y-1, y, y+1]) for(let m=1; m<=12; m++)
+      quick.push([`${yy}-${String(m).padStart(2,'0')}`, `${yy===y? '' : yy+'. '}${m}월`]);
+  }else{
+    title = '📅 주간 목표 기간 옮기기';
+    desc = '옮긴 주로 자리가 다시 정렬됩니다';
+    const {mon} = weekRange(key);
+    for(let d=-6; d<=10; d++){
+      const m = new Date(mon); m.setDate(mon.getDate() + d*7);
+      const k = weekKeyOf(m);
+      const {mon:a, sun:b} = weekRange(k);
+      quick.push([k, `${a.getMonth()+1}/${a.getDate()}~${b.getMonth()+1}/${b.getDate()}`]);
+    }
+  }
+  const cur = quick.find(q => q[0] === key);
+  const v = await askInput({
+    title, desc: `"${(g.text||'').trim() || '(제목 없음)'}"\n지금: ${cur? cur[1] : ovLabelOf(it)}\n${desc}`,
+    value: key, quick, pickOnly: true
+  });
+  if(v === null || v === key) return;
+  const n = moveGoalTree(it, v);
+  markGoals(); renderOverview();
+  toast(n > 1 ? `기간을 옮기고 하위 목표 ${n-1}개도 함께 옮겼어요` : '기간을 옮겼어요');
+}
+
 /* 목표 한 칸 — 기간 · 내용 · ＋ · ✕ 만 */
 function ovCard(it, childCount){
   const {g, scope} = it;
@@ -7517,7 +7735,7 @@ function ovCard(it, childCount){
   const closed = ovClosed.has(g.id);
   el.innerHTML = `
     ${childCount? `<button class="ov-fold${closed?' closed':''}" title="${closed? `펼치기 (하위 ${childCount}개)`:'접기'}">${closed?'＋':'－'}</button>` : ''}
-    <span class="ov-when" title="끌어서 상위 목표에 옮기기">${ovLabelOf(it)}</span>
+    <button class="ov-when" title="눌러서 기간 바꾸기 · 끌어서 상위 목표에 옮기기">${ovLabelOf(it)}</button>
     <input class="ov-txt" value="${esc(g.text||'')}" placeholder="목표를 적어 주세요"
       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     ${childCount? `<span class="ov-kid">${childCount}</span>` : ''}
@@ -7541,13 +7759,16 @@ function ovCard(it, childCount){
   const addBtn = el.querySelector('.ov-add');
   if(addBtn) addBtn.onclick = () => ovAddChild(it);
 
-  /* 드래그는 기간 배지를 잡고 — 입력칸 조작을 방해하지 않도록 */
+  /* 기간 배지 — 누르면 기간 바꾸기, 끌면 상위 목표에 옮기기 */
   const handle = el.querySelector('.ov-when');
   handle.draggable = true;
-  handle.addEventListener('dragstart', e => { ovDrag = it; el.classList.add('dragging');
+  let ovDragged = false;
+  handle.onclick = e => { e.stopPropagation(); if(!ovDragged) ovMovePeriod(it); };
+  handle.addEventListener('dragstart', e => { ovDragged = true; ovDrag = it; el.classList.add('dragging');
     if(e.dataTransfer){ e.dataTransfer.effectAllowed='move';
       try{ e.dataTransfer.setData('text/plain', g.id); }catch(err){} } });
   handle.addEventListener('dragend', () => { ovDrag = null; el.classList.remove('dragging');
+    setTimeout(()=>{ ovDragged = false; }, 60);         /* 끌어 놓은 직후의 클릭은 무시 */
     document.querySelectorAll('.ov-card.over').forEach(x=>x.classList.remove('over')); });
   el.addEventListener('dragover', e => {
     if(!ovDrag || !ovCanLink(ovDrag, it)) return;
