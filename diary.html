@@ -2242,8 +2242,23 @@ $('noteToggle').onclick = () => ($('dayNote').classList.contains('hidden') ? sho
 $('memoText').addEventListener('input', e => { day.memo = e.target.value; markDirty(); autoGrow(e.target); });
 $('memoText').addEventListener('focus', e => autoGrow(e.target));
 $('memoText').addEventListener('click', e => autoGrow(e.target));
-function autoGrow(el){ el.style.height='auto'; el.style.height = Math.max(128, el.scrollHeight)+'px'; }
-function grow(el, min){ el.style.height='auto'; el.style.height = Math.max(min, el.scrollHeight + 2)+'px'; }
+/* 글칸 높이 맞추기.
+   높이를 재려면 잠깐 'auto' 로 줄여야 하는데, 그 순간 문서가 짧아지면서
+   보고 있던 화면이 위로 딸려 올라간다(긴 글일수록 크게 튄다).
+   그래서 재기 전에 화면 위치를 기억해 두었다가 그대로 되돌린다. */
+function fitHeight(el, min){
+  if(!el) return;
+  const want0 = el.style.height;
+  const sy = window.scrollY || window.pageYOffset || 0;
+  el.style.height = 'auto';
+  const h = Math.max(min || 0, el.scrollHeight);
+  const next = h + 'px';
+  if(want0 !== next) el.style.height = next; else el.style.height = want0;
+  const sy2 = window.scrollY || window.pageYOffset || 0;
+  if(sy2 !== sy) window.scrollTo(0, sy);            /* 튀었으면 제자리로 */
+}
+function autoGrow(el){ fitHeight(el, 128); }
+function grow(el, min){ fitHeight(el, (min || 0) + 2); }
 
 const PRIV_COLOR = '#7B4AC8';   // 개인용무 전용 보라 (완료 카테고리와 동일)
 const PALETTE = [
@@ -5362,7 +5377,7 @@ function showDiaryBody(label){
   $('diaryBody').classList.remove('hidden');
   const ta = $('diaryText');
   ta.value = day.diary;
-  ta.style.height='auto'; ta.style.height = Math.max(280, ta.scrollHeight)+'px';
+  fitHeight(ta, 280);
   renderMC();
   renderDnote(true);
   $('diaryModal').classList.remove('hidden');
@@ -6100,25 +6115,46 @@ function initGoogle(){
     if(c && c.e > Date.now()){ gToken = c.t; gTokenExp = c.e; }
   }catch(e){}
 }
-function ensureToken(interactive){
+/* 구글 연결.
+   구글이 주는 이용권(토큰)은 1시간이면 끝난다. 그때마다 창을 띄우면 하루에도 몇 번씩
+   눌러야 해서, 끝나기 전에 화면 뒤에서 조용히 새로 받아 둔다.
+   조용히 받는 것이 막히는 때(다른 계정으로 로그인, 권한 회수 등)에만 창을 띄운다. */
+let gSilentAt = 0;                                  /* 마지막으로 조용히 시도한 시각 */
+/* renew:true 면 아직 쓸 수 있어도 새로 받아 둔다 (끝나기 전 미리 받기) */
+function ensureToken(interactive, renew){
   return new Promise(resolve => {
-    if(gToken && gTokenExp > Date.now()) return resolve(true);
+    if(!renew && gToken && gTokenExp > Date.now()) return resolve(true);
     if(!gReady()) return resolve(false);
     initGoogle();
     if(!gClient) return resolve(false);
+    /* 조용한 갱신은 너무 자주 두드리지 않는다 */
+    if(!interactive && Date.now() - gSilentAt < 30000) return resolve(false);
+    if(!interactive) gSilentAt = Date.now();
+    let done = false;
+    const finish = v => { if(done) return; done = true; gClient.callback = prev; resolve(v); };
     const prev = gClient.callback;
     gClient.callback = resp => {
       if(resp && resp.access_token){
         gToken = resp.access_token;
         gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
         try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
-        gClient.callback = prev; resolve(true);
-      }else{ gClient.callback = prev; resolve(false); }
+        finish(true);
+      }else finish(false);
     };
-    try{ gClient.requestAccessToken({prompt: interactive? 'consent' : ''}); }
-    catch(e){ resolve(false); }
+    /* prompt:'none' — 이미 허락해 둔 사이라면 화면 없이 새 이용권을 준다.
+       (예전엔 '' 를 써서 구글이 계정 선택 창을 띄우곤 했다) */
+    try{ gClient.requestAccessToken({prompt: interactive ? 'consent' : 'none'}); }
+    catch(e){ finish(false); }
+    if(!interactive) setTimeout(() => finish(false), 6000);   /* 조용한 갱신이 막히면 그냥 넘어간다 */
   });
 }
+/* 이용권이 끝나기 전에 미리 새로 받아 둔다 — 쓰다가 끊기지 않게 */
+function renewSoon(){
+  if(!GOOGLE_CLIENT_ID || !gToken) return;
+  if(gTokenExp - Date.now() < 5*60*1000) ensureToken(false, true);   /* 5분 남으면 미리 */
+}
+setInterval(renewSoon, 60000);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) renewSoon(); });
 $('schedRefresh').onclick = async () => {
   if(!GOOGLE_CLIENT_ID){ toast('구글 클라이언트 ID가 아직 없어요'); return; }
   if(!(await ensureToken(false))){
@@ -7222,8 +7258,7 @@ const stickyImgs  = s => (s.blocks||[]).filter(b => b.t === 'img');
 function growSticky(ta){
   const keep = ta.style.flex;
   ta.style.flex = '0 0 auto';            /* 잴 때만 늘어나는 성질을 끈다 */
-  ta.style.height = 'auto';
-  ta.style.height = Math.max(22, ta.scrollHeight) + 'px';
+  fitHeight(ta, 22);
   ta.style.flex = keep;
 }
 
