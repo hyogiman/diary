@@ -1559,6 +1559,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="setPinBtn">📖 일기 비밀번호 설정 · 변경</button>
       <button class="btn-line" id="goalRestoreBtn">🎯 목표 되살리기 (자동 보관본)</button>
       <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기 (자동 보관본)</button>
+      <button class="btn-line" id="photoFixBtn">🖼 예전 사진 정리 (통신량 줄이기)</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -1794,6 +1795,14 @@ function isDayEmpty(d){
     return v === undefined || v === null || v === '';
   });
 }
+/* 캐시가 있으면 그 날짜만 갈아끼운다. 캐시가 없으면 그대로 둔다(다음에 필요할 때 받는다). */
+function patchYearCache(ds, clean){
+  const y = +ds.slice(0,4), mm = ds.slice(5,7), dd = ds.slice(8,10);
+  const yd = yearCache[y];
+  if(!yd) return;
+  if(clean){ if(!yd[mm]) yd[mm] = {}; yd[mm][dd] = JSON.parse(JSON.stringify(clean)); }
+  else if(yd[mm]){ delete yd[mm][dd]; if(!Object.keys(yd[mm]).length) delete yd[mm]; }
+}
 function dayRef(dateStr){
   const [y,m,d] = dateStr.split('-');
   return db.ref(`diaries/${USER.uid}/${y}/${m}/${d}`);
@@ -1997,6 +2006,7 @@ function peekRefresh(){
 const UNDO_KEEP = 8, UNDO_GAP = 10*60*1000;
 let dayBase = null;                 /* 이 날짜에 마지막으로 저장돼 있던 내용 */
 const undoLast = {};                /* 날짜별 마지막 보관 시각 */
+const undoKeys = {};                /* 날짜별 보관본 시각 목록 (내용을 다시 받지 않으려고) */
 
 function daySize(d){
   const cats = d && Array.isArray(d.cats) ? d.cats : [];
@@ -2017,10 +2027,12 @@ async function pushUndo(ds, data, why){
     const ts = Date.now();
     await db.ref(`diaries/${USER.uid}/undo/${ds}/${ts}`).set({ why: why||'', data });
     undoLast[ds] = ts;
-    const snap = await db.ref(`diaries/${USER.uid}/undo/${ds}`).get();
-    const keys = Object.keys(snap.exists()? snap.val() : {}).sort((a,b)=>b-a);
-    for(const old of keys.slice(UNDO_KEEP))                   /* 오래된 것부터 정리 */
+    /* 오래된 보관본 정리 — 내용까지 받으면 무거우니 시각 목록만 확인한다 */
+    undoKeys[ds] = (undoKeys[ds] || []).concat(ts);
+    const keys = undoKeys[ds].slice().sort((a,b)=>b-a);
+    for(const old of keys.slice(UNDO_KEEP))
       await db.ref(`diaries/${USER.uid}/undo/${ds}/${old}`).remove();
+    undoKeys[ds] = keys.slice(0, UNDO_KEEP);
   }catch(e){ /* 보관 실패해도 저장은 진행 */ }
 }
 
@@ -2042,7 +2054,7 @@ async function saveNow(){
     if(isEmpty) await dayRef(ds).remove();
     else await dayRef(ds).set(clean);
     dayBase = isEmpty ? null : JSON.parse(JSON.stringify(clean));
-    delete yearCache[+ds.slice(0,4)];
+    patchYearCache(ds, isEmpty ? null : clean);      /* 캐시를 통째로 버리지 않고 그 날짜만 손본다 */
     try{ await idbDel(dayKey(ds)); await removePending('day:'+ds); }catch(e){}   // 서버 완료 → 기기 임시본 삭제
     $('saveState').textContent = '✓ 저장됨 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
   }catch(e){                                  // ② 실패했을 때만 기기에 임시 보관
@@ -2446,6 +2458,12 @@ function pickFile(accept, cb, single){
   };
   fi.click();
 }
+/* 사진이 어디 있든 화면에 띄울 주소를 돌려준다.
+   새로 넣는 사진은 Storage(url), 예전에 넣은 사진은 일지 안(data)에 있다. */
+function imgSrc(f){ return (f && (f.url || f.data)) || ''; }
+
+/* 사진을 Storage 에 올린다. 올리기에 실패하면 예전처럼 일지 안에 담아 두어
+   어떤 상황에서도 사진이 사라지지 않게 한다. */
 function addImage(file, arr, done){
   done = done || (()=>{ markDirty(); renderAll(); });
   const img = new Image(); const url = URL.createObjectURL(file);
@@ -2454,8 +2472,25 @@ function addImage(file, arr, done){
     const cv = document.createElement('canvas');
     cv.width = Math.round(img.width*sc); cv.height = Math.round(img.height*sc);
     cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    arr.push({ id:uid8(), type:'image', name:file.name, data: cv.toDataURL('image/jpeg', .82), ts: Date.now() });
-    URL.revokeObjectURL(url); done(); toast('사진을 저장했어요');
+    URL.revokeObjectURL(url);
+    const id = uid8(), name = file.name || '사진';
+    cv.toBlob(async blob => {
+      const fallback = () => {           /* 올리지 못하면 예전 방식으로라도 남긴다 */
+        arr.push({ id, type:'image', name, data: cv.toDataURL('image/jpeg', .82), ts: Date.now() });
+        done(); toast('사진을 저장했어요 (기기 연결이 불안정해 일지 안에 담았어요)');
+      };
+      if(!blob){ fallback(); return; }
+      const safe = name.replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+      const path = `docs/${USER.uid}/photo/${id}_${safe}.jpg`;
+      try{
+        const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
+        await task;
+        const durl = await task.snapshot.ref.getDownloadURL();
+        if(!durl) throw new Error('주소 없음');
+        arr.push({ id, type:'image', name, url:durl, path, ts: Date.now() });
+        done(); toast('사진을 저장했어요');
+      }catch(e){ fallback(); }
+    }, 'image/jpeg', .82);
   };
   img.onerror = () => toast('이미지를 읽지 못했어요');
   img.src = url;
@@ -2529,8 +2564,8 @@ function renderFiles(box, arr, ctx){
   arr.forEach((f, i) => {
     if(f.type==='image'){
       const t = document.createElement('div'); t.className='thumb';
-      t.innerHTML = `<img src="${f.data}" alt="${esc(f.name)}"><button class="file-x">✕</button>`;
-      t.querySelector('img').onclick = () => { $('lightboxImg').src=f.data; $('lightbox').classList.remove('hidden'); };
+      t.innerHTML = `<img src="${imgSrc(f)}" alt="${esc(f.name)}" loading="lazy"><button class="file-x">✕</button>`;
+      t.querySelector('img').onclick = () => { $('lightboxImg').src=imgSrc(f); $('lightbox').classList.remove('hidden'); };
       t.querySelector('.file-x').onclick = async e => { e.stopPropagation();
         if(!(await askConfirm('사진을 삭제할까요?', {title:'🖼 사진 삭제', ok:'삭제', danger:true}))) return;
         arr.splice(i,1); save(); rerender(); };
@@ -2813,7 +2848,7 @@ function buildA4(dateStr, data){
     });
   });
   if(!rows) rows = '<tr><td colspan="4" style="text-align:center;color:#B7A288;padding:24px">기록된 업무가 없습니다</td></tr>';
-  const imgs = data.memoFiles.filter(f=>f.type==='image').map(f=>`<img src="${f.data}">`).join('');
+  const imgs = data.memoFiles.filter(f=>f.type==='image').map(f=>`<img src="${imgSrc(f)}">`).join('');
   const audioNote = data.memoFiles.some(f=>f.type==='audio') ? '<div style="font-size:13px;color:#8A705A;margin-top:8px">🎵 녹음 첨부 있음(백업 ZIP의 첨부 폴더 참고)</div>' : '';
   const el = document.createElement('div');
   el.className = 'a4';
@@ -2832,7 +2867,7 @@ function buildA4(dateStr, data){
       const mrows = [['일시',n.meta.when],['장소',n.meta.where],['참석자',n.meta.who],['안건',n.meta.agenda]]
         .filter(x=>x[1].trim())
         .map(x=>`<div style="font-size:13.5px;padding:2px 0"><b style="color:#C95F1D">${x[0]}</b> ｜ ${esc(x[1])}</div>`).join('');
-      const nimgs = n.files.filter(f=>f.type==='image').map(f=>`<img src="${f.data}">`).join('');
+      const nimgs = n.files.filter(f=>f.type==='image').map(f=>`<img src="${imgSrc(f)}">`).join('');
       const naud = n.files.some(f=>f.type==='audio')? '<div style="font-size:12.5px;color:#8A705A;margin-top:6px">🎵 녹음 첨부 있음(백업 ZIP의 첨부 폴더 참고)</div>':'';
       return `<div class="a4-star">📋 ${esc(n.title.trim()||'회의록')}</div>
         ${mrows? `<div style="background:#FFF4DE;border-radius:8px;padding:9px 12px;margin-bottom:8px">${mrows}</div>`:''}
@@ -3293,6 +3328,109 @@ $('aiPreview').onclick = async () => {
 $('aiClose').onclick = () => $('aiModal').classList.add('hidden');
 $('aiModal').addEventListener('click', e => { if(e.target.id==='aiModal') $('aiModal').classList.add('hidden'); });
 
+/* ═══════════════ 🖼 예전 사진 정리 ═══════════════
+   예전에 넣은 사진은 일지 데이터 안에 글자로 담겨 있어, 그 날짜를 읽을 때마다
+   사진까지 통째로 다시 내려받게 된다. 이 사진들을 Storage 로 옮겨 데이터를 가볍게 한다.
+   되돌리기는 일지 '내용'만 보관하므로, 옮기다 잘못되면 사진을 되살릴 수 없다.
+   그래서 새 자리에서 실제로 읽히는지 확인한 뒤에만 원본을 지운다. */
+let photoFixBusy = false;
+function dataUrlToBlob(d){
+  const p = dataUrlParts(d);
+  const bin = atob(p.b64);
+  const buf = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) buf[i] = bin.charCodeAt(i);
+  return new Blob([buf], {type: p.mime || 'image/jpeg'});
+}
+/* 새 주소가 실제로 열리는지 확인 — 열리지 않으면 원본을 지우지 않는다 */
+function verifyImage(url){
+  return new Promise(res => {
+    const im = new Image();
+    const t = setTimeout(() => { im.onload = im.onerror = null; res(false); }, 12000);
+    im.onload  = () => { clearTimeout(t); res(true); };
+    im.onerror = () => { clearTimeout(t); res(false); };
+    im.src = url;
+  });
+}
+function eachDayPhotos(d){                     /* 그 날짜에 담긴 옛 방식 사진 모으기 */
+  const out = [];
+  (d.cats||[]).forEach(c => (c.tasks||[]).forEach(t =>
+    (t.files||[]).forEach(f => { if(f.type==='image' && f.data && !f.url) out.push(f); })));
+  (d.notes||[]).forEach(n => (n.files||[]).forEach(f => { if(f.type==='image' && f.data && !f.url) out.push(f); }));
+  (d.memoFiles||[]).forEach(f => { if(f.type==='image' && f.data && !f.url) out.push(f); });
+  return out;
+}
+$('photoFixBtn').onclick = async () => {
+  if(photoFixBusy) return;
+  $('settingsMenu').classList.add('hidden');
+  photoFixBusy = true;
+  try{
+    toast('예전 사진을 찾는 중…');
+    await flushSave();
+    /* 올해와 작년만 훑는다 — 그 이상은 다시 눌러 주면 된다 */
+    const years = [ +curDate.slice(0,4), +curDate.slice(0,4) - 1 ];
+    const jobs = [];
+    for(const y of years){
+      let yd; try{ yd = await getYear(y); }catch(e){ continue; }
+      for(const mm of Object.keys(yd)) for(const dd of Object.keys(yd[mm])){
+        const ds = `${y}-${mm}-${dd}`;
+        const n = eachDayPhotos(normalize(yd[mm][dd])).length;
+        if(n) jobs.push({ds, n});
+      }
+    }
+    const total = jobs.reduce((a,b)=>a+b.n, 0);
+    if(!total){ toast('일지 안에 담긴 예전 사진이 없어요 — 이미 가벼운 상태예요'); photoFixBusy=false; return; }
+    if(!(await askConfirm(
+      `일지 안에 담긴 사진 ${total}장을 찾았어요 (${jobs.length}일치).\n\n` +
+      `이 사진들을 따로 보관해 일지를 가볍게 합니다.\n` +
+      `새 자리에서 사진이 열리는지 확인한 뒤에만 원본을 지우니, 사진이 사라지지 않아요.\n` +
+      `연결이 좋은 곳에서 진행해 주세요.`,
+      {title:'🖼 예전 사진 정리', ok:'시작'}))){ photoFixBusy=false; return; }
+
+    let moved = 0, kept = 0;
+    for(const job of jobs){
+      const ds = job.ds;
+      let snap; try{ snap = await dayRef(ds).get(); }catch(e){ kept += job.n; continue; }
+      if(!snap.exists()){ continue; }
+      /* 되돌릴 수 있게 '사진이 담긴 원래 모습'을 먼저 깊이 복사해 둔다.
+         normalize 는 files 배열을 그대로 참조하므로, 복사하지 않으면
+         아래에서 원본을 지울 때 보관본까지 함께 비어 버린다. */
+      const raw = JSON.parse(JSON.stringify(snap.val()));
+      const d = normalize(JSON.parse(JSON.stringify(snap.val())));
+      const list = eachDayPhotos(d);
+      if(list.length){
+        try{ await pushUndo(ds, raw, '사진 정리 직전'); }
+        catch(e){ kept += list.length; continue; }      /* 보관에 실패하면 그 날은 건드리지 않는다 */
+      }
+      let changed = 0;
+      for(const f of list){
+        toast(`사진을 옮기는 중… ${moved+kept+1}/${total}`);
+        try{
+          const safe = (f.name||'사진').replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+          const path = `docs/${USER.uid}/photo/${f.id||uid8()}_${safe}.jpg`;
+          const task = storage.ref(path).put(dataUrlToBlob(f.data), {contentType:'image/jpeg'});
+          await task;
+          const url = await task.snapshot.ref.getDownloadURL();
+          if(!url || !(await verifyImage(url))) { kept++; continue; }   /* 안 열리면 원본 유지 */
+          f.url = url; f.path = path; delete f.data;                    /* 확인된 뒤에만 지운다 */
+          moved++; changed++;
+        }catch(e){ kept++; }
+      }
+      if(changed){
+        const clean = JSON.parse(JSON.stringify(d));
+        clean.updatedAt = Date.now(); lastSelfTs = clean.updatedAt;
+        try{
+          await dayRef(ds).set(clean);
+          patchYearCache(ds, clean);
+          if(ds === curDate){ day = normalize(clean); curTs = clean.updatedAt; renderSheet(); }
+        }catch(e){ kept += changed; moved -= changed; }
+      }
+    }
+    toast(kept ? `사진 ${moved}장을 옮겼어요 · ${kept}장은 그대로 두었어요 (다시 눌러 주세요)`
+               : `사진 ${moved}장을 옮겨 일지가 가벼워졌어요`);
+  }catch(e){ toast('사진 정리 중 문제가 생겼어요: ' + (e.message||'')); }
+  photoFixBusy = false;
+};
+
 /* ═══════════════ 🕘 되돌리기 ═══════════════ */
 let undoDate = null;
 $('undoBtn').onclick = () => {
@@ -3332,6 +3470,7 @@ async function renderUndoList(){
     v = snap.exists()? (snap.val()||{}) : {};
   }catch(e){ box.innerHTML = '<div class="undo-none">보관본을 확인하지 못했어요 — 연결을 확인해 주세요</div>'; return; }
   const keys = Object.keys(v).sort((a,b)=>b-a);
+  undoKeys[undoDate] = keys.map(Number);
   if(!keys.length){
     box.innerHTML = '<div class="undo-none">이 날짜에 보관된 예전 상태가 없어요.<br>내용을 고치면 그때부터 자동으로 쌓입니다.</div>';
     return;
@@ -5227,32 +5366,46 @@ function detachAll(){
   pendingRemote = null;
 }
 /* 보고 있는 날짜를 실시간 구독 */
+/* 다른 기기에서 이 날짜를 고쳤는지 지켜본다.
+   예전에는 날짜 데이터 '전체'를 지켜봐서, 내가 한 글자 저장할 때마다 서버가 그 날 내용을
+   사진까지 통째로 되돌려 보냈다(사진 3장이면 한 번에 900KB). 화면에는 아무 표시가 없어
+   알아채기 어려운 낭비였다. 이제 '수정 시각' 한 줄만 지켜보고, 실제로 달라졌을 때만
+   그 날 내용을 한 번 읽는다. */
 function attachDayListener(dateStr){
   if(dayRefListening && dayCb) dayRefListening.off('value', dayCb);
   pendingRemote = null;
-  const ref = dayRef(dateStr);
-  dayCb = snap => {
+  const stampRef = dayRef(dateStr).child('updatedAt');
+  let busy = false;
+  dayCb = async snap => {
     if(curDate !== dateStr) return;                       // 이미 다른 날짜로 이동
-    const v = snap.exists()? snap.val() : null;
-    const ts = (v && v.updatedAt) || 0;
+    const ts = (snap.exists() ? +snap.val() : 0) || 0;
     if(ts === curTs || ts === lastSelfTs) return;         // 내가 쓴 것/이미 반영된 것
+    if(busy) return;
+    busy = true;
+    let v = null;
+    try{ const full = await dayRef(dateStr).get(); v = full.exists()? full.val() : null; }
+    catch(e){ busy = false; return; }
+    busy = false;
+    if(curDate !== dateStr) return;                       // 읽는 사이 날짜가 바뀌었으면 버린다
+    const ts2 = (v && v.updatedAt) || 0;
+    if(ts2 === curTs || ts2 === lastSelfTs) return;
     if(dirty || isEditing()){                             // 작성 중 → 덮어쓰지 않고 알림만
       pendingRemote = v;
       $('saveState').innerHTML = '⟳ 다른 기기에서 이 날짜를 수정했어요 — <u>눌러서 불러오기</u>';
       $('saveState').style.cursor = 'pointer';
       return;
     }
-    applyRemote(v, ts);
+    applyRemote(v, ts2);
   };
-  ref.on('value', dayCb);
-  dayRefListening = ref;
+  stampRef.on('value', dayCb);
+  dayRefListening = stampRef;
   attachBoxListeners();
 }
 function applyRemote(v, ts){
   day = v ? normalize(v) : emptyDay();
   curTs = ts || ((v && v.updatedAt) || 0);
   pendingRemote = null;
-  delete yearCache[+curDate.slice(0,4)];
+  patchYearCache(curDate, v);
   renderSheet();
   $('saveState').style.cursor = '';
   $('saveState').textContent = '🔄 다른 기기의 변경을 반영했어요 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
