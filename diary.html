@@ -784,6 +784,23 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
   border:1.5px solid var(--rule);border-radius:9px;padding:9px;background:var(--card);
   color:var(--ink);resize:vertical;white-space:pre-wrap;font-family:Pretendard,sans-serif}
 
+/* ───────── 📅 기간 옮기기 (세로 롤링) ───────── */
+#perModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:162;
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.per-desc{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;
+  margin-bottom:12px;white-space:pre-line}
+.per-roll{height:46vh;max-height:340px;overflow-y:auto;scroll-snap-type:y proximity;
+  border:1.5px solid var(--rule);border-radius:12px;background:var(--paper-deep);
+  padding:calc(23vh - 26px) 0;position:relative;
+  -webkit-mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent);
+  mask-image:linear-gradient(transparent,#000 22%,#000 78%,transparent)}
+.per-item{display:block;width:100%;scroll-snap-align:center;padding:11px 14px;
+  font-family:'Jua',sans-serif;font-size:1rem;color:var(--ink-soft);text-align:center;transition:.13s}
+.per-item:hover{color:var(--accent-deep);background:rgba(214,122,84,.09)}
+.per-item.on{color:var(--accent-deep);font-size:1.12rem}
+.per-item .now{font-family:Pretendard,sans-serif;font-size:.64rem;font-weight:800;color:#fff;
+  background:var(--accent);border-radius:999px;padding:1px 7px;vertical-align:middle}
+
 /* ───────── 🕘 되돌리기 ───────── */
 #undoModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
   display:flex;align-items:center;justify-content:center;padding:16px}
@@ -1507,6 +1524,16 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-primary" id="aiCopy">📋 복사하기</button>
       <button class="btn-line" id="aiPreview">👀 내용 먼저 보기</button>
       <button class="btn-line" id="aiClose" style="border-style:dashed">닫기</button>
+    </div>
+  </div>
+</div>
+<div id="perModal" class="hidden">
+  <div class="bk-card" style="max-width:400px">
+    <h3 id="perTitle">기간 옮기기</h3>
+    <div class="per-desc" id="perDesc"></div>
+    <div class="per-roll" id="perRoll"></div>
+    <div class="set-list" style="margin-top:12px">
+      <button class="btn-line" id="perClose" style="border-style:dashed">닫기</button>
     </div>
   </div>
 </div>
@@ -7472,7 +7499,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','delayModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','perModal','delayModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -7495,7 +7522,7 @@ function closeOneOverlay(){
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
-      diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose', delayModal:'delayClose'}[el.id];
+      diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose', delayModal:'delayClose', perModal:'perClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
     else el.classList.add('hidden');
     return true;
@@ -7642,6 +7669,29 @@ function weeksInMonth(mKey){
   }
   return out.length ? out : [weekKeyOf(first)];
 }
+/* 이 주가 어느 달에 속하는가 — 목요일이 든 달로 본다(주가 두 달에 걸칠 때의 기준) */
+function monthOfWeek(wk){
+  const {mon} = weekRange(wk);
+  const thu = new Date(mon); thu.setDate(mon.getDate() + 3);
+  return `${thu.getFullYear()}-${String(thu.getMonth()+1).padStart(2,'0')}`;
+}
+/* 옮긴 주가 속한 달의 월간 목표에 다시 묶어 준다.
+   그 달에 월간 목표가 없으면 제목 없는 목표를 만들어 그 아래에 넣는다. */
+function relinkWeekToMonth(g, wk){
+  const mk = monthOfWeek(wk);
+  const arr = goalsOf('month', mk);
+  if(g.parent && arr.some(m => m.id === g.parent)) return null;   /* 이미 그 달에 묶여 있으면 그대로 */
+  let host = arr.find(m => !m.stopped);
+  let made = false;
+  if(!host){
+    host = {id:uid8(), text:'', done:false, parent:'', start:'', due:'', note:'', repeat:false, target:1, count:0};
+    if(!goals.month[mk]) goals.month[mk] = [];
+    goals.month[mk].push(host);
+    made = true;
+  }
+  g.parent = host.id;
+  return {mk, made};
+}
 /* 목표 한 건을 다른 칸으로 옮긴다 */
 function moveGoal(scope, fromKey, gid, toKey){
   if(fromKey === toKey) return null;
@@ -7687,43 +7737,73 @@ function moveGoalTree(it, toKey){
     });
   }
   if(moveGoal(scope, key, g.id, toKey)) moved++;
-  return moved;
+  /* 주간을 옮겼으면 그 주가 속한 달의 월간 목표 아래로 다시 묶는다 */
+  let linked = null;
+  if(scope === 'week') linked = relinkWeekToMonth(g, toKey);
+  return {moved, linked};
 }
-/* 기간 고르기 창 */
+/* 기간 고르기 — 세로로 굴려서 고른다 */
+let ovPickResolve = null, ovPickList = [], ovPickCur = '';
+function ovPickPeriod(title, desc, list, cur){
+  return new Promise(res => {
+    ovPickResolve = res; ovPickList = list; ovPickCur = cur;
+    $('perTitle').textContent = title;
+    $('perDesc').textContent = desc;
+    const box = $('perRoll');
+    box.innerHTML = list.map(([k, lb]) =>
+      `<button type="button" class="per-item${k===cur?' on':''}" data-k="${esc(k)}">${esc(lb)}${k===cur?' <span class="now">지금</span>':''}</button>`).join('');
+    $('perModal').classList.remove('hidden');
+    /* 지금 기간이 가운데 오도록 굴려 둔다 */
+    requestAnimationFrame(() => {
+      const on = box.querySelector('.per-item.on');
+      if(on) box.scrollTop = on.offsetTop - box.clientHeight/2 + on.offsetHeight/2;
+    });
+  });
+}
+function ovPickDone(v){
+  $('perModal').classList.add('hidden');
+  const r = ovPickResolve; ovPickResolve = null;
+  if(r) r(v === undefined ? null : v);
+}
+$('perRoll').onclick = e => { const b = e.target.closest('.per-item'); if(b) ovPickDone(b.dataset.k); };
+$('perClose').onclick = () => ovPickDone(null);
+$('perModal').addEventListener('click', e => { if(e.target.id==='perModal') ovPickDone(null); });
+
 async function ovMovePeriod(it){
   const {scope, key, g} = it;
-  let quick = [], title = '', desc = '';
+  let list = [], title = '', desc = '';
   if(scope === 'year'){
     const y = +key;
-    title = '📅 연간 목표 기간 옮기기';
-    desc = '하위 월간·주간 목표도 같은 달·같은 순번으로 따라옵니다';
-    for(let d=-2; d<=3; d++) quick.push([String(y+d), `${y+d}년`]);
+    title = '📅 연간 목표 옮기기';
+    desc = '하위 월간·주간도 같은 달·같은 순번으로 따라옵니다';
+    for(let d=-3; d<=5; d++) list.push([String(y+d), `${y+d}년`]);
   }else if(scope === 'month'){
-    title = '📅 월간 목표 기간 옮기기';
-    desc = '하위 주간 목표도 그 달의 같은 순번 주로 따라옵니다';
+    title = '📅 월간 목표 옮기기';
+    desc = '하위 주간도 그 달의 같은 순번 주로 따라옵니다';
     const y = +key.slice(0,4);
-    for(let yy of [y-1, y, y+1]) for(let m=1; m<=12; m++)
-      quick.push([`${yy}-${String(m).padStart(2,'0')}`, `${yy===y? '' : yy+'. '}${m}월`]);
+    for(const yy of [y-1, y, y+1]) for(let m=1; m<=12; m++)
+      list.push([`${yy}-${String(m).padStart(2,'0')}`, `${yy}년 ${m}월`]);
   }else{
-    title = '📅 주간 목표 기간 옮기기';
-    desc = '옮긴 주로 자리가 다시 정렬됩니다';
+    title = '📅 주간 목표 옮기기';
+    desc = '옮긴 주가 속한 달의 목표 아래로 함께 옮겨집니다';
     const {mon} = weekRange(key);
-    for(let d=-6; d<=10; d++){
+    for(let d=-10; d<=20; d++){
       const m = new Date(mon); m.setDate(mon.getDate() + d*7);
       const k = weekKeyOf(m);
       const {mon:a, sun:b} = weekRange(k);
-      quick.push([k, `${a.getMonth()+1}/${a.getDate()}~${b.getMonth()+1}/${b.getDate()}`]);
+      const mk = monthOfWeek(k);
+      list.push([k, `${+mk.slice(5,7)}월 · ${a.getMonth()+1}/${a.getDate()}~${b.getMonth()+1}/${b.getDate()}`]);
     }
   }
-  const cur = quick.find(q => q[0] === key);
-  const v = await askInput({
-    title, desc: `"${(g.text||'').trim() || '(제목 없음)'}"\n지금: ${cur? cur[1] : ovLabelOf(it)}\n${desc}`,
-    value: key, quick, pickOnly: true
-  });
+  const v = await ovPickPeriod(title, `"${(g.text||'').trim() || '(제목 없음)'}"\n${desc}`, list, key);
   if(v === null || v === key) return;
-  const n = moveGoalTree(it, v);
+  const {moved, linked} = moveGoalTree(it, v);
   markGoals(); renderOverview();
-  toast(n > 1 ? `기간을 옮기고 하위 목표 ${n-1}개도 함께 옮겼어요` : '기간을 옮겼어요');
+  const bits = [];
+  if(moved > 1) bits.push(`하위 목표 ${moved-1}개도 함께`);
+  if(linked) bits.push(linked.made ? `${+linked.mk.slice(5,7)}월 목표를 새로 만들어 그 아래에 넣었어요`
+                                   : `${+linked.mk.slice(5,7)}월 목표 아래로 옮겼어요`);
+  toast(bits.length ? `기간을 옮겼어요 — ${bits.join(' · ')}` : '기간을 옮겼어요');
 }
 
 /* 목표 한 칸 — 기간 · 내용 · ＋ · ✕ 만 */
@@ -7759,32 +7839,8 @@ function ovCard(it, childCount){
   const addBtn = el.querySelector('.ov-add');
   if(addBtn) addBtn.onclick = () => ovAddChild(it);
 
-  /* 기간 배지 — 누르면 기간 바꾸기, 끌면 상위 목표에 옮기기 */
-  const handle = el.querySelector('.ov-when');
-  handle.draggable = true;
-  let ovDragged = false;
-  handle.onclick = e => { e.stopPropagation(); if(!ovDragged) ovMovePeriod(it); };
-  handle.addEventListener('dragstart', e => { ovDragged = true; ovDrag = it; el.classList.add('dragging');
-    if(e.dataTransfer){ e.dataTransfer.effectAllowed='move';
-      try{ e.dataTransfer.setData('text/plain', g.id); }catch(err){} } });
-  handle.addEventListener('dragend', () => { ovDrag = null; el.classList.remove('dragging');
-    setTimeout(()=>{ ovDragged = false; }, 60);         /* 끌어 놓은 직후의 클릭은 무시 */
-    document.querySelectorAll('.ov-card.over').forEach(x=>x.classList.remove('over')); });
-  el.addEventListener('dragover', e => {
-    if(!ovDrag || !ovCanLink(ovDrag, it)) return;
-    e.preventDefault(); el.classList.add('over');
-  });
-  el.addEventListener('dragleave', () => el.classList.remove('over'));
-  el.addEventListener('drop', e => {
-    e.preventDefault(); el.classList.remove('over');
-    if(!ovDrag || !ovCanLink(ovDrag, it)) return;
-    ovDrag.g.parent = g.id; markGoals(); renderOverview();
-    toast(`"${ovDrag.g.text||'목표'}" 를 옮겼어요`);
-  });
-  /* 모바일: 기간 배지를 길게 눌러 상위 선택 */
-  let lp=null;
-  handle.addEventListener('touchstart', () => { lp = setTimeout(()=>ovPickParent(it), 500); }, {passive:true});
-  ['touchend','touchmove','touchcancel'].forEach(ev => handle.addEventListener(ev, ()=>clearTimeout(lp), {passive:true}));
+  /* 기간 배지 — 눌러서 기간 바꾸기 (끌어 옮기기는 없앴다. 이 하나로 통일) */
+  el.querySelector('.ov-when').onclick = e => { e.stopPropagation(); ovMovePeriod(it); };
 
   return el;
 }
