@@ -1619,6 +1619,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="undoBtn">🕘 이 날짜 되돌리기 (자동 보관본)</button>
       <button class="btn-line hidden" id="photoFixBtn">🖼 예전 사진 정리 (통신량 줄이기)</button>
       <button class="btn-line" id="bakFixBtn">🧹 무거운 보관본 정리 (저장용량 줄이기)</button>
+      <button class="btn-line" id="storeCheckBtn">🔌 저장소 연결 확인</button>
       <button class="btn-line" id="delTodayBtn" style="color:var(--danger);border-color:#E4B3AA">🗑 이 날짜 내용 전체 삭제</button>
       <button class="btn-line" id="logoutBtn">🔒 잠그기 (로그아웃)</button>
       <button class="btn-line" id="setClose" style="border-style:dashed">닫기</button>
@@ -2597,9 +2598,14 @@ function addImage(file, arr, done){
     URL.revokeObjectURL(url);
     const id = uid8(), name = file.name || '사진';
     cv.toBlob(async blob => {
-      const fallback = () => {           /* 올리지 못하면 예전 방식으로라도 남긴다 */
+      const fallback = (why) => {         /* 올리지 못하면 예전 방식으로라도 남긴다 */
         arr.push({ id, type:'image', name, data: cv.toDataURL('image/jpeg', .82), ts: Date.now() });
-        done(); toast('사진을 저장했어요 (기기 연결이 불안정해 일지 안에 담았어요)');
+        done();
+        /* 권한 문제면 조용히 넘기지 않는다 — 계속 일지 안에 쌓여 용량이 늘기 때문 */
+        if(why && String(why).includes('unauthorized'))
+          toast('사진을 일지 안에 담았어요 — 설정의 «저장소 연결 확인»을 한 번 눌러 주세요');
+        else
+          toast('사진을 저장했어요 (연결이 불안정해 일지 안에 담았어요)');
       };
       if(!blob){ fallback(); return; }
       const safe = name.replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
@@ -2611,7 +2617,7 @@ function addImage(file, arr, done){
         if(!durl) throw new Error('주소 없음');
         arr.push({ id, type:'image', name, url:durl, path, ts: Date.now() });
         done(); toast('사진을 저장했어요');
-      }catch(e){ fallback(); }
+      }catch(e){ fallback(e.code || e.message); }
     }, 'image/jpeg', .82);
   };
   img.onerror = () => toast('이미지를 읽지 못했어요');
@@ -3462,6 +3468,45 @@ function refreshPhotoFixBtn(){
   const b = $('photoFixBtn');
   if(b) b.classList.toggle('hidden', !hasOldPhotosNow());
 }
+
+/* ═══════════════ 🔌 저장소 연결 확인 ═══════════════
+   사진·파일은 Storage 에 올리고 주소만 일지에 남긴다. 그런데 Storage 규칙이 막혀 있으면
+   조용히 '일지 안에 담기'로 되돌아가 버려서, 쓰는 사람은 잘 되는 줄 안다.
+   여기서 실제로 한 번 올려 보고 어디가 막혔는지 알려 준다. */
+$('storeCheckBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+  toast('저장소를 확인하는 중…');
+  const path = `docs/${USER.uid}/_check/${Date.now()}.txt`;
+  const step = [];
+  try{
+    step.push('올리기');
+    await storage.ref(path).put(new Blob(['ok'], {type:'text/plain'}));
+    step.push('주소 받기');
+    const url = await storage.ref(path).getDownloadURL();
+    if(!url) throw new Error('주소를 받지 못함');
+    step.push('내려받기');
+    const r = await fetch(url);
+    if(!r.ok) throw new Error('HTTP ' + r.status);
+    step.push('지우기');
+    await storage.ref(path).delete();
+    await askConfirm(
+      '사진과 파일을 따로 보관할 수 있는 상태예요.\n올리기 · 읽기 · 지우기가 모두 정상입니다.',
+      {title:'🔌 저장소 정상', ok:'좋아요', cancel:'닫기'});
+  }catch(e){
+    const code = e.code || e.message || '알 수 없음';
+    const perm = String(code).includes('unauthorized') || String(code).includes('403');
+    await askConfirm(
+      `'${step[step.length-1]}' 단계에서 막혔어요.\n오류: ${code}\n\n` +
+      (perm
+        ? 'Firebase Storage 보안 규칙이 이 앱의 저장을 막고 있어요.\n' +
+          'Firebase 콘솔 → Storage → Rules 에서 아래 두 줄이 있는지 확인해 주세요.\n\n' +
+          'match /docs/{uid}/{allPaths=**}\n' +
+          'match /audio/{uid}/{allPaths=**}\n\n' +
+          '규칙을 고치기 전에는 사진이 계속 일지 안에 담겨 용량이 늘어납니다.'
+        : '연결 상태를 확인한 뒤 다시 시도해 주세요.'),
+      {title:'🔌 저장소 확인 실패', ok:'알겠어요', cancel:'닫기', danger:true});
+  }
+};
 
 /* ═══════════════ 🧹 보관본 정리 ═══════════════
    되돌리기·사진정리는 안전을 위해 '고치기 전 모습'을 통째로 남긴다.
