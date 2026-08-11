@@ -3530,7 +3530,7 @@ function dataUrlToBlob(d){
 function verifyImage(url){
   return new Promise(res => {
     const im = new Image();
-    const t = setTimeout(() => { im.onload = im.onerror = null; res(false); }, 12000);
+    const t = setTimeout(() => { im.onload = im.onerror = null; res(false); }, 20000);
     im.onload  = () => { clearTimeout(t); res(true); };
     im.onerror = () => { clearTimeout(t); res(false); };
     im.src = url;
@@ -3545,17 +3545,32 @@ function eachDayPhotos(d){                     /* 그 날짜에 담긴 옛 방�
   return out;
 }
 /* 사진 한 장을 Storage 로 — 새 자리에서 열리는 것을 확인해야만 true */
+/* 왜 못 옮겼는지 모으는 곳 — 조용히 실패하면 몇 번을 눌러도 같은 결과라 알 수가 없다 */
+let photoFailReasons = [];
 async function movePhoto(f){
+  let stage = '준비';
   try{
     const safe = (f.name||'사진').replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
     const path = `docs/${USER.uid}/photo/${f.id||uid8()}_${safe}.jpg`;
-    const task = storage.ref(path).put(dataUrlToBlob(f.data), {contentType:'image/jpeg'});
+    stage = '사진 변환';
+    const blob = dataUrlToBlob(f.data);
+    if(!blob || !blob.size) throw new Error('사진 자료를 읽지 못함');
+    stage = '올리기';
+    const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
     await task;
+    stage = '주소 받기';
     const url = await task.snapshot.ref.getDownloadURL();
-    if(!url || !(await verifyImage(url))) return false;
-    f.url = url; f.path = path; delete f.data;        /* 확인된 뒤에만 원본을 지운다 */
+    if(!url) throw new Error('주소를 받지 못함');
+    stage = '열리는지 확인';
+    let okShow = await verifyImage(url);
+    if(!okShow) okShow = await verifyImage(url);        /* 한 번 더 — 네트워크가 느릴 수 있다 */
+    if(!okShow) throw new Error('새 주소로 사진이 열리지 않음');
+    f.url = url; f.path = path; delete f.data;         /* 확인된 뒤에만 원본을 지운다 */
     return true;
-  }catch(e){ return false; }
+  }catch(e){
+    photoFailReasons.push(`${stage}: ${e.code || e.message || '알 수 없음'}`);
+    return false;
+  }
 }
 /* 기록이 있는 연도를 찾는다 — 올해부터 거슬러 올라가며 빈 해가 이어지면 멈춘다 */
 async function yearsWithData(){
@@ -3607,6 +3622,7 @@ $('photoFixBtn').onclick = async () => {
       {title:'🖼 예전 사진 정리', ok:'시작'}))){ photoFixBusy=false; return; }
 
     let moved = 0, kept = 0;
+    photoFailReasons = [];
     for(const job of jobs){
       const ds = job.ds;
       let snap; try{ snap = await dayRef(ds).get(); }catch(e){ kept += job.n; continue; }
@@ -3668,8 +3684,17 @@ $('photoFixBtn').onclick = async () => {
       }
     }
     refreshPhotoFixBtn();
-    toast(kept ? `사진 ${moved}장을 옮겼어요 · ${kept}장은 그대로 두었어요 (다시 눌러 주세요)`
-               : `사진 ${moved}장을 옮겨 일지가 가벼워졌어요`);
+    if(kept){
+      const why = {};
+      photoFailReasons.forEach(r => { why[r] = (why[r]||0) + 1; });
+      const lines = Object.entries(why).sort((a,b)=>b[1]-a[1]).map(([r,n]) => ` · ${r} (${n}장)`);
+      await askConfirm(
+        `사진 ${moved}장을 옮기고, ${kept}장은 옮기지 못했어요.\n원본은 그대로 두었으니 사진은 사라지지 않았습니다.\n\n못 옮긴 까닭:\n${lines.join('\n')}\n\n` +
+        `연결이 안정된 곳에서 다시 시도해 보시고, 같은 메시지가 계속 나오면 이 내용을 알려 주세요.`,
+        {title:'🖼 사진 정리 결과', ok:'알겠어요', cancel:'닫기'});
+    }else{
+      toast(`사진 ${moved}장을 옮겨 일지가 가벼워졌어요`);
+    }
   }catch(e){ toast('사진 정리 중 문제가 생겼어요: ' + (e.message||'')); }
   photoFixBusy = false;
 };
