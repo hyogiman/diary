@@ -6186,13 +6186,15 @@ async function loadSchedule(force){
   }
   $('schedState').textContent = '일정을 불러오는 중…';
   try{
-    const key = calendarKeyFromTarget();
-    const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=${key}`);
-    const bucket = j.calendars && j.calendars[key];
-    const events = ((bucket && bucket.events) || []).map(e => ({
-      id:e.id, title:e.title||'(제목 없음)', loc:e.location||'',
-      start:e.start||'', end:e.end||'', allDay:!!e.allDay, link:e.link||''
-    }));
+    /* 시간표는 등록 대상 1개가 아니라 업무 + 가족 캘린더를 모두 합쳐서 보여준다 */
+    const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=all`);
+    const events = Object.entries(j.calendars || {}).flatMap(([calendarKey, bucket]) =>
+      ((bucket && bucket.events) || []).map(e => ({
+        id:e.id, title:e.title||'(제목 없음)', loc:e.location||'',
+        start:e.start||'', end:e.end||'', allDay:!!e.allDay, link:e.link||'',
+        calendarKey, calendarName:(bucket && bucket.name) || calendarKey
+      }))
+    );
     schedCache = events;
     try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
     renderSchedule(events);
@@ -6217,17 +6219,21 @@ function renderSchedule(events, cachedTs){
     w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
     wrap.insertBefore(w, wrap.firstChild);
   }
+  /* 서버 일정 목록이 막 갱신되기 전이라도 Diary에 방금 입력한 시간 업무는 즉시 보여준다.
+     서버에서 같은 gcalId가 이미 내려온 경우에만 로컬 사본을 숨겨 중복 표시를 막는다. */
+  const serverEventIds = new Set((events||[]).map(e => e.id).filter(Boolean));
+  const needsLocalFallback = t => !t.gcalId || !serverEventIds.has(t.gcalId);
   const dayTasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
-    c.tasks.filter(t => t.time && t.text.trim() && !t.gcalId).map(t => ({
+    c.tasks.filter(t => t.time && t.text.trim() && needsLocalFallback(t)).map(t => ({
       kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
       st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
       dur:(t.dur||60)
     })));
   const looseTasks = (schedDate === curDate ? [
-    ...(inbox||[]).filter(t => t.time && t.text.trim() && !t.gcalId && (!t.timeDay || t.timeDay === schedDate))
+    ...(inbox||[]).filter(t => t.time && t.text.trim() && needsLocalFallback(t) && (!t.timeDay || t.timeDay === schedDate))
       .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'기타업무',
         st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)})),
-    ...(priv||[]).filter(t => t.time && t.text.trim() && !t.gcalId && (!t.timeDay || t.timeDay === schedDate))
+    ...(priv||[]).filter(t => t.time && t.text.trim() && needsLocalFallback(t) && (!t.timeDay || t.timeDay === schedDate))
       .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'개인용무',
         st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)}))
   ] : []);
@@ -6241,7 +6247,9 @@ function renderSchedule(events, cachedTs){
     const own = catOf(e.id);
     return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
       dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
-      color: own? catColor(own.cat) : '', catName: own? own.cat.name.trim() : '', done: own? own.task.done : false };
+      color: own? catColor(own.cat) : '',
+      catName: own? own.cat.name.trim() : (e.calendarName || ''),
+      done: own? own.task.done : false };
   });
   const items = [...evs, ...tasks].sort((a,b)=> a.st - b.st);
   const ads = (events||[]).filter(e => e.allDay);
@@ -6358,7 +6366,7 @@ $('evSave').onclick = async () => {
     const [h, m] = v.split(':').map(Number);
     const st = new Date(schedDate+'T00:00:00'); st.setHours(h, m, 0, 0);
     const en = new Date(st.getTime() + mins*60000);
-    const key = calendarKeyFromTarget();
+    const key = evEditing.calendarKey || calendarKeyFromTarget();
     await calendarApiFetch(`/api/events/${encodeURIComponent(evEditing.id)}?calendar=${key}`, {
       method:'PATCH',
       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
@@ -6387,7 +6395,7 @@ $('evDelete').onclick = async () => {
 캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`,
     {title:'🗑 시간 계획 취소', ok:'취소하기', cancel:'그대로 두기', danger:true}))) return;
   try{
-    const key = calendarKeyFromTarget();
+    const key = evEditing.calendarKey || calendarKeyFromTarget();
     await calendarApiFetch(`/api/events/${encodeURIComponent(evEditing.id)}?calendar=${key}`, {method:'DELETE'});
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
