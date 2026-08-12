@@ -1931,10 +1931,92 @@ function isCalendarTombstoned(ev){
 function dropEventFromScheduleCache(id, calendarKey){
   if(!id) return;
   markCalendarTombstone(id, calendarKey);
+  /* 이 이벤트를 덮어쓰던 낙관적 표시가 있다면 함께 정리 */
+  for(const rec of [...gcalPendingTasks.values()]){
+    if(rec && rec.t && rec.t.gcalId === id) clearSchedulePending(rec.t);
+  }
   schedCache = (schedCache||[]).filter(e => e.id !== id);
   const ds = schedDate || curDate || todayStr();
   if(USER){ try{ idbSet(`sched:${USER.uid}:${ds}`, {events:schedCache, ts:Date.now()}); }catch(e){} }
   if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache);
+}
+
+/* ── 시간표 낙관적 표시 ──────────────────────────────────────
+   예전에는 "Google 목록에 없으면 Diary의 time을 대신 표시"했다.
+   그 규칙은 이미 삭제된 로컬 time이 유령 일정으로 되살아나는 원인이 될 수 있었다.
+
+   이제 로컬 업무는 Calendar API 요청이 실제 진행 중이거나,
+   방금 성공한 요청을 서버 목록에서 확인하는 짧은 구간에만 임시 표시한다.
+   이 상태는 메모리에만 있어 새로고침하면 사라지며, 오래된 Diary/Firebase 값으로 복구되지 않는다. */
+const GCAL_PENDING_TTL = 30 * 1000;
+const gcalPendingTasks = new Map();
+let gcalPendingRecheckTimers = [];
+function schedulePendingKey(t){ return t && t.id ? String(t.id) : ''; }
+function clearSchedulePending(tOrId){
+  const key = typeof tOrId === 'string' ? tOrId : schedulePendingKey(tOrId);
+  if(!key) return;
+  const rec = gcalPendingTasks.get(key);
+  if(rec && rec.timer) clearTimeout(rec.timer);
+  gcalPendingTasks.delete(key);
+}
+function clearAllSchedulePending(){
+  for(const rec of gcalPendingTasks.values()) if(rec && rec.timer) clearTimeout(rec.timer);
+  gcalPendingTasks.clear();
+  gcalPendingRecheckTimers.forEach(clearTimeout);
+  gcalPendingRecheckTimers = [];
+}
+function markSchedulePending(t, cat){
+  if(!t || !t.id || !t.time || !String(t.text||'').trim()) return false;
+  const key = schedulePendingKey(t);
+  clearSchedulePending(key);
+  const rec = {t, cat:cat||null, expiresAt:Date.now()+GCAL_PENDING_TTL, timer:null};
+  rec.timer = setTimeout(()=>{
+    if(gcalPendingTasks.get(key) === rec){
+      gcalPendingTasks.delete(key);
+      if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+    }
+  }, GCAL_PENDING_TTL + 80);
+  gcalPendingTasks.set(key, rec);
+  if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+  return true;
+}
+function activeSchedulePendings(){
+  const now = Date.now(), out = [];
+  for(const [key, rec] of [...gcalPendingTasks.entries()]){
+    if(!rec || !rec.t || rec.expiresAt <= now || !rec.t.time || !String(rec.t.text||'').trim()){
+      clearSchedulePending(key); continue;
+    }
+    out.push(rec);
+  }
+  return out;
+}
+function pendingMatchesServerEvent(rec, ev){
+  if(!rec || !rec.t || !rec.t.gcalId || !ev || ev.id !== rec.t.gcalId || ev.allDay) return false;
+  const t = rec.t;
+  const expectedTitle = calBody(t, rec.cat).summary;
+  const st = new Date(ev.start), en = new Date(ev.end);
+  if(Number.isNaN(st.getTime()) || Number.isNaN(en.getTime())) return false;
+  const dur = Math.round((en-st)/60000);
+  return hhmm(ev.start) === t.time
+      && Math.abs(dur - (t.dur||60)) <= 1
+      && String(ev.title||'').trim() === String(expectedTitle||'').trim();
+}
+function reconcileSchedulePending(events){
+  for(const rec of activeSchedulePendings()){
+    if(rec.t.gcalId && (events||[]).some(ev => pendingMatchesServerEvent(rec, ev))){
+      clearSchedulePending(rec.t);
+    }
+  }
+}
+function schedulePendingRechecks(){
+  gcalPendingRecheckTimers.forEach(clearTimeout);
+  gcalPendingRecheckTimers = [];
+  if($('schedDrawer').classList.contains('hidden')) return;
+  for(const ms of [1200, 4000]){
+    gcalPendingRecheckTimers.push(setTimeout(()=>{
+      if(!$('schedDrawer').classList.contains('hidden') && activeSchedulePendings().length) loadSchedule(true);
+    }, ms));
+  }
 }
 async function calendarApiFetch(path, opt={}, retry=true){
   if(!USER) throw new Error('Diary 로그인이 필요해요');
@@ -2633,6 +2715,7 @@ function taskRow(t, ctx){
       const ok = await deleteTaskEvent(t, true, false);
       if(!ok){ calendarUx('fail', '삭제'); return; }
     }
+    clearSchedulePending(t);
     ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender();
     refreshScheduleDrawer();
     if(hadCalendarEvent) calendarUx('done', '삭제');
@@ -2679,9 +2762,16 @@ function taskRow(t, ctx){
     qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
       if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
-      t.time = e.target.value; ctx.save(); ctx.rerender(); refreshScheduleDrawer(); syncTaskToCalendar(t, ctx.cat); });
+      t.time = e.target.value; ctx.save(); ctx.rerender();
+      /* 연결된 Calendar 일정이 있을 때만 낙관적 표시 + PATCH. 미연결 로컬 time은 시간표의 서버 일정으로 가장하지 않는다. */
+      if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
+      else if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+    });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
-      t.dur = +e.target.value; ctx.save(); ctx.rerender(); refreshScheduleDrawer(); syncTaskToCalendar(t, ctx.cat); });
+      t.dur = +e.target.value; ctx.save(); ctx.rerender();
+      if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
+      else if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+    });
     panel.querySelector('.ap-alarm').addEventListener('change', e => {
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
@@ -2693,6 +2783,7 @@ function taskRow(t, ctx){
         const ok = await deleteTaskEvent(t, true, false);
         if(!ok){ calendarUx('fail', '삭제'); return; }
       }
+      clearSchedulePending(t);
       t.time='';
       if(ctx.inbox) t.timeDay = '';
       ctx.save(); ctx.rerender();
@@ -4729,8 +4820,9 @@ function calBody(t, cat){
 }
 async function openCalendar(t, cat, ctxRerender){
   if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
+  const isUpdate = !!t.gcalId;
+  const pendingMarked = markSchedulePending(t, cat);
   try{
-    const isUpdate = !!t.gcalId;
     calendarUx('start', isUpdate ? '수정' : '등록');
     const key = t.gcalCalendar || calendarKeyFromTarget();
     const path = isUpdate
@@ -4748,7 +4840,10 @@ async function openCalendar(t, cat, ctxRerender){
     calendarUx('done', isUpdate ? '수정' : '등록');
     if(ctxRerender) ctxRerender();
     refreshScheduleDrawer();
+    if(pendingMarked) schedulePendingRechecks();
   }catch(e){
+    clearSchedulePending(t);
+    if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     calendarUx('fail', '반영');
   }
 }
@@ -4798,6 +4893,7 @@ async function clearCarriedCopies(t, cat, fromDate){
 /* 캘린더에 등록된 일정을 지움 (업무 삭제·날짜 삭제 시) */
 async function deleteTaskEvent(t, quiet, refresh=true){
   if(!t) return true;
+  clearSchedulePending(t);                    /* 삭제 중인 업무의 낙관적 블록도 즉시 폐기 */
   const id = t.gcalId || '';
   const taskId = t.id || '';
   const key = t.gcalCalendar || 'all';
@@ -4828,7 +4924,8 @@ async function deleteTaskEvent(t, quiet, refresh=true){
 
 /* 목록에서 시간·소요·알림·제목을 고치면 캘린더에도 조용히 반영 */
 async function syncTaskToCalendar(t, cat){
-  if(!t.gcalId) return;
+  if(!t.gcalId) return false;
+  const pendingMarked = markSchedulePending(t, cat);
   calendarUx('start', '수정');
   try{
     const key = t.gcalCalendar || 'all';
@@ -4837,7 +4934,14 @@ async function syncTaskToCalendar(t, cat){
     });
     calendarUx('done', '수정');
     refreshScheduleDrawer();
-  }catch(e){ calendarUx('fail', '수정'); }
+    if(pendingMarked) schedulePendingRechecks();
+    return true;
+  }catch(e){
+    clearSchedulePending(t);
+    if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+    calendarUx('fail', '수정');
+    return false;
+  }
 }
 
 /* ═══════════════ 기록 검색 ═══════════════ */
@@ -6268,6 +6372,8 @@ $('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') 
 let schedDate = '';
 let schedCache = null, schedStale = false;
 $('schedRefresh').onclick = async () => {
+  /* 수동 새로고침은 낙관적 UI도 버리고 '지금 서버가 말하는 진실'만 다시 확인한다. */
+  clearAllSchedulePending();
   if(USER){
     const ds = schedDate || curDate || todayStr();
     try{ await idbDel(`sched:${USER.uid}:${ds}`); }catch(e){}
@@ -6337,6 +6443,8 @@ async function loadSchedule(force){
     /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다.
        이전 버전은 stale 서버 응답을 그대로 캐시에 써서 10분 뒤 유령이 부활할 수 있었다. */
     const cleanEvents = events.filter(e => !isCalendarTombstoned(e));
+    /* 서버가 방금 수정한 제목/시간/소요시간까지 확인했을 때만 낙관적 표시를 종료한다. */
+    reconcileSchedulePending(cleanEvents);
     schedCache = cleanEvents;
     try{ await idbSet(cacheKey, {events:cleanEvents, ts:Date.now()}); }catch(e){}
     renderSchedule(cleanEvents);
@@ -6374,31 +6482,27 @@ function renderSchedule(events, cachedTs){
     w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
     wrap.insertBefore(w, wrap.firstChild);
   }
-  /* 서버 일정 목록이 막 갱신되기 전이라도 Diary에 방금 입력한 시간 업무는 즉시 보여준다.
-     서버에서 같은 gcalId가 이미 내려온 경우에만 로컬 사본을 숨겨 중복 표시를 막는다. */
-  const serverEventIds = new Set((events||[]).map(e => e.id).filter(Boolean));
-  const needsLocalFallback = t => !t.gcalId || !serverEventIds.has(t.gcalId);
-  const dayTasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
-    c.tasks.filter(t => t.time && t.text.trim() && needsLocalFallback(t)).map(t => ({
-      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
+  /* 서버가 최종 기준이다. 로컬 Diary 업무는 API 요청 중/서버 확인 대기 중인 것만 잠깐 그린다.
+     따라서 Google에 없고 요청도 없는 오래된 time 값은 더 이상 시간표 블록을 만들 수 없다. */
+  const pendingRows = (schedDate === curDate ? activeSchedulePendings() : []);
+  const pendingEventIds = new Set(pendingRows.map(rec => rec.t && rec.t.gcalId).filter(Boolean));
+  const tasks = pendingRows.map(rec => {
+    const t = rec.t, c = rec.cat;
+    const isPriv = !c && (priv||[]).includes(t);
+    return {
+      kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done,
+      color:c ? catColor(c) : (isPriv ? PRIV_COLOR : '#B08A5A'),
+      catName:c ? c.name.trim() : (isPriv ? '개인용무' : '기타업무'),
       st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
-      dur:(t.dur||60)
-    })));
-  const looseTasks = (schedDate === curDate ? [
-    ...(inbox||[]).filter(t => t.time && t.text.trim() && needsLocalFallback(t) && (!t.timeDay || t.timeDay === schedDate))
-      .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'기타업무',
-        st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)})),
-    ...(priv||[]).filter(t => t.time && t.text.trim() && needsLocalFallback(t) && (!t.timeDay || t.timeDay === schedDate))
-      .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'개인용무',
-        st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)}))
-  ] : []);
-  const tasks = [...dayTasks, ...looseTasks];
+      dur:(t.dur||60), pending:true
+    };
+  });
   const catOf = id => {
     for(const c of (schedDate === curDate ? day.cats : []))
       for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
     return null;
   };
-  const evs = (events||[]).filter(e => !e.allDay).map(e => {
+  const evs = (events||[]).filter(e => !e.allDay && !pendingEventIds.has(e.id)).map(e => {
     const own = catOf(e.id);
     return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
       dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
