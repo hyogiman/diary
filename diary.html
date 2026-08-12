@@ -6509,8 +6509,12 @@ async function recoverMissingLinkedCalendarEvents(events){
   const linked = linkedCalendarTasksForScheduleDate();
   if(!linked.length) return base;
 
-  const keyOf = (calendarKey, id) => `${calendarKey || ''}:${id || ''}`;
-  const linkedKeys = new Set(linked.map(rec => keyOf(rec.calendarKey, rec.t.gcalId)));
+  /* 중요: 기존 Diary 자료 중에는 gcalCalendar가 비어 있거나 'all'인 항목이 있다.
+     list 결과는 실제 calendarKey('work'/'family')를 갖기 때문에
+     calendarKey+id로 비교하면 같은 Google event가 서로 다른 키로 인식돼
+     시간표 서랍에 두 번 그려질 수 있다.
+     Diary 연결 일정의 정체성은 gcalId 하나로 비교한다. */
+  const linkedIds = new Set(linked.map(rec => rec.t.gcalId).filter(Boolean));
 
   const checks = await Promise.all(linked.map(async rec => {
     const id = rec.t.gcalId;
@@ -6522,49 +6526,58 @@ async function recoverMissingLinkedCalendarEvents(events){
       );
       const ev = directCalendarEventFromResponse(j, rec.calendarKey);
       if(!ev || isCalendarTombstoned(ev)){
-        return {kind:'gone', key:keyOf(rec.calendarKey, id)};
+        return {kind:'gone', id};
       }
 
       const eventDate = scheduleLocalDateKey(ev.start);
       if(eventDate && eventDate !== schedDate){
-        return {kind:'moved', key:keyOf(rec.calendarKey, id)};
+        return {kind:'moved', id};
       }
 
-      return {kind:'ok', key:keyOf(rec.calendarKey, id), event:ev};
+      return {kind:'ok', id, event:ev};
     }catch(e){
       if(e && (e.status === 404 || e.status === 410)){
-        return {kind:'gone', key:keyOf(rec.calendarKey, id)};
+        return {kind:'gone', id};
       }
       console.warn('Calendar direct event verification failed', id, e);
-      return {kind:'error', key:keyOf(rec.calendarKey, id)};
+      return {kind:'error', id};
     }
   }));
 
   const verified = new Map();
-  const removeKeys = new Set();
-  const errorKeys = new Set();
+  const removeIds = new Set();
+  const errorIds = new Set();
 
   for(const r of checks){
     if(r.kind === 'ok'){
-      verified.set(r.key, r.event);
-      removeKeys.add(r.key);     // stale list 사본은 GET 결과로 교체
+      verified.set(r.id, r.event);
+      removeIds.add(r.id);       // list 사본은 실제 GET 결과로 교체
     }else if(r.kind === 'gone' || r.kind === 'moved'){
-      removeKeys.add(r.key);     // 실제 Google 기준으로 오늘 시간표에서 제거
+      removeIds.add(r.id);       // 실제 Google 기준으로 오늘 시간표에서 제거
     }else if(r.kind === 'error'){
-      errorKeys.add(r.key);      // 네트워크 오류 때만 list 사본 임시 유지
+      errorIds.add(r.id);        // 네트워크 오류 때만 list 사본 임시 유지
     }
   }
 
   const kept = base.filter(ev => {
-    const k = keyOf(ev.calendarKey, ev.id);
-    if(!linkedKeys.has(k)) return true;       // Diary 비연결 일정은 list 그대로 사용
-    if(errorKeys.has(k)) return true;         // direct GET 실패 시에만 list 임시 유지
-    return !removeKeys.has(k);                // 성공/삭제/다른 날짜는 list 사본 제거
+    if(!linkedIds.has(ev.id)) return true;    // Diary 비연결 일정은 list 그대로 사용
+    if(errorIds.has(ev.id)) return true;      // direct GET 실패 시에만 list 임시 유지
+    return !removeIds.has(ev.id);             // 연결 event의 list 사본은 제거
   });
 
   for(const ev of verified.values()) kept.push(ev);
 
-  return kept;
+  /* 마지막 안전망: 동일 calendar+event ID가 어떤 경로로든 두 번 들어와도 한 번만 표시 */
+  const deduped = [];
+  const seen = new Set();
+  for(const ev of kept){
+    const k = `${ev.calendarKey || ''}:${ev.id || ''}`;
+    if(ev.id && seen.has(k)) continue;
+    if(ev.id) seen.add(k);
+    deduped.push(ev);
+  }
+
+  return deduped;
 }
 
 async function loadSchedule(force){
@@ -6603,8 +6616,8 @@ async function loadSchedule(force){
       }))
     );
 
-    /* events.list에서 Diary 연결 일정이 누락된 경우에만 event ID로 Google에 직접 재확인한다.
-       Google에 실제로 존재하는 event만 추가하므로 로컬 time 값으로 유령을 만들지 않는다. */
+    /* Diary 연결 일정은 event ID 직접 GET 결과를 최종 기준으로 사용한다.
+       list의 오래된 사본/중복 사본은 제거하고 실제 Google event 하나만 남긴다. */
     const verifiedEvents = await recoverMissingLinkedCalendarEvents(events);
 
     /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다. */
