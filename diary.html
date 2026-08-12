@@ -2018,18 +2018,50 @@ function schedulePendingRechecks(){
     }, ms));
   }
 }
+/* Calendar 쓰기와 읽기의 경합 방지.
+   시간/제목/완료/삭제 PATCH·POST·DELETE가 진행 중이면 시간표 GET은
+   그 쓰기가 끝날 때까지 기다린다. 따라서 사용자가 변경 직후 ↻ 새로고침을 눌러도
+   예전 Google 상태가 새 값을 덮어쓰지 않는다. */
+let gcalMutationCount = 0;
+let gcalMutationWaiters = [];
+
+function beginCalendarMutation(){
+  gcalMutationCount++;
+}
+function endCalendarMutation(){
+  gcalMutationCount = Math.max(0, gcalMutationCount - 1);
+  if(gcalMutationCount === 0 && gcalMutationWaiters.length){
+    const waiters = gcalMutationWaiters.splice(0);
+    waiters.forEach(fn=>{ try{ fn(); }catch(e){} });
+  }
+}
+async function waitForCalendarMutations(){
+  if(gcalMutationCount === 0) return;
+  await new Promise(resolve => gcalMutationWaiters.push(resolve));
+}
+
 async function calendarApiFetch(path, opt={}, retry=true){
   if(!USER) throw new Error('Diary 로그인이 필요해요');
-  const token = await USER.getIdToken(false);
-  const headers = Object.assign({}, opt.headers||{}, {Authorization:'Bearer '+token});
-  if(opt.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-  const r = await fetch(CALENDAR_API + path, Object.assign({cache:'no-store'}, opt, {headers}));
-  if(r.status === 401 && retry){
-    const fresh = await USER.getIdToken(true);
-    headers.Authorization = 'Bearer ' + fresh;
-    return calendarApiFetchWithToken(path, opt, headers);
+
+  const method = String(opt.method || 'GET').toUpperCase();
+  const isMutation = method === 'POST' || method === 'PATCH' || method === 'DELETE';
+  if(isMutation) beginCalendarMutation();
+
+  try{
+    const token = await USER.getIdToken(false);
+    const headers = Object.assign({}, opt.headers||{}, {Authorization:'Bearer '+token});
+    if(opt.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+
+    const r = await fetch(CALENDAR_API + path, Object.assign({cache:'no-store'}, opt, {headers}));
+    if(r.status === 401 && retry){
+      const fresh = await USER.getIdToken(true);
+      headers.Authorization = 'Bearer ' + fresh;
+      return await calendarApiFetchWithToken(path, opt, headers);
+    }
+    return await parseCalendarResponse(r);
+  }finally{
+    if(isMutation) endCalendarMutation();
   }
-  return parseCalendarResponse(r);
 }
 async function calendarApiFetchWithToken(path, opt, headers){
   const r = await fetch(CALENDAR_API + path, Object.assign({cache:'no-store'}, opt, {headers}));
@@ -6501,6 +6533,11 @@ async function recoverMissingLinkedCalendarEvents(events){
 }
 
 async function loadSchedule(force){
+  /* 사용자가 시간 변경 직후 ↻를 눌러도, 진행 중인 Calendar 쓰기보다 GET이 앞서지 않게 한다. */
+  if(gcalMutationCount > 0){
+    $('schedState').textContent = 'Google Calendar 반영 완료를 기다리는 중…';
+    await waitForCalendarMutations();
+  }
   if(!schedDate) schedDate = curDate || todayStr();
   const d = new Date(schedDate+'T12:00:00');
   $('schedYmd').textContent = `🗂 ${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 시간표`;
