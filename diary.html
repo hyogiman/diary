@@ -2614,8 +2614,15 @@ function taskRow(t, ctx){
     const tclr = panel.querySelector('.ap-tclr');
     if(tclr) tclr.onclick = async () => {
       if(t.gcalId && !(await askConfirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다.\n진행할까요?', {title:'⏰ 실행 시간 지우기', ok:'지우기', danger:true}))) return;
-      await deleteTaskEvent(t, true);
-      t.time=''; ctx.save(); ctx.rerender(); toast('실행 시간을 지웠어요');
+      if(t.gcalId){
+        const ok = await deleteTaskEvent(t, true);
+        if(!ok){ toast('캘린더 일정 삭제에 실패해서 실행 시간을 지우지 않았어요'); return; }
+      }
+      t.time='';
+      if(ctx.inbox) t.timeDay = '';
+      ctx.save(); ctx.rerender();
+      refreshScheduleDrawer();
+      toast('실행 시간을 지웠어요');
     };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
     panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
