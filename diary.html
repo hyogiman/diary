@@ -2606,9 +2606,9 @@ function taskRow(t, ctx){
     qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
       if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
-      t.time = e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
+      t.time = e.target.value; ctx.save(); ctx.rerender(); refreshScheduleDrawer(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
-      t.dur = +e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
+      t.dur = +e.target.value; ctx.save(); ctx.rerender(); refreshScheduleDrawer(); syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-alarm').addEventListener('change', e => {
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
     const tclr = panel.querySelector('.ap-tclr');
@@ -4649,7 +4649,7 @@ async function openCalendar(t, cat, ctxRerender){
     const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
     toast(`${isUpdate? '캘린더 일정을 수정했어요':'캘린더에 등록했어요'} · ${alTxt}`);
     if(ctxRerender) ctxRerender();
-    if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
+    refreshScheduleDrawer();
   }catch(e){
     toast('캘린더 등록 실패 — 잠시 후 다시 시도해 주세요');
   }
@@ -4706,7 +4706,7 @@ async function deleteTaskEvent(t, quiet){
     await calendarApiFetch(`/api/events/${encodeURIComponent(id)}?calendar=${key}`, {method:'DELETE'});
     t.gcalId = '';
     if(!quiet) toast('캘린더 일정도 함께 지웠어요');
-    if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
+    refreshScheduleDrawer();
     return true;
   }catch(e){
     if(!quiet) toast('캘린더 일정 삭제 실패 — 잠시 후 다시 시도해 주세요');
@@ -4723,7 +4723,7 @@ async function syncTaskToCalendar(t, cat){
       method:'PATCH', body:JSON.stringify(calBody(t, cat))
     });
     toast('캘린더 일정에도 반영했어요');
-    if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
+    refreshScheduleDrawer();
   }catch(e){ toast('캘린더 반영 실패 — 일정 탭에서 새로고침해 주세요'); }
 }
 
@@ -6148,12 +6148,23 @@ let schedCache = null, schedStale = false;
 $('schedRefresh').onclick = async () => {
   loadSchedule(true);
 };
+/* 서랍 시간표 캐시 갱신 — 업무 시간/캘린더 변경 직후 오래된 화면이 남지 않게 */
+function refreshScheduleDrawer(){
+  if(!USER) return;
+  const ds = schedDate || curDate || todayStr();
+  try{ idbDel(`sched:${USER.uid}:${ds}`); }catch(e){}
+  if(!$('schedDrawer').classList.contains('hidden')){
+    schedDate = curDate || ds;
+    loadSchedule(true);
+  }
+}
+
 /* 서랍 열기·닫기 */
 function openSchedDrawer(){
   schedDate = curDate;
   $('schedDrawer').classList.remove('hidden');
   requestAnimationFrame(()=> $('schedDrawer').classList.add('on'));
-  loadSchedule();
+  loadSchedule(true);
 }
 function closeSchedDrawer(){
   $('schedDrawer').classList.remove('on');
@@ -6206,12 +6217,21 @@ function renderSchedule(events, cachedTs){
     w.textContent = `⚠ 최신이 아닐 수 있어요 — ${new Date(cachedTs).toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})} 기준`;
     wrap.insertBefore(w, wrap.firstChild);
   }
-  const tasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
+  const dayTasks = (schedDate === curDate ? day.cats : []).flatMap(c =>
     c.tasks.filter(t => t.time && t.text.trim() && !t.gcalId).map(t => ({
       kind:'task', ref:t, cat:c, title:t.text.trim(), done:t.done, color:catColor(c), catName:c.name.trim(),
       st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(),
       dur:(t.dur||60)
     })));
+  const looseTasks = (schedDate === curDate ? [
+    ...(inbox||[]).filter(t => t.time && t.text.trim() && !t.gcalId && (!t.timeDay || t.timeDay === schedDate))
+      .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'기타업무',
+        st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)})),
+    ...(priv||[]).filter(t => t.time && t.text.trim() && !t.gcalId && (!t.timeDay || t.timeDay === schedDate))
+      .map(t => ({kind:'task', ref:t, cat:null, title:t.text.trim(), done:t.done, color:'', catName:'개인용무',
+        st:(()=>{ const d=new Date(schedDate+'T00:00:00'); const [h,m]=t.time.split(':').map(Number); d.setHours(h,m,0,0); return d; })(), dur:(t.dur||60)}))
+  ] : []);
+  const tasks = [...dayTasks, ...looseTasks];
   const catOf = id => {
     for(const c of (schedDate === curDate ? day.cats : []))
       for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
@@ -6297,7 +6317,10 @@ function renderSchedule(events, cachedTs){
 function openTaskFromTimeline(t){
   closeSchedDrawer();
   switchTab('today');
-  t.open = true; renderCats();
+  t.open = true;
+  if((inbox||[]).includes(t)){ inboxOpen = true; renderInbox(); }
+  else if((priv||[]).includes(t)){ privOpen = true; renderPriv(); }
+  else renderCats();
   setTimeout(()=>{
     const el = [...document.querySelectorAll('.task-text')].find(x => x.value === t.text);
     if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
