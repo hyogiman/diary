@@ -145,6 +145,9 @@ input:focus,textarea:focus{outline-offset:0}
 .section-star{font-family:'Jua';color:var(--accent-deep);font-size:1.12rem;margin:20px 0 10px;
   display:flex;align-items:center;gap:8px}
 .section-star .actions{margin-left:auto;display:flex;gap:6px}
+.ap-caldone{opacity:.72;cursor:default;background:rgba(110,160,110,.16);
+  border-color:rgba(110,160,110,.45);color:#4E7A4E;pointer-events:none;
+  display:inline-flex;align-items:center}
 .mini-btn{font-size:.8rem;font-weight:700;padding:6px 11px;border-radius:999px;background:var(--surface);
   border:1.5px solid var(--rule);color:var(--accent-deep);transition:.15s}
 .mini-btn:hover{background:var(--paper-deep)}
@@ -2768,7 +2771,9 @@ function taskRow(t, ctx){
             .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
         </select>
         <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
-        <button class="mini-btn ap-cal">📅 캘린더 ${t.gcalId? '수정':'등록'}</button>
+        ${t.gcalId
+          ? '<span class="mini-btn ap-caldone" title="이 업무는 캘린더에 올라가 있어요 — 시간을 바꾸면 캘린더도 함께 바뀝니다">✓ 캘린더 등록완료</span>'
+          : '<button class="mini-btn ap-cal">📅 캘린더 등록</button>'}
       </div>
       <div class="tg-row">
         <span class="ap-title">🎯 주간 목표</span>
@@ -2825,7 +2830,8 @@ function taskRow(t, ctx){
     };
     panel.querySelector('.ap-img').onclick = () => pickFile('image/*', f => addImage(f, t.files, ()=>{ ctx.save(); renderAll(); }));
     panel.querySelector('.ap-aud').onclick = () => pickFile('audio/*,.m4a', f => addAudio(f, t.files, ()=>{ ctx.save(); renderAll(); }, panel.querySelector('.file-grid')));
-    panel.querySelector('.ap-cal').onclick = () => openCalendar(t, ctx.cat, ctx.rerender);
+    const calBtn = panel.querySelector('.ap-cal');
+    if(calBtn) calBtn.onclick = () => openCalendar(t, ctx.cat, ctx.rerender);
     renderFiles(panel.querySelector('.file-grid'), t.files, ctx);
     row.appendChild(panel);
     grow(qn, 72);                                    // 열 때 내용 길이만큼 펼침
@@ -6606,8 +6612,11 @@ async function loadSchedule(force){
   }
   $('schedState').textContent = '일정을 불러오는 중…';
   try{
-    /* 시간표는 등록 대상 1개가 아니라 업무 + 가족 캘린더를 모두 합쳐서 보여준다 */
-    const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=all`);
+    /* 시간표에는 업무 캘린더만 보여준다.
+       가족 캘린더('여보랑 함께 캘린더')는 일지에 섞이면 오히려 방해가 된다는 판단.
+       다시 합치고 싶으면 아래 SCHED_CALENDAR 를 'all' 로 바꾸면 된다. */
+    const SCHED_CALENDAR = 'work';
+    const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=${SCHED_CALENDAR}`);
     const events = Object.entries(j.calendars || {}).flatMap(([calendarKey, bucket]) =>
       ((bucket && bucket.events) || []).map(e => ({
         id:e.id, title:e.title||'(제목 없음)', loc:e.location||'',
