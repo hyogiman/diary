@@ -20,7 +20,6 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -1882,11 +1881,45 @@ const firebaseConfig = {
 /* ═════════════════════════════════════════════════════════════════════════ */
 firebase.initializeApp(firebaseConfig);
 const FB_BUCKET = firebaseConfig.storageBucket || '';   /* 저장소 안내에 쓰는 이름 */
-/* ▼ 구글 캘린더 연동용 — Google Cloud 콘솔에서 발급받은 값을 넣으세요 */
-const GOOGLE_CLIENT_ID = "1068928286903-kath6tjkkn12252cj5glopte09bo6q2v.apps.googleusercontent.com";
+/* ▼ Google Calendar는 Firebase 서버가 대신 연결합니다. 브라우저에는 Google OAuth 토큰을 두지 않습니다. */
+const CALENDAR_API = "https://asia-southeast1-diary-hyogi.cloudfunctions.net/calendarApi";
+const WORK_CALENDAR_ID = "dbda5dd1b90638e382435d8207713b1427ed0442c304385c6179906995769003@group.calendar.google.com";
+const FAMILY_CALENDAR_ID = "5ba1fb5a0d81eb7ee717a5054d23688adab8aa876369e5a1737e734e1f845ea4@group.calendar.google.com";
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
+
+/* Calendar 서버 호출 — Firebase 로그인 토큰으로만 접근 */
+function calendarKeyFromTarget(){
+  if(calTarget === FAMILY_CALENDAR_ID) return 'family';
+  return 'work';
+}
+async function calendarApiFetch(path, opt={}, retry=true){
+  if(!USER) throw new Error('Diary 로그인이 필요해요');
+  const token = await USER.getIdToken(false);
+  const headers = Object.assign({}, opt.headers||{}, {Authorization:'Bearer '+token});
+  if(opt.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
+  const r = await fetch(CALENDAR_API + path, Object.assign({}, opt, {headers}));
+  if(r.status === 401 && retry){
+    const fresh = await USER.getIdToken(true);
+    headers.Authorization = 'Bearer ' + fresh;
+    return calendarApiFetchWithToken(path, opt, headers);
+  }
+  return parseCalendarResponse(r);
+}
+async function calendarApiFetchWithToken(path, opt, headers){
+  const r = await fetch(CALENDAR_API + path, Object.assign({}, opt, {headers}));
+  return parseCalendarResponse(r);
+}
+async function parseCalendarResponse(r){
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.includes('application/json') ? await r.json() : await r.text();
+  if(!r.ok){
+    const msg = (data && data.error) ? data.error : (typeof data === 'string' ? data : 'HTTP '+r.status);
+    const e = new Error(msg || ('HTTP '+r.status)); e.status = r.status; throw e;
+  }
+  return data;
+}
 
 const $ = id => document.getElementById(id);
 const DOW = ['일','월','화','수','목','금','토'];
@@ -1976,7 +2009,6 @@ auth.onAuthStateChanged(async u => {
     await loadEvents();
     await loadCustomIcon();
     await loadCalTarget();
-    setTimeout(initGoogle, 800);
     await loadTheme();
     await loadHandFont();
     await loadPrivPrint();
@@ -4601,33 +4633,26 @@ function calBody(t, cat){
 }
 async function openCalendar(t, cat, ctxRerender){
   if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
-  if(GOOGLE_CLIENT_ID && await ensureToken(false)){
-    try{
-      const isUpdate = !!t.gcalId;
-      const calId = calTarget || 'primary';
-      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`
-                + (isUpdate? `/${encodeURIComponent(t.gcalId)}` : '');
-      const r = await fetch(url, {method: isUpdate? 'PATCH':'POST',
-        headers:{Authorization:'Bearer '+gToken, 'Content-Type':'application/json'},
-        body: JSON.stringify(calBody(t, cat))});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const ev = await r.json();
-      t.gcalId = ev.id || t.gcalId;
-      markDirty();
-      const al = (t.alarm===undefined? 10 : t.alarm);
-      const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
-      toast(`${isUpdate? '캘린더 일정을 수정했어요':'캘린더에 등록했어요'} · ${alTxt}`);
-      if(ctxRerender) ctxRerender();
-      if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
-      return;
-    }catch(e){ /* 실패 시 링크 방식 */ }
+  try{
+    const isUpdate = !!t.gcalId;
+    const key = calendarKeyFromTarget();
+    const path = isUpdate
+      ? `/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`
+      : `/api/events?calendar=${key}`;
+    const j = await calendarApiFetch(path, {
+      method: isUpdate ? 'PATCH' : 'POST',
+      body: JSON.stringify(calBody(t, cat))
+    });
+    t.gcalId = (j.event && j.event.id) || t.gcalId;
+    markDirty();
+    const al = (t.alarm===undefined? 10 : t.alarm);
+    const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
+    toast(`${isUpdate? '캘린더 일정을 수정했어요':'캘린더에 등록했어요'} · ${alTxt}`);
+    if(ctxRerender) ctxRerender();
+    if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
+  }catch(e){
+    toast('캘린더 등록 실패 — 잠시 후 다시 시도해 주세요');
   }
-  const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-  const title = (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
-  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || 'Daily Log에서 등록');
-  window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(title)}`
-    + `&dates=${calDates(t)}&ctz=${encodeURIComponent(tz)}&details=${encodeURIComponent(details)}`
-    + (calTarget? `&src=${encodeURIComponent(calTarget)}` : ''), '_blank');
 }
 /* 같은 업무인지 판별 — 계보(origin)가 이어지면 같은 업무 */
 const taskLine = t => t.origin || t.id;
@@ -4674,31 +4699,29 @@ async function clearCarriedCopies(t, cat, fromDate){
 
 /* 캘린더에 등록된 일정을 지움 (업무 삭제·날짜 삭제 시) */
 async function deleteTaskEvent(t, quiet){
-  if(!t || !t.gcalId || !GOOGLE_CLIENT_ID) return false;
+  if(!t || !t.gcalId) return false;
   const id = t.gcalId;
-  t.gcalId = '';
-  if(!(await ensureToken(false))) return false;
   try{
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(id)}`,
-      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
-    if(!r.ok && r.status !== 410 && r.status !== 404) throw new Error('HTTP '+r.status);
+    const key = calendarKeyFromTarget();
+    await calendarApiFetch(`/api/events/${encodeURIComponent(id)}?calendar=${key}`, {method:'DELETE'});
+    t.gcalId = '';
     if(!quiet) toast('캘린더 일정도 함께 지웠어요');
     if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
     return true;
-  }catch(e){ if(!quiet) toast('캘린더 일정 삭제 실패 — 캘린더에서 직접 지워 주세요'); return false; }
+  }catch(e){
+    if(!quiet) toast('캘린더 일정 삭제 실패 — 잠시 후 다시 시도해 주세요');
+    return false;
+  }
 }
 
 /* 목록에서 시간·소요·알림·제목을 고치면 캘린더에도 조용히 반영 */
 async function syncTaskToCalendar(t, cat){
-  if(!t.gcalId || !GOOGLE_CLIENT_ID) return;
-  if(!(await ensureToken(false))) return;
+  if(!t.gcalId) return;
   try{
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(t.gcalId)}`,
-      {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
-       body: JSON.stringify(calBody(t, cat))});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    const key = calendarKeyFromTarget();
+    await calendarApiFetch(`/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`, {
+      method:'PATCH', body:JSON.stringify(calBody(t, cat))
+    });
     toast('캘린더 일정에도 반영했어요');
     if(!$('schedDrawer').classList.contains('hidden')) loadSchedule(true);
   }catch(e){ toast('캘린더 반영 실패 — 일정 탭에서 새로고침해 주세요'); }
@@ -6059,7 +6082,7 @@ $('setCalBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
   const v = await askInput({
     title:'📅 캘린더 등록 대상',
-    desc:'구글 캘린더 ID를 넣으면 그 캘린더에 저장돼요. 비우면 기본 캘린더로 저장됩니다.\n(구글 캘린더 웹 → 캘린더 ⋮ → 설정 및 공유 → 캘린더 통합 → 캘린더 ID)',
+    desc:'서버 연동 대상 캘린더를 선택합니다. 업무 일지 기록 또는 여보랑 함께 캘린더의 ID를 넣어 주세요. 비우거나 다른 값을 넣으면 업무 일지 기록으로 저장됩니다.',
     value: calTarget || ''
   });
   if(v === null) return;
@@ -6119,79 +6142,10 @@ $('setThemeBtn').onclick = () => { $('settingsMenu').classList.add('hidden'); re
 $('themeClose').onclick = () => $('themeModal').classList.add('hidden');
 $('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') $('themeModal').classList.add('hidden'); });
 
-/* ═══════════════ 📆 구글 캘린더 일정 (읽기 + 캐시 완충) ═══════════════ */
-const GCAL_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-let gToken = '', gTokenExp = 0, gClient = null, schedDate = '';
+/* ═══════════════ 📆 구글 캘린더 일정 (Firebase 서버 + 캐시 완충) ═══════════════ */
+let schedDate = '';
 let schedCache = null, schedStale = false;
-
-const gReady = () => !!GOOGLE_CLIENT_ID && typeof google !== 'undefined' && google.accounts;
-function initGoogle(){
-  if(gClient || !gReady()) return;
-  gClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID, scope: GCAL_SCOPE,
-    callback: resp => {
-      if(resp && resp.access_token){
-        gToken = resp.access_token;
-        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
-        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
-        loadSchedule(true);
-      }
-    },
-  });
-  try{
-    const c = JSON.parse(localStorage.getItem('gTok')||'null');
-    if(c && c.e > Date.now()){ gToken = c.t; gTokenExp = c.e; }
-  }catch(e){}
-}
-/* 구글 연결.
-   구글이 주는 이용권(토큰)은 1시간이면 끝난다. 그때마다 창을 띄우면 하루에도 몇 번씩
-   눌러야 해서, 끝나기 전에 화면 뒤에서 조용히 새로 받아 둔다.
-   조용히 받는 것이 막히는 때(다른 계정으로 로그인, 권한 회수 등)에만 창을 띄운다. */
-let gSilentAt = 0;                                  /* 마지막으로 조용히 시도한 시각 */
-let gSilentFail = false;                            /* 조용한 갱신이 막혔는지 — 그때만 창이 필요하다 */
-/* renew:true 면 아직 쓸 수 있어도 새로 받아 둔다 (끝나기 전 미리 받기) */
-function ensureToken(interactive, renew){
-  return new Promise(resolve => {
-    if(!renew && gToken && gTokenExp > Date.now()) return resolve(true);
-    if(!gReady()) return resolve(false);
-    initGoogle();
-    if(!gClient) return resolve(false);
-    /* 조용한 갱신은 너무 자주 두드리지 않는다 (사용자가 직접 부른 요청은 늘 통과) */
-    if(!interactive && !renew && Date.now() - gSilentAt < 30000) return resolve(false);
-    if(!interactive) gSilentAt = Date.now();
-    let done = false;
-    const finish = v => { if(done) return; done = true; gClient.callback = prev; resolve(v); };
-    const prev = gClient.callback;
-    gClient.callback = resp => {
-      if(resp && resp.access_token){
-        gToken = resp.access_token;
-        gTokenExp = Date.now() + (resp.expires_in||3600)*1000 - 60000;
-        try{ localStorage.setItem('gTok', JSON.stringify({t:gToken, e:gTokenExp})); }catch(e){}
-        gSilentFail = false;
-        finish(true);
-      }else{ if(!interactive) gSilentFail = true; finish(false); }
-    };
-    /* prompt:'none' — 이미 허락해 둔 사이라면 화면 없이 새 이용권을 준다.
-       (예전엔 '' 를 써서 구글이 계정 선택 창을 띄우곤 했다) */
-    try{ gClient.requestAccessToken({prompt: interactive ? 'consent' : 'none'}); }
-    catch(e){ finish(false); }
-    if(!interactive) setTimeout(() => finish(false), 6000);   /* 조용한 갱신이 막히면 그냥 넘어간다 */
-  });
-}
-/* 이용권이 끝나기 전에 미리 새로 받아 둔다 — 쓰다가 끊기지 않게 */
-function renewSoon(){
-  if(!GOOGLE_CLIENT_ID || !gToken) return;
-  if(gTokenExp - Date.now() < 5*60*1000) ensureToken(false, true);   /* 5분 남으면 미리 */
-}
-setInterval(renewSoon, 60000);
-document.addEventListener('visibilitychange', () => { if(!document.hidden) renewSoon(); });
 $('schedRefresh').onclick = async () => {
-  if(!GOOGLE_CLIENT_ID){ toast('구글 클라이언트 ID가 아직 없어요'); return; }
-  if(!(await ensureToken(false))){
-    const ok = await ensureToken(true);
-    if(!ok){ toast('구글 캘린더 연결이 취소됐어요'); return; }
-    toast('구글 캘린더를 다시 연결했어요');
-  }
   loadSchedule(true);
 };
 /* 서랍 열기·닫기 */
@@ -6215,49 +6169,29 @@ async function loadSchedule(force){
   if(!schedDate) schedDate = curDate || todayStr();
   const d = new Date(schedDate+'T12:00:00');
   $('schedYmd').textContent = `🗂 ${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 시간표`;
-  if(!GOOGLE_CLIENT_ID){
-    $('schedState').textContent = '구글 캘린더 연결이 설정되지 않았어요.';
-    renderSchedule([]); return;
-  }
   const cacheKey = `sched:${USER.uid}:${schedDate}`;
   if(!force){
     try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; renderSchedule(c.events, c.ts); } }catch(e){}
   }
-  let haveToken = await ensureToken(false);
-  if(!haveToken && force){                       /* 새로고침·직접 열기 — 막혔으면 연결 창을 띄운다 */
-    haveToken = await ensureToken(true);
-  }
-  if(!haveToken){
-    let cached = null;
-    try{ cached = await idbGet(cacheKey); }catch(e){}
-    renderSchedule(cached? cached.events : [], cached? cached.ts : null);   // 앱 업무는 항상 표시
-    $('schedState').innerHTML = cached
-      ? '⚠ 구글 연결이 만료됐어요 — <b>↻ 새로고침</b>을 눌러 갱신하세요.'
-      : '구글 일정 없이 앱 업무만 보고 있어요 — <b>↻ 새로고침</b>으로 캘린더를 연결할 수 있어요.';
-    return;
-  }
   $('schedState').textContent = '일정을 불러오는 중…';
   try{
-    const tmin = new Date(schedDate+'T00:00:00').toISOString();
-    const tmax = new Date(schedDate+'T23:59:59').toISOString();
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`
-      + `?timeMin=${encodeURIComponent(tmin)}&timeMax=${encodeURIComponent(tmax)}&singleEvents=true&orderBy=startTime`,
-      {headers:{Authorization:'Bearer '+gToken}});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    const events = (j.items||[]).map(e => ({
-      id:e.id, title:e.summary||'(제목 없음)', loc:e.location||'',
-      start:e.start && (e.start.dateTime||e.start.date), end:e.end && (e.end.dateTime||e.end.date),
-      allDay: !!(e.start && e.start.date), link:e.htmlLink||''
+    const key = calendarKeyFromTarget();
+    const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=${key}`);
+    const bucket = j.calendars && j.calendars[key];
+    const events = ((bucket && bucket.events) || []).map(e => ({
+      id:e.id, title:e.title||'(제목 없음)', loc:e.location||'',
+      start:e.start||'', end:e.end||'', allDay:!!e.allDay, link:e.link||''
     }));
     schedCache = events;
     try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
     renderSchedule(events);
     $('schedState').textContent = '';
   }catch(e){
-    try{ const c = await idbGet(cacheKey); if(c) renderSchedule(c.events, c.ts); }catch(e2){}
-    $('schedState').textContent = '일정을 불러오지 못했어요 — 연결 상태를 확인해 주세요';
+    let cached = null;
+    try{ cached = await idbGet(cacheKey); if(cached) renderSchedule(cached.events, cached.ts); }catch(e2){}
+    $('schedState').textContent = cached
+      ? '⚠ 서버 연결이 잠시 불안정해 저장된 일정을 보여드려요'
+      : '일정을 불러오지 못했어요 — 네트워크 상태를 확인해 주세요';
   }
 }
 function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
@@ -6396,18 +6330,17 @@ $('evSave').onclick = async () => {
   const v = $('evStart').value, mins = +$('evDur').value, title = $('evText').value.trim();
   if(!v){ toast('시작 시각을 입력해 주세요'); return; }
   if(!title){ toast('제목을 입력해 주세요'); return; }
-  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요 — ↻ 새로고침을 눌러 주세요'); return; }
   try{
     const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
     const [h, m] = v.split(':').map(Number);
     const st = new Date(schedDate+'T00:00:00'); st.setHours(h, m, 0, 0);
     const en = new Date(st.getTime() + mins*60000);
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
-      {method:'PATCH', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'},
-       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
-         start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})});
-    if(!r.ok) throw new Error('HTTP '+r.status);
+    const key = calendarKeyFromTarget();
+    await calendarApiFetch(`/api/events/${encodeURIComponent(evEditing.id)}?calendar=${key}`, {
+      method:'PATCH',
+      body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
+        start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})
+    });
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === evEditing.id){
@@ -6421,18 +6354,18 @@ $('evSave').onclick = async () => {
     $('evModal').classList.add('hidden'); evEditing = null;
     toast(linked? '일정과 Daily Log에 함께 반영했어요' : '일정을 수정했어요');
     loadSchedule(true);
-  }catch(e){ toast('수정 실패: '+e.message); }
+  }catch(e){ toast('수정 실패 — 잠시 후 다시 시도해 주세요'); }
 };
 $('evDelete').onclick = async () => {
   if(!evEditing) return;
-  if(!(await askConfirm(`"${evEditing.title}"\n\n이 시간 계획을 취소할까요?\n캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`,
+  if(!(await askConfirm(`"${evEditing.title}"
+
+이 시간 계획을 취소할까요?
+캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`,
     {title:'🗑 시간 계획 취소', ok:'취소하기', cancel:'그대로 두기', danger:true}))) return;
-  if(!(await ensureToken(false))){ toast('구글 캘린더 연결이 필요해요'); return; }
   try{
-    const calId = calTarget || 'primary';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(evEditing.id)}`,
-      {method:'DELETE', headers:{Authorization:'Bearer '+gToken}});
-    if(!r.ok && r.status !== 410) throw new Error('HTTP '+r.status);
+    const key = calendarKeyFromTarget();
+    await calendarApiFetch(`/api/events/${encodeURIComponent(evEditing.id)}?calendar=${key}`, {method:'DELETE'});
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === evEditing.id){ t.gcalId = ''; t.time = ''; linked = true; }
@@ -6441,7 +6374,7 @@ $('evDelete').onclick = async () => {
     $('evModal').classList.add('hidden'); evEditing = null;
     toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 삭제했어요');
     renderCats(); loadSchedule(true);
-  }catch(e){ toast('삭제 실패: '+e.message); }
+  }catch(e){ toast('삭제 실패 — 잠시 후 다시 시도해 주세요'); }
 };
 
 /* 예쁜 입력 모달 — prompt 대체 */
@@ -7669,24 +7602,13 @@ async function saveVacs(){
 async function loadHolidays(year){
   const key = `holi:${year}`;
   try{ const c = await idbGet(key); if(c && c.map){ Object.assign(holidays, c.map); } }catch(e){}
-  if(!GOOGLE_CLIENT_ID) return;
-  if(!(await ensureToken(false))) return;
   try{
-    const cal = 'ko.south_korea%23holiday%40group.v.calendar.google.com';
-    const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${cal}/events`
-      + `?timeMin=${year}-01-01T00:00:00Z&timeMax=${year}-12-31T23:59:59Z&singleEvents=true&maxResults=100`,
-      {headers:{Authorization:'Bearer '+gToken}});
-    if(!r.ok) throw new Error('HTTP '+r.status);
-    const j = await r.json();
-    const map = {};
-    (j.items||[]).forEach(e => {
-      const st = e.start && (e.start.date || (e.start.dateTime||'').slice(0,10));
-      if(st) map[st] = (e.summary||'휴일').replace(/\s*\(.*\)$/,'');
-    });
+    const j = await calendarApiFetch(`/api/holidays?year=${encodeURIComponent(year)}`);
+    const map = j.holidays || {};
     Object.assign(holidays, map);
     try{ await idbSet(key, {map, ts:Date.now()}); }catch(e){}
     if(!$('archiveView').classList.contains('hidden')) refreshArchive();
-  }catch(e){ /* 실패 시 캐시만 사용 — 임의 날짜를 만들지 않음 */ }
+  }catch(e){ /* 실패 시 캐시만 사용 */ }
 }
 /* ── 휴가 입력 모달 ── */
 function vacPreviewText(){
@@ -7730,30 +7652,26 @@ $('vacSave').onclick = async () => {
   const note = $('vacNote').value.trim();
   const rec = {id:uid8(), type, start:st, end:en, time: type==='quarter'? ($('vacTime').value||'16:00') : (k.start||''), note, gcalId:''};
 
-  /* 구글 캘린더 등록 */
-  if(GOOGLE_CLIENT_ID && await ensureToken(false)){
-    try{
-      const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
-      let body = {summary:`🏖 ${k.label}`, description: note || 'Daily Log에서 등록'};
-      if(k.allDay){
-        const nx = new Date(en+'T12:00:00'); nx.setDate(nx.getDate()+1);
-        const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-        body.start = {date:st}; body.end = {date:ymd(nx)};
-      }else{
-        const [h,m] = rec.time.split(':').map(Number);
-        const d0 = new Date(st+'T00:00:00'); d0.setHours(h,m,0,0);
-        const d1 = new Date(d0.getTime() + k.dur*60000);
-        body.start = {dateTime:d0.toISOString(), timeZone:tz};
-        body.end   = {dateTime:d1.toISOString(), timeZone:tz};
-      }
-      const calId = calTarget || 'primary';
-      const r = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`,
-        {method:'POST', headers:{Authorization:'Bearer '+gToken,'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      if(!r.ok) throw new Error('HTTP '+r.status);
-      const ev = await r.json(); rec.gcalId = ev.id || '';
-      toast(`캘린더에 ${k.label}을(를) 등록했어요`);
-    }catch(e){ toast('캘린더 등록 실패 — 앱에는 저장했어요'); }
-  }else toast('구글 연결이 없어 앱에만 저장했어요');
+  /* Google Calendar 등록 — 서버가 OAuth 갱신을 전담 */
+  try{
+    const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
+    let body = {summary:`🏖 ${k.label}`, description: note || 'Daily Log에서 등록'};
+    if(k.allDay){
+      const nx = new Date(en+'T12:00:00'); nx.setDate(nx.getDate()+1);
+      const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      body.start = {date:st}; body.end = {date:ymd(nx)};
+    }else{
+      const [h,m] = rec.time.split(':').map(Number);
+      const d0 = new Date(st+'T00:00:00'); d0.setHours(h,m,0,0);
+      const d1 = new Date(d0.getTime() + k.dur*60000);
+      body.start = {dateTime:d0.toISOString(), timeZone:tz};
+      body.end   = {dateTime:d1.toISOString(), timeZone:tz};
+    }
+    const key = calendarKeyFromTarget();
+    const j = await calendarApiFetch(`/api/events?calendar=${key}`, {method:'POST', body:JSON.stringify(body)});
+    rec.gcalId = (j.event && j.event.id) || '';
+    toast(`캘린더에 ${k.label}을(를) 등록했어요`);
+  }catch(e){ toast('캘린더 등록 실패 — 앱에는 저장했어요'); }
 
   vacs.push(rec); markVacs(); renderVacList(); refreshArchive();
 };
@@ -7771,9 +7689,11 @@ function renderVacList(){
   box.querySelectorAll('button[data-id]').forEach(b => b.onclick = async () => {
     const v = vacs.find(x => x.id === b.dataset.id); if(!v) return;
     if(!(await askConfirm('이 휴가를 삭제할까요?\n캘린더 일정도 함께 지웁니다.', {title:'🏖 휴가 삭제', ok:'삭제', danger:true}))) return;
-    if(v.gcalId && GOOGLE_CLIENT_ID && await ensureToken(false)){
-      try{ await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calTarget||'primary')}/events/${encodeURIComponent(v.gcalId)}`,
-        {method:'DELETE', headers:{Authorization:'Bearer '+gToken}}); }catch(e){}
+    if(v.gcalId){
+      try{
+        const key = calendarKeyFromTarget();
+        await calendarApiFetch(`/api/events/${encodeURIComponent(v.gcalId)}?calendar=${key}`, {method:'DELETE'});
+      }catch(e){}
     }
     vacs = vacs.filter(x => x.id !== v.id);
     markVacs(); renderVacList(); refreshArchive();
