@@ -1895,16 +1895,22 @@ function calendarKeyFromTarget(){
   return 'work';
 }
 
-/* 삭제 직후 Google/브라우저 캐시에서 잠깐 다시 보이는 '유령 일정' 차단.
-   10분 뒤 자동 만료되므로 실제 서버 상태가 최종 기준이다. */
+/* 삭제한 Google 일정이 브라우저/Google의 지연 응답이나 오래된 IndexedDB 캐시 때문에
+   다시 살아나는 것을 차단한다. Google event id는 재사용되지 않으므로 삭제 표시는 넉넉히 보관한다. */
 const GCAL_TOMBSTONE_KEY = 'diaryGcalTombstones';
-const GCAL_TOMBSTONE_TTL = 10 * 60 * 1000;
+const GCAL_TOMBSTONE_TTL = 30 * 24 * 60 * 60 * 1000;   /* 30일 */
 function readCalendarTombstones(){
   let rows = {};
   try{ rows = JSON.parse(localStorage.getItem(GCAL_TOMBSTONE_KEY)||'{}') || {}; }catch(e){}
   const now = Date.now(); let changed = false;
   for(const k of Object.keys(rows)){
     if(!rows[k] || now - Number(rows[k]) > GCAL_TOMBSTONE_TTL){ delete rows[k]; changed = true; }
+  }
+  /* 비정상적으로 많이 쌓이면 가장 오래된 항목부터 정리한다. */
+  const keys = Object.keys(rows);
+  if(keys.length > 500){
+    keys.sort((a,b)=>Number(rows[a]||0)-Number(rows[b]||0));
+    for(const k of keys.slice(0, keys.length-500)){ delete rows[k]; changed = true; }
   }
   if(changed){ try{ localStorage.setItem(GCAL_TOMBSTONE_KEY, JSON.stringify(rows)); }catch(e){} }
   return rows;
@@ -1935,7 +1941,7 @@ async function calendarApiFetch(path, opt={}, retry=true){
   const token = await USER.getIdToken(false);
   const headers = Object.assign({}, opt.headers||{}, {Authorization:'Bearer '+token});
   if(opt.body !== undefined && !headers['Content-Type']) headers['Content-Type'] = 'application/json';
-  const r = await fetch(CALENDAR_API + path, Object.assign({}, opt, {headers}));
+  const r = await fetch(CALENDAR_API + path, Object.assign({cache:'no-store'}, opt, {headers}));
   if(r.status === 401 && retry){
     const fresh = await USER.getIdToken(true);
     headers.Authorization = 'Bearer ' + fresh;
@@ -1944,7 +1950,7 @@ async function calendarApiFetch(path, opt={}, retry=true){
   return parseCalendarResponse(r);
 }
 async function calendarApiFetchWithToken(path, opt, headers){
-  const r = await fetch(CALENDAR_API + path, Object.assign({}, opt, {headers}));
+  const r = await fetch(CALENDAR_API + path, Object.assign({cache:'no-store'}, opt, {headers}));
   return parseCalendarResponse(r);
 }
 async function parseCalendarResponse(r){
@@ -6304,7 +6310,18 @@ async function loadSchedule(force){
   $('schedYmd').textContent = `🗂 ${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 시간표`;
   const cacheKey = `sched:${USER.uid}:${schedDate}`;
   if(!force){
-    try{ const c = await idbGet(cacheKey); if(c){ schedCache = c.events; renderSchedule(c.events, c.ts); } }catch(e){}
+    try{
+      const c = await idbGet(cacheKey);
+      if(c){
+        /* 예전 버전이 저장해 둔 유령 일정도 캐시를 읽는 순간 제거한다. */
+        const cleanCached = (c.events||[]).filter(e => !isCalendarTombstoned(e));
+        schedCache = cleanCached;
+        renderSchedule(cleanCached, c.ts);
+        if(cleanCached.length !== (c.events||[]).length){
+          try{ await idbSet(cacheKey, {events:cleanCached, ts:c.ts||Date.now()}); }catch(e){}
+        }
+      }
+    }catch(e){}
   }
   $('schedState').textContent = '일정을 불러오는 중…';
   try{
@@ -6317,9 +6334,12 @@ async function loadSchedule(force){
         calendarKey, calendarName:(bucket && bucket.name) || calendarKey
       }))
     );
-    schedCache = events;
-    try{ await idbSet(cacheKey, {events, ts:Date.now()}); }catch(e){}
-    renderSchedule(events);
+    /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다.
+       이전 버전은 stale 서버 응답을 그대로 캐시에 써서 10분 뒤 유령이 부활할 수 있었다. */
+    const cleanEvents = events.filter(e => !isCalendarTombstoned(e));
+    schedCache = cleanEvents;
+    try{ await idbSet(cacheKey, {events:cleanEvents, ts:Date.now()}); }catch(e){}
+    renderSchedule(cleanEvents);
     $('schedState').textContent = '✓ Google Calendar 서버와 동기화됨 · Calendar 앱 표시는 잠시 늦을 수 있어요';
     clearTimeout($('schedState')._calUxTm);
     $('schedState')._calUxTm = setTimeout(()=>{
@@ -6327,7 +6347,15 @@ async function loadSchedule(force){
     }, 5000);
   }catch(e){
     let cached = null;
-    try{ cached = await idbGet(cacheKey); if(cached) renderSchedule(cached.events, cached.ts); }catch(e2){}
+    try{
+      cached = await idbGet(cacheKey);
+      if(cached){
+        const cleanCached = (cached.events||[]).filter(e => !isCalendarTombstoned(e));
+        cached = Object.assign({}, cached, {events:cleanCached});
+        schedCache = cleanCached;
+        renderSchedule(cleanCached, cached.ts);
+      }
+    }catch(e2){}
     $('schedState').textContent = cached
       ? '⚠ 서버 연결이 잠시 불안정해 저장된 일정을 보여드려요'
       : '일정을 불러오지 못했어요 — 네트워크 상태를 확인해 주세요';
@@ -6524,8 +6552,22 @@ $('evDelete').onclick = async () => {
   const deleting = evEditing;
   try{
     const key = deleting.calendarKey || 'all';
+
+    /* 시간표에서 지우는 경우에도 연결된 Diary 업무를 먼저 찾아 둔다.
+       새 버전 일정은 diaryTaskId로 만든 중복 사본까지 서버에서 함께 청소한다. */
+    const linkedTasks = [];
+    day.cats.forEach(c => c.tasks.forEach(t => { if(t.gcalId === deleting.id) linkedTasks.push(t); }));
+    (inbox||[]).forEach(t => { if(t.gcalId === deleting.id) linkedTasks.push(t); });
+    (priv||[]).forEach(t => { if(t.gcalId === deleting.id) linkedTasks.push(t); });
+
     await calendarApiFetch(`/api/events/${encodeURIComponent(deleting.id)}?calendar=${key}`, {method:'DELETE'});
     dropEventFromScheduleCache(deleting.id, key);          /* Google 재조회보다 UI를 먼저 정확히 만든다 */
+
+    for(const t of linkedTasks){
+      if(!t.id) continue;
+      try{ await calendarApiFetch(`/api/task-events/${encodeURIComponent(t.id)}?calendar=all`, {method:'DELETE'}); }
+      catch(e){ console.warn('linked duplicate cleanup skipped', e); }
+    }
 
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
