@@ -1894,6 +1894,42 @@ function calendarKeyFromTarget(){
   if(calTarget === FAMILY_CALENDAR_ID) return 'family';
   return 'work';
 }
+
+/* 삭제 직후 Google/브라우저 캐시에서 잠깐 다시 보이는 '유령 일정' 차단.
+   10분 뒤 자동 만료되므로 실제 서버 상태가 최종 기준이다. */
+const GCAL_TOMBSTONE_KEY = 'diaryGcalTombstones';
+const GCAL_TOMBSTONE_TTL = 10 * 60 * 1000;
+function readCalendarTombstones(){
+  let rows = {};
+  try{ rows = JSON.parse(localStorage.getItem(GCAL_TOMBSTONE_KEY)||'{}') || {}; }catch(e){}
+  const now = Date.now(); let changed = false;
+  for(const k of Object.keys(rows)){
+    if(!rows[k] || now - Number(rows[k]) > GCAL_TOMBSTONE_TTL){ delete rows[k]; changed = true; }
+  }
+  if(changed){ try{ localStorage.setItem(GCAL_TOMBSTONE_KEY, JSON.stringify(rows)); }catch(e){} }
+  return rows;
+}
+function calendarTombstoneId(id, calendarKey){ return `${calendarKey||'*'}:${id||''}`; }
+function markCalendarTombstone(id, calendarKey){
+  if(!id) return;
+  const rows = readCalendarTombstones();
+  rows[calendarTombstoneId(id, calendarKey)] = Date.now();
+  rows[calendarTombstoneId(id, '*')] = Date.now();
+  try{ localStorage.setItem(GCAL_TOMBSTONE_KEY, JSON.stringify(rows)); }catch(e){}
+}
+function isCalendarTombstoned(ev){
+  if(!ev || !ev.id) return false;
+  const rows = readCalendarTombstones();
+  return !!(rows[calendarTombstoneId(ev.id, ev.calendarKey)] || rows[calendarTombstoneId(ev.id, '*')]);
+}
+function dropEventFromScheduleCache(id, calendarKey){
+  if(!id) return;
+  markCalendarTombstone(id, calendarKey);
+  schedCache = (schedCache||[]).filter(e => e.id !== id);
+  const ds = schedDate || curDate || todayStr();
+  if(USER){ try{ idbSet(`sched:${USER.uid}:${ds}`, {events:schedCache, ts:Date.now()}); }catch(e){} }
+  if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache);
+}
 async function calendarApiFetch(path, opt={}, retry=true){
   if(!USER) throw new Error('Diary 로그인이 필요해요');
   const token = await USER.getIdToken(false);
@@ -2080,7 +2116,7 @@ async function loadDay(dateStr){
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
-    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
+    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', gcalCalendar: t.gcalCalendar||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
     timeDay: t.timeDay || '',                      /* 이 실행 시간을 어느 날 잡았는지 (보관함용) */
     delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
@@ -2407,7 +2443,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', gcalCalendar:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
 /* ═══════════════ ⏳ 지연기록 — 계획한 시간과 실제가 어긋났을 때 ═══════════════
    재촉이 목적이 아니라, 어긋난 까닭을 부담 없이 남겨 나중에 패턴을 보기 위한 것. */
 const DELAY_REASONS = [
@@ -2557,12 +2593,15 @@ function taskRow(t, ctx){
   };
   row.querySelector('.ctl .del').onclick = async () => {
     const msg = t.gcalId
-      ? '이 업무를 삭제할까요?\n캘린더에 등록된 일정도 함께 지워집니다.'
+      ? '이 업무를 삭제할까요?\n캘린더에 등록된 일정도 먼저 삭제한 뒤 업무를 지웁니다.'
       : '이 업무를 삭제할까요?';
     if(t.text && !(await askConfirm(msg, {title:'🗑 업무 삭제', ok:'삭제', danger:true}))) return;
-    const gone = t.gcalId;
+    if(t.gcalId){
+      const ok = await deleteTaskEvent(t, true, false);
+      if(!ok){ toast('캘린더 삭제에 실패해서 업무 삭제를 중단했어요'); return; }
+    }
     ctx.arr.splice(ctx.idx,1); ctx.save(); ctx.rerender();
-    if(gone) await deleteTaskEvent({gcalId:gone});
+    refreshScheduleDrawer();
   };
 
   if(t.open){
@@ -2615,7 +2654,7 @@ function taskRow(t, ctx){
     if(tclr) tclr.onclick = async () => {
       if(t.gcalId && !(await askConfirm('이 업무는 캘린더에 등록돼 있어요.\n시간을 지우면 캘린더 일정도 함께 삭제됩니다.\n진행할까요?', {title:'⏰ 실행 시간 지우기', ok:'지우기', danger:true}))) return;
       if(t.gcalId){
-        const ok = await deleteTaskEvent(t, true);
+        const ok = await deleteTaskEvent(t, true, false);
         if(!ok){ toast('캘린더 일정 삭제에 실패해서 실행 시간을 지우지 않았어요'); return; }
       }
       t.time='';
@@ -4636,13 +4675,22 @@ function calBody(t, cat){
   const al = (t.alarm===undefined? 10 : t.alarm);
   body.reminders = al < 0 ? {useDefault:false, overrides:[]}
                           : {useDefault:false, overrides:[{method:'popup', minutes:al}]};
+  /* Diary가 만든 일정임을 Google Calendar 안에 숨은 메타데이터로 남긴다.
+     이후 gcalId가 꼬이거나 중복이 생겨도 task id로 정확히 정리할 수 있다. */
+  if(t.id){
+    body.extendedProperties = {private:{
+      diaryTaskId:String(t.id),
+      diaryOrigin:String(t.origin || t.id),
+      diarySource:'daily-log'
+    }};
+  }
   return body;
 }
 async function openCalendar(t, cat, ctxRerender){
   if(!t.text.trim()){ toast('업무 내용을 먼저 적어 주세요'); return; }
   try{
     const isUpdate = !!t.gcalId;
-    const key = calendarKeyFromTarget();
+    const key = t.gcalCalendar || calendarKeyFromTarget();
     const path = isUpdate
       ? `/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`
       : `/api/events?calendar=${key}`;
@@ -4651,6 +4699,7 @@ async function openCalendar(t, cat, ctxRerender){
       body: JSON.stringify(calBody(t, cat))
     });
     t.gcalId = (j.event && j.event.id) || t.gcalId;
+    t.gcalCalendar = key;
     markDirty();
     const al = (t.alarm===undefined? 10 : t.alarm);
     const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
@@ -4683,7 +4732,7 @@ async function clearCarriedCopies(t, cat, fromDate){
           for(let i = c.tasks.length-1; i >= 0; i--){
             const x = c.tasks[i];
             if(!x.done && taskLine(x) === line){
-              if(x.gcalId) deleteTaskEvent(x, true);
+              if(x.gcalId){ continue; } /* 캘린더 연결 업무는 비동기 삭제 확인 없이 로컬에서 먼저 지우지 않는다 */
               c.tasks.splice(i,1); hit = true; removed++;
             }
           }
@@ -4705,18 +4754,32 @@ async function clearCarriedCopies(t, cat, fromDate){
 }
 
 /* 캘린더에 등록된 일정을 지움 (업무 삭제·날짜 삭제 시) */
-async function deleteTaskEvent(t, quiet){
-  if(!t || !t.gcalId) return false;
-  const id = t.gcalId;
+async function deleteTaskEvent(t, quiet, refresh=true){
+  if(!t) return true;
+  const id = t.gcalId || '';
+  const taskId = t.id || '';
+  const key = t.gcalCalendar || 'all';
   try{
-    const key = calendarKeyFromTarget();
-    await calendarApiFetch(`/api/events/${encodeURIComponent(id)}?calendar=${key}`, {method:'DELETE'});
+    /* DELETE는 멱등적(idempotent)이다. 이미 Google에서 사라진 일정도 '원하는 상태 달성'으로 본다. */
+    if(id){
+      await calendarApiFetch(`/api/events/${encodeURIComponent(id)}?calendar=${key}`, {method:'DELETE'});
+      markCalendarTombstone(id, key);
+    }
+
+    /* 새 방식으로 생성된 일정은 숨은 diaryTaskId 메타데이터를 이용해 중복 사본까지 정리한다. */
+    if(taskId){
+      try{ await calendarApiFetch(`/api/task-events/${encodeURIComponent(taskId)}?calendar=all`, {method:'DELETE'}); }
+      catch(e){ console.warn('task duplicate cleanup skipped', e); }
+    }
+
     t.gcalId = '';
-    if(!quiet) toast('캘린더 일정도 함께 지웠어요');
-    refreshScheduleDrawer();
+    t.gcalCalendar = '';
+    if(!quiet) toast('캘린더 일정도 함께 정리했어요');
+    if(refresh) refreshScheduleDrawer();
     return true;
   }catch(e){
-    if(!quiet) toast('캘린더 일정 삭제 실패 — 잠시 후 다시 시도해 주세요');
+    console.warn('Calendar delete failed', e);
+    if(!quiet) toast('캘린더 일정 삭제 실패 — 업무는 그대로 두었어요');
     return false;
   }
 }
@@ -4725,7 +4788,7 @@ async function deleteTaskEvent(t, quiet){
 async function syncTaskToCalendar(t, cat){
   if(!t.gcalId) return;
   try{
-    const key = calendarKeyFromTarget();
+    const key = t.gcalCalendar || 'all';
     await calendarApiFetch(`/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`, {
       method:'PATCH', body:JSON.stringify(calBody(t, cat))
     });
@@ -5320,7 +5383,10 @@ $('delTodayBtn').onclick = async () => {
   }
   clearTimeout(saveTimer); dirty = false;
   try{
-    for(const t of evTasks) await deleteTaskEvent(t, true);
+    for(const t of evTasks){
+      const ok = await deleteTaskEvent(t, true, false);
+      if(!ok) throw new Error('calendar_delete_failed');
+    }
     await dayRef(curDate).remove();
     delete yearCache[+curDate.slice(0,4)];
     day = emptyDay(); renderSheet();
@@ -6153,7 +6219,13 @@ $('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') 
 let schedDate = '';
 let schedCache = null, schedStale = false;
 $('schedRefresh').onclick = async () => {
-  loadSchedule(true);
+  if(USER){
+    const ds = schedDate || curDate || todayStr();
+    try{ await idbDel(`sched:${USER.uid}:${ds}`); }catch(e){}
+  }
+  schedCache = [];
+  $('schedState').textContent = '최신 일정을 다시 확인하는 중…';
+  await loadSchedule(true);
 };
 /* 서랍 시간표 캐시 갱신 — 업무 시간/캘린더 변경 직후 오래된 화면이 남지 않게 */
 function refreshScheduleDrawer(){
@@ -6218,6 +6290,7 @@ function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padS
 const PXH = 220;                                   // 1시간 = 220px (15분 일정도 기존 30분 크기로)
 function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
 function renderSchedule(events, cachedTs){
+  events = (events||[]).filter(e => !isCalendarTombstoned(e));
   const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
   const oldWarn = wrap.querySelector('.sched-stale');
   if(oldWarn) oldWarn.remove();
@@ -6401,18 +6474,32 @@ $('evDelete').onclick = async () => {
 이 시간 계획을 취소할까요?
 캘린더 일정만 사라지고, 업무는 목록에 그대로 남습니다.`,
     {title:'🗑 시간 계획 취소', ok:'취소하기', cancel:'그대로 두기', danger:true}))) return;
+  const deleting = evEditing;
   try{
-    const key = evEditing.calendarKey || calendarKeyFromTarget();
-    await calendarApiFetch(`/api/events/${encodeURIComponent(evEditing.id)}?calendar=${key}`, {method:'DELETE'});
+    const key = deleting.calendarKey || 'all';
+    await calendarApiFetch(`/api/events/${encodeURIComponent(deleting.id)}?calendar=${key}`, {method:'DELETE'});
+    dropEventFromScheduleCache(deleting.id, key);          /* Google 재조회보다 UI를 먼저 정확히 만든다 */
+
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
-      if(t.gcalId && t.gcalId === evEditing.id){ t.gcalId = ''; t.time = ''; linked = true; }
+      if(t.gcalId && t.gcalId === deleting.id){
+        t.gcalId = ''; t.gcalCalendar = ''; t.time = ''; linked = true;
+      }
     }));
-    if(linked) markDirty();
+    (inbox||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.time=''; t.timeDay=''; linked=true; } });
+    (priv||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.time=''; t.timeDay=''; linked=true; } });
+    if(linked){ markDirty(); markInbox(); markPriv(); }
+
     $('evModal').classList.add('hidden'); evEditing = null;
-    toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 삭제했어요');
-    renderCats(); loadSchedule(true);
-  }catch(e){ toast('삭제 실패 — 잠시 후 다시 시도해 주세요'); }
+    renderCats(); renderInbox(); renderPriv();
+    toast(linked? '시간 계획을 취소했어요 — 업무는 목록에 그대로 있어요' : '일정을 정리했어요');
+
+    /* Google Calendar의 최종 일관성 지연이 있어도 tombstone 때문에 삭제한 일정은 재등장하지 않는다. */
+    setTimeout(() => loadSchedule(true), 1200);
+  }catch(e){
+    console.warn('Schedule event delete failed', e);
+    toast('삭제 실패 — Google Calendar에 일정이 실제로 남아 있는지 확인해 주세요');
+  }
 };
 
 /* 예쁜 입력 모달 — prompt 대체 */
