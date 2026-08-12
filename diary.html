@@ -6410,60 +6410,94 @@ $('schedBackdrop').onclick = closeSchedDrawer;
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && !$('schedDrawer').classList.contains('hidden')) closeSchedDrawer();
 });
-function showCalendarGetDiagnostic(allEvents, visibleEvents, errorText=''){
-  let box = document.getElementById('calendarGetDiag');
-  if(!box){
-    box = document.createElement('div');
-    box.id = 'calendarGetDiag';
-    box.style.cssText = [
-      'margin:8px 12px',
-      'padding:10px 12px',
-      'border:1px solid var(--line, #ddd)',
-      'border-radius:10px',
-      'font-size:.75rem',
-      'line-height:1.45',
-      'background:var(--paper, #fff)',
-      'color:var(--ink, #333)',
-      'white-space:normal',
-      'word-break:break-word'
-    ].join(';');
-    const wrap = document.getElementById('schedWrap');
-    if(wrap && wrap.parentNode) wrap.parentNode.insertBefore(box, wrap);
+/* ── Calendar Read 보강 ──────────────────────────────────────
+   기본 시간표는 events.list() 결과를 사용한다.
+   다만 Diary 업무가 gcalId를 가지고 있는데 그 ID가 list 결과에서 누락됐을 때만
+   Google에 event ID를 직접 조회한다. 실제 Google event가 존재할 때만 보강하므로
+   과거의 "로컬 time fallback"처럼 유령 일정이 생기지 않는다. */
+function scheduleLocalDateKey(value){
+  if(!value) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(value))) return String(value);
+  const d = new Date(value);
+  if(Number.isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function linkedCalendarTasksForScheduleDate(){
+  if(schedDate !== curDate) return [];
+  const out = [], seen = new Set();
+
+  const push = (t, cat, source) => {
+    if(!t || !t.gcalId || !t.time || !String(t.text||'').trim()) return;
+    if((source === 'inbox' || source === 'priv') && t.timeDay && t.timeDay !== schedDate) return;
+
+    const key = t.gcalCalendar || 'all';
+    if(isCalendarTombstoned({id:t.gcalId, calendarKey:key})) return;
+
+    const dedupe = `${key}:${t.gcalId}`;
+    if(seen.has(dedupe)) return;
+    seen.add(dedupe);
+    out.push({t, cat:cat||null, source, calendarKey:key});
+  };
+
+  for(const c of (day && day.cats ? day.cats : []))
+    for(const t of (c.tasks||[])) push(t, c, 'day');
+
+  for(const t of (inbox||[])) push(t, null, 'inbox');
+  for(const t of (priv||[])) push(t, null, 'priv');
+
+  return out;
+}
+function directCalendarEventFromResponse(j, fallbackKey){
+  const e = j && j.event;
+  if(!e || !e.id) return null;
+  const calendarKey = (j && j.calendar) || fallbackKey || '';
+  return {
+    id:e.id,
+    title:e.title || '(제목 없음)',
+    loc:e.location || '',
+    start:e.start || '',
+    end:e.end || '',
+    allDay:!!e.allDay,
+    link:e.link || '',
+    calendarKey,
+    calendarName: calendarKey === 'work' ? '업무 일지 기록'
+      : (calendarKey === 'family' ? '여보랑 함께 캘린더' : calendarKey)
+  };
+}
+async function recoverMissingLinkedCalendarEvents(events){
+  const base = Array.isArray(events) ? [...events] : [];
+  if(schedDate !== curDate) return base;
+
+  const presentIds = new Set(base.map(e=>e && e.id).filter(Boolean));
+  const candidates = linkedCalendarTasksForScheduleDate()
+    .filter(rec => !presentIds.has(rec.t.gcalId));
+
+  if(!candidates.length) return base;
+
+  const recovered = [];
+  for(const rec of candidates){
+    const id = rec.t.gcalId;
+    try{
+      const j = await calendarApiFetch(
+        `/api/events/${encodeURIComponent(id)}?calendar=${encodeURIComponent(rec.calendarKey || 'all')}`,
+        {method:'GET'}
+      );
+      const ev = directCalendarEventFromResponse(j, rec.calendarKey);
+      if(!ev || isCalendarTombstoned(ev)) continue;
+
+      const eventDate = scheduleLocalDateKey(ev.start);
+      if(eventDate && eventDate !== schedDate) continue;
+
+      if(!presentIds.has(ev.id)){
+        presentIds.add(ev.id);
+        recovered.push(ev);
+      }
+    }catch(e){
+      if(e && (e.status === 404 || e.status === 410)) continue;
+      console.warn('Calendar direct event verification failed', id, e);
+    }
   }
-
-  if(errorText){
-    box.innerHTML = `<b>🔎 GET 진단</b><br>❌ 서버 조회 실패: ${esc(errorText)}`;
-    return;
-  }
-
-  const all = Array.isArray(allEvents) ? allEvents : [];
-  const visible = Array.isArray(visibleEvents) ? visibleEvents : [];
-  const visibleIds = new Set(visible.map(e=>e.id));
-  const hidden = all.filter(e=>e.id && !visibleIds.has(e.id));
-
-  const bucketCounts = {};
-  all.forEach(e=>{
-    const k = e.calendarKey || '?';
-    bucketCounts[k] = (bucketCounts[k]||0) + 1;
-  });
-  const bucketText = Object.entries(bucketCounts).map(([k,n])=>`${k} ${n}`).join(' · ') || '없음';
-
-  const rows = all
-    .filter(e=>!e.allDay)
-    .map(e=>{
-      const when = e.start ? hhmm(e.start) : '--:--';
-      const tomb = isCalendarTombstoned(e) ? ' 🚫tombstone' : '';
-      const id = String(e.id||'');
-      const shortId = id ? id.slice(-8) : '-';
-      return `${when} · ${e.title||'(제목 없음)'} · ${e.calendarKey||'?'} · …${shortId}${tomb}`;
-    });
-
-  box.innerHTML =
-    `<b>🔎 GET 진단 — ${esc(schedDate||'')}</b><br>` +
-    `서버 수신 <b>${all.length}</b>건 (${esc(bucketText)}) · 화면 통과 <b>${visible.length}</b>건 · tombstone 제외 <b>${hidden.length}</b>건` +
-    (rows.length
-      ? `<div style="margin-top:6px;max-height:150px;overflow:auto;border-top:1px dashed var(--line,#ddd);padding-top:5px">${rows.map(x=>`<div>${esc(x)}</div>`).join('')}</div>`
-      : `<div style="margin-top:6px">서버가 반환한 시간 일정이 없습니다.</div>`);
+  return base.concat(recovered);
 }
 
 async function loadSchedule(force){
@@ -6496,12 +6530,13 @@ async function loadSchedule(force){
         calendarKey, calendarName:(bucket && bucket.name) || calendarKey
       }))
     );
-    /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다.
-       이전 버전은 stale 서버 응답을 그대로 캐시에 써서 10분 뒤 유령이 부활할 수 있었다. */
-    const cleanEvents = events.filter(e => !isCalendarTombstoned(e));
-    /* 진단 전용: 서버가 실제로 무엇을 돌려줬고 tombstone이 무엇을 숨겼는지만 표시한다.
-       일정 CRUD/캐시/렌더링 로직은 바꾸지 않는다. */
-    showCalendarGetDiagnostic(events, cleanEvents);
+
+    /* events.list에서 Diary 연결 일정이 누락된 경우에만 event ID로 Google에 직접 재확인한다.
+       Google에 실제로 존재하는 event만 추가하므로 로컬 time 값으로 유령을 만들지 않는다. */
+    const verifiedEvents = await recoverMissingLinkedCalendarEvents(events);
+
+    /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다. */
+    const cleanEvents = verifiedEvents.filter(e => !isCalendarTombstoned(e));
     /* 서버가 방금 수정한 제목/시간/소요시간까지 확인했을 때만 낙관적 표시를 종료한다. */
     reconcileSchedulePending(cleanEvents);
     schedCache = cleanEvents;
@@ -6513,7 +6548,6 @@ async function loadSchedule(force){
       if($('schedState').textContent.startsWith('✓ Google Calendar 서버와 동기화됨')) $('schedState').textContent='';
     }, 5000);
   }catch(e){
-    showCalendarGetDiagnostic([], [], e && e.message ? e.message : String(e||'unknown error'));
     let cached = null;
     try{
       cached = await idbGet(cacheKey);
