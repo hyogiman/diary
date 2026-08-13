@@ -2447,14 +2447,20 @@ async function loadDay(dateStr, opts={}){
   attachDayListener(dateStr);
 }
 function normTask(t){
-  return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
-    status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'', completedAt: +t.completedAt||0,
-    time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', gcalCalendar: t.gcalCalendar||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
+  t = t || {};
+  const done = !!t.done;
+  const time = t.time || '';
+  const gcalId = t.gcalId || '';
+  return { id: t.id||uid8(), text: t.text||'', done,
+    status: t.status||'wait', due: t.due||'', note: t.note||'',
+    doneAt: done ? (t.doneAt||'') : '', completedAt: done ? (+t.completedAt||0) : 0,
+    time, dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm),
+    gcalId, gcalCalendar: gcalId ? (t.gcalCalendar||'') : '', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
     place: t.place || '',                          /* 개인 용무 장소 — 캘린더 일정에도 들어간다 */
-    gcalSig: t.gcalSig || '',                      /* 캘린더에 보낸 내용의 표식 */
+    gcalSig: gcalId ? (t.gcalSig||'') : '',        /* gcalId가 없으면 캘린더 표식도 함께 비운다 */
     from: t.from || '',                            /* 완료로 넘어온 출신 — 완료를 풀면 되돌아간다 */
-    timeDay: t.timeDay || '',                      /* 이 실행 시간을 어느 날 잡았는지 (보관함용) */
+    timeDay: time ? (t.timeDay||'') : '',          /* 실행 시간이 없으면 날짜 표식도 남기지 않는다 */
     delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
     open: false };
 }
@@ -3197,7 +3203,8 @@ $('carryBtn').onclick = async () => {
     }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
-      target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id), time:'', gcalId:''});   // 원본 계보 유지
+      target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id),
+        time:'', timeDay:'', gcalId:'', gcalCalendar:'', gcalSig:''});   // 원본 계보만 유지, 지난 실행/캘린더 메타는 초기화
       moved++;
     });
   });
@@ -4032,8 +4039,10 @@ function aiDayBlock(ds, d, opt){
   if((d.note||'').trim()) out += `\n남긴 말: ${d.note.trim()}`;
   (d.cats||[]).forEach(c => {
     const ts = (c.tasks||[]).filter(t => (t.text||'').trim());
-    if(!ts.length) return;
+    const catNote = (c.note||'').trim();
+    if(!ts.length && !catNote) return;
     out += `\n\n[${(c.name||'').trim()||'무제'}]`;
+    if(catNote) out += `\n · 카테고리 메모: ${catNote.replace(/\n/g,' / ')}`;
     ts.forEach(t => {
       const bits = [stMap[t.status]||'대기'];
       if(t.time) bits.push(timeRange(t));
@@ -5335,8 +5344,8 @@ async function moveTaskTo(t, ctx, dest){
    예전에는 완료 목록에 미완료로 남아 어느 쪽에도 속하지 않는 상태가 됐다. */
 function uncompleteBack(t, ctx){
   const back = t.from === 'priv' ? priv : inbox;
-  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', completedAt:0, from:''};
-  restored.gcalId = '';                                   /* 완료 일정은 따라가지 않는다 */
+  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', completedAt:0, from:'',
+    gcalId:'', gcalCalendar:'', gcalSig:''};               /* 완료 일정의 연결 메타는 따라가지 않는다 */
   back.push(restored);
   const i = ctx.arr.indexOf(t);
   if(i >= 0) ctx.arr.splice(i, 1);
@@ -5530,6 +5539,7 @@ async function deleteTaskEvent(t, quiet, refresh=true){
 
     t.gcalId = '';
     t.gcalCalendar = '';
+    t.gcalSig = '';
     if(!quiet) toast('캘린더 일정도 함께 정리했어요');
     if(refresh) refreshScheduleDrawer();
     return true;
@@ -5612,6 +5622,10 @@ async function doSearch(q){
         const cn = c.name.trim()||'(무제)', col = catColor(c);
         if(cn.toLowerCase().includes(ql))
           lines.push({k:'카테고리', h:`<span class="sr-cat" style="color:${col}">${hl(cn,q)}</span>`, tg:{cid:c.id}});
+        const cnote = (c.note||'').trim();
+        if(cnote.toLowerCase().includes(ql))
+          lines.push({k:'카테고리 메모', h:`<span class="sr-cat" style="color:${col}">${esc(cn)}</span> — ${hl(snippet(cnote,q),q)}`,
+                      tg:{cid:c.id, field:'cnote'}});
         c.tasks.forEach(t => {
           if(t.text.toLowerCase().includes(ql))
             lines.push({k:'업무', h:`<span class="sr-cat" style="color:${col}">${esc(cn)} ›</span> ${hl(t.text,q)}${t.done?' ✔':''}`,
@@ -5742,7 +5756,17 @@ async function jumpToHit(dateStr, tg, q){
       tg.field === 'bnbody' ? '.bn-body' : tg.field === 'bnmeta' ? '.bn-meta textarea, .bn-meta input' : '.bn-title');
   }else if(tg.cid){
     host  = document.querySelector(`.cat[data-cid="${tg.cid}"]`);
-    inner = host && host.querySelector('.cat-name');
+    if(host && tg.field === 'cnote'){
+      const cnBox = host.querySelector('.cat-note');
+      if(cnBox && cnBox.classList.contains('hidden')){
+        const nb = host.querySelector('.cat-note-btn');
+        if(nb){ nb.click(); await new Promise(r => setTimeout(r, 100)); }
+        host = document.querySelector(`.cat[data-cid="${tg.cid}"]`);
+      }
+      inner = host && host.querySelector('.cn-text');
+    }else{
+      inner = host && host.querySelector('.cat-name');
+    }
   }else if(tg.field === 'note'){ showNote(false); host = inner = $('dayNote'); }
   else if(tg.field === 'memo')  host = inner = $('memoText');
   else if(tg.box)               host = $(tg.box === 'inbox' ? 'inboxList' : 'privList');
@@ -7144,7 +7168,9 @@ function clearStaleTimes(arr){
   let n = 0;
   (arr||[]).forEach(t => {
     if(!t || t.done) return;
-    if(t.time && t.timeDay && t.timeDay !== today){ t.time = ''; t.gcalId = ''; n++; }
+    if(t.time && t.timeDay && t.timeDay !== today){
+      t.time = ''; t.timeDay = ''; t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; n++;
+    }
     else if(t.time && !t.timeDay) t.timeDay = today;     /* 예전 자료 — 오늘 잡은 것으로 본다 */
   });
   return n;
@@ -7963,11 +7989,11 @@ $('evDelete').onclick = async () => {
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === deleting.id){
-        t.gcalId = ''; t.gcalCalendar = ''; t.time = ''; linked = true;
+        t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; t.time = ''; linked = true;
       }
     }));
-    (inbox||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.time=''; t.timeDay=''; linked=true; } });
-    (priv||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.time=''; t.timeDay=''; linked=true; } });
+    (inbox||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.gcalSig=''; t.time=''; t.timeDay=''; linked=true; } });
+    (priv||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.gcalSig=''; t.time=''; t.timeDay=''; linked=true; } });
     if(linked){ markDirty(); markInbox(); markPriv(); }
 
     $('evModal').classList.add('hidden'); evEditing = null;
