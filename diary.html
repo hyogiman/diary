@@ -1019,7 +1019,7 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .dr-cover-note{font-size:12px;line-height:1.7;color:#8B7460;background:#F8EEDC;border-radius:10px;padding:12px 14px}
 .dr-section-title{font-family:'Jua';font-size:23px;color:#4B3423;margin:2px 0 12px}
 .dr-section-sub{font-size:12px;color:#8B7460;line-height:1.6;margin:-5px 0 15px}
-.dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.dr-summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
 .dr-summary-card{border:1.5px solid #E5D1B4;border-radius:10px;background:#FFFDF7;padding:11px 8px;text-align:center}
 .dr-summary-card .n{font-family:'Jua';font-size:21px;color:#C95F1D}.dr-summary-card .l{font-size:10px;color:#8B7460;margin-top:3px}
 .dr-cat-row{display:grid;grid-template-columns:1fr 74px 74px 84px;gap:8px;align-items:center;padding:10px 10px;
@@ -6669,18 +6669,18 @@ $('setNameBtn').onclick = async () => {
    REPORT ENGINE: paged-v5 · grouped-history · 2026-08-14 */
 function doneReportStats(records){
   const cats=new Map();
-  let delays=0, days=0, exact=0, sameDay=0;
+  let delays=0, days=0, sameDay=0;
   records.forEach(r=>{
     const k=r.category||'무제';
     if(!cats.has(k)) cats.set(k,{name:k,color:r.color||'#D96F2B',isPersonal:!!r.isPersonal,count:0,delays:0,days:0});
     const c=cats.get(k); c.count++; c.delays+=r.delays.length; c.days+=r.recordedDays||1;
-    delays+=r.delays.length; days+=r.recordedDays||1; if(r.completedAt) exact++; if(r.startDate===r.doneDate) sameDay++;
+    delays+=r.delays.length; days+=r.recordedDays||1; if(r.startDate===r.doneDate) sameDay++;
   });
   return {cats:[...cats.values()].sort((a,b)=>{
       const ar=doneCategoryRank(a.name,!!a.isPersonal), br=doneCategoryRank(b.name,!!b.isPersonal);
       return ar-br || b.count-a.count || a.name.localeCompare(b.name,'ko');
     }),
-    delays, avgDays:records.length?(days/records.length):0, exact, sameDay};
+    delays, avgDays:records.length?(days/records.length):0, sameDay};
 }
 function reportDateText(){
   const d=new Date(), p=n=>String(n).padStart(2,'0');
@@ -6756,8 +6756,14 @@ function doneReportAppend(state, node, continuationLabel=''){
     throw new Error('보고서 한 블록이 A4 한 페이지보다 큽니다. 내용을 더 작은 단위로 나눠야 합니다.');
   }
 }
+function doneReportCompletedText(r){
+  const ms=doneTsMs(r.completedAt);
+  if(!ms) return `${+r.doneDate.slice(5,7)}/${+r.doneDate.slice(8,10)} 완료`;
+  const d=new Date(ms), p=n=>String(n).padStart(2,'0');
+  return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
 function doneReportTaskHeader(r){
-  const pills=[doneTimeText(r.completedAt,r.doneDate),doneDurationText(r.startDate,r.doneDate),`기록 ${r.recordedDays}일`,r.delays.length?`지연 ${r.delays.length}회`:'지연 없음'].filter(Boolean);
+  const pills=[doneReportCompletedText(r),doneDurationText(r.startDate,r.doneDate),`기록 ${r.recordedDays}일`,r.delays.length?`지연 ${r.delays.length}회`:'지연 없음'].filter(Boolean);
   const h=doneReportNode(`<div class="dr-task-title">✔ ${esc(r.title)}</div><div class="dr-task-meta">${pills.map(x=>`<span class="dr-chip">${esc(x)}</span>`).join('')}</div>`,'dr-task-head');
   h.style.setProperty('--dr-cat',r.color||'#D96F2B'); return h;
 }
@@ -6786,16 +6792,7 @@ function doneReportTaskParts(r){
     });
   });
 
-  if(r.delays.length){
-    parts.push({node:doneReportNode('지연 기록 상세','dr-subtitle'),cont:r.title});
-    r.delays.forEach(d=>{
-      const txt=[reasonLabel(d.reasonCode),d.reasonDetail||'',d.plannedStart?`계획 ${d.plannedStart}${d.plannedDuration?` / ${d.plannedDuration}분`:''}`:'',d.actualStart?`실제 ${d.actualStart}${d.actualDuration?` / ${d.actualDuration}분`:''}`:''].filter(Boolean).join(' · ');
-      doneReportGroupedTextChunks(txt,1600).forEach((tx,i)=>parts.push({
-        node:doneReportNode(`<b>⏳ 지연기록 · ${esc(d.date||r.doneDate)}${i?' · 이어서':''}</b><br>${esc(tx).replace(/\n/g,'<br>')}`,'dr-delay-box'),
-        cont:`${r.title} · 지연 기록`
-      }));
-    });
-  }
+
 
   return parts;
 }
@@ -6831,15 +6828,14 @@ function buildDoneReportPages(label, records){
     <div class="dr-stat"><div class="n">${stats.cats.length}</div><div class="l">업무 카테고리</div></div>
     <div class="dr-stat"><div class="n">${stats.delays}</div><div class="l">지연 기록</div></div>
     <div class="dr-stat"><div class="n">${stats.avgDays.toFixed(1)}</div><div class="l">평균 기록일수</div></div></div>
-    <div class="dr-cover-note">완료 시각은 기록이 있는 업무만 정확한 시각을 사용합니다. 과거 기록처럼 완료 타임스탬프가 없는 업무에는 임의의 시간을 만들지 않습니다.<br>보고서 생성: ${esc(reportDateText())}</div>`;
+    <div class="dr-cover-note">보고서 생성: ${esc(reportDateText())}</div>`;
 
   /* 2. 전체 요약 + 카테고리 현황. 행 단위로 페이지 넘김 */
   page=doneReportPage(label); pages.push(page);
   let state={page,pages,label};
   doneReportAppend(state,doneReportNode(`<div class="dr-section-title">1. 전체 완료 현황</div><div class="dr-section-sub">기간 내 완료 업무를 카테고리와 수행 기록 기준으로 요약합니다.</div>
     <div class="dr-summary-grid"><div class="dr-summary-card"><div class="n">${records.length}</div><div class="l">완료</div></div>
-    <div class="dr-summary-card"><div class="n">${stats.sameDay}</div><div class="l">당일 완료</div></div><div class="dr-summary-card"><div class="n">${stats.delays}</div><div class="l">지연 기록</div></div>
-    <div class="dr-summary-card"><div class="n">${stats.exact}</div><div class="l">완료시각 기록</div></div></div>`));
+    <div class="dr-summary-card"><div class="n">${stats.sameDay}</div><div class="l">당일 완료</div></div><div class="dr-summary-card"><div class="n">${stats.delays}</div><div class="l">지연 기록</div></div></div>`));
   doneReportAppend(state,doneReportNode(`<div class="dr-subtitle">카테고리별 완료 현황</div><div class="dr-cat-row head"><div>카테고리</div><div class="dr-num">완료</div><div class="dr-num">지연</div><div class="dr-num">평균 기록일</div></div>`),'카테고리별 완료 현황');
   stats.cats.forEach(c=>doneReportAppend(state,doneReportNode(`<div class="dr-cat-row"><div class="dr-cat-name" style="color:${c.color}">● ${esc(c.name)}</div><div class="dr-num">${c.count}건</div><div class="dr-num">${c.delays}회</div><div class="dr-num">${(c.days/c.count).toFixed(1)}일</div></div>`),'카테고리별 완료 현황'));
 
