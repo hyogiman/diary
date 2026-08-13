@@ -492,9 +492,27 @@ mark{background:var(--mark-bg);color:var(--mark-ink);border-radius:3px;padding:0
 .dl-step.done::before{background:var(--green)}
 .dl-step-head{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:.76rem;font-weight:800;color:var(--accent-deep)}
 .dl-step-body{font-size:.8rem;color:var(--ink);line-height:1.55;margin-top:3px}
-.dl-delay{margin-top:5px;padding:6px 8px;border-radius:8px;background:#FFF3DF;color:#8A5E2B;font-size:.74rem;line-height:1.45}
+.dl-delay{margin-top:5px;padding:8px 10px;border-radius:9px;background:#FFF3DF;color:#7A5328;font-size:.75rem;line-height:1.5;border-left:4px solid var(--amber)}
+.dl-delay-label{display:inline-block;font-size:.67rem;font-weight:900;padding:2px 7px;border-radius:999px;background:#F4D59B;color:#75501F;margin-right:5px}
+.dl-event-time{font-variant-numeric:tabular-nums;color:var(--accent-deep);font-weight:900}
+.dl-kind{font-size:.68rem;font-weight:900;padding:2px 7px;border-radius:999px;background:var(--paper-deep);color:var(--ink-soft)}
+.dl-step.delay::before{background:var(--amber)}
+.dl-step.status::before{background:var(--blue)}
+.dl-step.note::before{background:var(--accent)}
 .dl-detail-meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
 .dl-pill{font-size:.7rem;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--paper-deep);color:var(--ink-soft)}
+.done-cat-group{margin:4px 0 18px}
+.done-cat-head{display:flex;align-items:center;gap:8px;margin:4px 2px 9px;padding:7px 9px;border-bottom:2px solid var(--rule);font-family:'Jua';font-size:1.02rem;color:var(--accent-deep)}
+.done-cat-count{font-family:inherit;font-size:.68rem;font-weight:900;background:var(--paper-deep);border-radius:999px;padding:2px 7px;color:var(--ink-soft)}
+.dl-notes-fold{margin-top:14px;border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);overflow:hidden}
+.dl-notes-fold summary{cursor:pointer;padding:10px 12px;font-size:.8rem;font-weight:900;color:var(--accent-deep);list-style:none}
+.dl-notes-fold summary::-webkit-details-marker{display:none}
+.dl-notes-fold summary::after{content:'＋';float:right;color:var(--ink-soft)}
+.dl-notes-fold[open] summary::after{content:'－'}
+.dl-notes-body{border-top:1px solid var(--rule);padding:9px 12px 11px}
+.dl-note-snap{padding:8px 0;border-bottom:1px dashed var(--rule);font-size:.78rem;line-height:1.55}
+.dl-note-snap:last-child{border-bottom:none}
+.dl-note-date{font-weight:900;color:var(--accent-deep);margin-bottom:3px}
 #doneLibModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:181;display:flex;align-items:center;justify-content:center;padding:16px}
 #doneLibModal .bank-panel{max-width:680px}
 #doneLibBody{overflow-y:auto;padding:14px 16px 18px}
@@ -1460,7 +1478,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     </div>
   </div>
 
-  <button id="fabStamp" title="지금 시각 찍기"><span class="fi">🕒</span><span class="fl">시각</span><span class="bub" id="stampBub"></span></button>
+  <button id="fabStamp" title="짧게: 지금 시각 · 길게: 과거 시각"><span class="fi">🕒</span><span class="fl">시각</span><span class="bub" id="stampBub"></span></button>
   <button id="fabCat" title="업무 카테고리 추가"><span class="fi">＋</span><span class="fl">업무</span></button>
 
   <div id="goalView" class="hidden">
@@ -4401,30 +4419,70 @@ function sayBubble(msg){
   clearTimeout(bubTimer);
   bubTimer = setTimeout(() => b.classList.remove('on'), 2200);
 }
-function stampText(){
-  const d = new Date();
+function stampText(d){
+  d = d || new Date();
   const p = n => String(n).padStart(2,'0');
   return `[${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]}) ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}]`;
 }
+function insertStampInto(el, text){
+  if(!stampable(el)) return false;
+  const s = el.selectionStart ?? el.value.length;
+  const e = el.selectionEnd   ?? s;
+  const before = el.value.slice(0, s), after = el.value.slice(e);
+  const head = (before && !before.endsWith('\n')) ? '\n' : '';
+  const ins  = head + text + '\n';
+  el.value = before + ins + after;
+  const pos = (before + ins).length;
+  el.focus(); el.setSelectionRange(pos, pos);
+  el.dispatchEvent(new Event('input', {bubbles:true}));
+  refreshStampBtn();
+  return true;
+}
+function parseManualStamp(v){
+  v=(v||'').trim();
+  const now=new Date();
+  let y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate(), hh, mi, ss;
+  let x=v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if(x){ hh=+x[1]; mi=+x[2]; ss=+(x[3]||0); }
+  else if((x=v.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/))){ m=+x[1]; d=+x[2]; hh=+x[3]; mi=+x[4]; ss=+(x[5]||0); }
+  else if((x=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/))){ y=+x[1]; m=+x[2]; d=+x[3]; hh=+x[4]; mi=+x[5]; ss=+(x[6]||0); }
+  else return null;
+  if(hh>23 || mi>59 || ss>59 || m<1 || m>12 || d<1 || d>31) return null;
+  const out=new Date(y,m-1,d,hh,mi,ss,0);
+  if(out.getFullYear()!=y || out.getMonth()!=m-1 || out.getDate()!=d) return null;
+  return out;
+}
+async function insertManualStamp(){
+  const el=stampTarget;
+  if(!stampable(el)) return;
+  const n=new Date(), p=x=>String(x).padStart(2,'0');
+  const v=await askInput({title:'🕒 과거 시각 찍기', desc:'실제 일이 일어난 시각을 적어 주세요. 오늘이면 HH:MM:SS, 날짜도 바꾸려면 M/D HH:MM:SS', value:`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`});
+  if(v===null) return;
+  const d=parseManualStamp(v);
+  if(!d){ toast('시각 형식을 확인해 주세요 · 예: 10:15:30 또는 8/14 10:15:30'); return; }
+  insertStampInto(el, stampText(d));
+}
+let stampLongTimer=null, stampLongFired=false;
+$('fabStamp').addEventListener('pointerdown', () => {
+  clearTimeout(stampLongTimer); stampLongFired=false;
+  if(!stampable(stampTarget)) return;
+  const heldTarget=stampTarget;
+  stampLongTimer=setTimeout(async()=>{
+    stampLongFired=true; stampTarget=heldTarget;
+    try{ if(navigator.vibrate) navigator.vibrate(20); }catch(e){}
+    await insertManualStamp();
+  }, 650);
+});
+['pointerup','pointercancel'].forEach(ev => $('fabStamp').addEventListener(ev,()=>clearTimeout(stampLongTimer)));
 $('fabStamp').onclick = () => {
+  if(stampLongFired){ stampLongFired=false; return; }
   const el = stampTarget;
   if(!stampable(el)){
     stampTarget = null; refreshStampBtn();
     sayBubble(CHEERS[cheerIdx++ % CHEERS.length]);
     return;
   }
-  const s = el.selectionStart ?? el.value.length;
-  const e = el.selectionEnd   ?? s;
-  const before = el.value.slice(0, s), after = el.value.slice(e);
-  /* 줄 가운데면 먼저 줄을 바꿔서 시작한다 */
-  const head = (before && !before.endsWith('\n')) ? '\n' : '';
-  const ins  = head + stampText() + '\n';
-  el.value = before + ins + after;
-  const pos = (before + ins).length;
-  el.focus();
-  el.setSelectionRange(pos, pos);
-  el.dispatchEvent(new Event('input', {bubbles:true}));        /* 저장·높이 조절이 함께 돌게 */
-  refreshStampBtn();
+  insertStampInto(el, stampText(new Date()));
 };
 
 /* ═══════════════ 🕘 되돌리기 ═══════════════ */
@@ -5908,7 +5966,7 @@ function doneTimeText(ts, date){
   const ms = doneTsMs(ts);
   if(!ms) return `${+date.slice(5,7)}/${+date.slice(8,10)} · 완료 시각 기록 없음`;
   const d = new Date(ms);
-  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
 }
 function doneDurationText(start, end){
   if(!start || !end) return '';
@@ -5975,6 +6033,88 @@ function collectDoneLibrary(yd){
   return records;
 }
 
+function doneCatKey(name){ return String(name||'무제').trim().replace(/\s+/g,' ').toLowerCase(); }
+function inferStampDate(mm, dd, fallbackDate){
+  let y=+fallbackDate.slice(0,4), fm=+fallbackDate.slice(5,7);
+  mm=+mm; dd=+dd;
+  if(fm===1 && mm===12) y--;
+  else if(fm===12 && mm===1) y++;
+  return `${y}-${String(mm).padStart(2,'0')}-${String(dd).padStart(2,'0')}`;
+}
+/* 퀵메모의 [8/14(금) 13:30:27]을 실제 사건시각으로 읽는다.
+   타임스탬프가 없던 옛 메모는 loose에 남겨 날짜별 변화로 복원한다. */
+function parseStampedQuickNote(note, fallbackDate){
+  const lines=String(note||'').replace(/\r/g,'').split('\n');
+  const events=[], loose=[];
+  const re=/^\[(\d{1,2})\/(\d{1,2})\([^)]+\)\s+(\d{1,2}):(\d{2}):(\d{2})\]\s*(.*)$/;
+  let cur=null;
+  const flush=()=>{
+    if(!cur) return;
+    cur.body=cur.body.join('\n').trim();
+    events.push(cur); cur=null;
+  };
+  lines.forEach(line=>{
+    const m=line.match(re);
+    if(m){
+      flush();
+      cur={date:inferStampDate(m[1],m[2],fallbackDate), time:`${String(+m[3]).padStart(2,'0')}:${m[4]}:${m[5]}`, body:m[6]?[m[6]]:[]};
+    }else if(cur) cur.body.push(line);
+    else loose.push(line);
+  });
+  flush();
+  return {events, loose:loose.join('\n').trim()};
+}
+function compactLegacyChange(prev, cur){
+  prev=(prev||'').trim(); cur=(cur||'').trim();
+  if(!cur || cur===prev) return null;
+  if(prev && cur.startsWith(prev)){
+    const added=cur.slice(prev.length).trim();
+    if(added) return {label:'📝 퀵메모 추가', body:added};
+  }
+  return {label:prev?'📝 퀵메모 변경':'📝 일지 기록', body:cur};
+}
+function completedClock(r){
+  const ms=doneTsMs(r.completedAt); if(!ms) return '';
+  const d=new Date(ms), p=n=>String(n).padStart(2,'0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+function buildDoneHistoryEvents(r){
+  const events=[], exactSeen=new Set();
+  let prevLoose='', prevStatus='';
+  r.history.forEach(h=>{
+    const parsed=parseStampedQuickNote(h.t.note||'', h.date);
+    parsed.events.forEach(e=>{
+      const k=`${e.date}|${e.time}|${e.body}`;
+      if(exactSeen.has(k)) return; exactSeen.add(k);
+      events.push({date:e.date,time:e.time,kind:'note',label:'📝 기록',body:e.body,exact:true});
+    });
+    const ch=compactLegacyChange(prevLoose, parsed.loose);
+    if(ch) events.push({date:h.date,time:'',kind:'note',label:ch.label,body:ch.body,exact:false});
+    if(parsed.loose) prevLoose=parsed.loose;
+    const st=statusLabelOf(h.t.status);
+    if(st && st!==prevStatus && !h.t.done){ events.push({date:h.date,time:'',kind:'status',label:`상태 · ${st}`,body:'',exact:false}); prevStatus=st; }
+  });
+  r.delays.forEach(d=>{
+    const time=d.actualStart||d.plannedStart||'';
+    const body=[reasonLabel(d.reasonCode),d.reasonDetail||'',d.actualStart?`실제 ${d.actualStart}`:'',d.actualDuration?`${d.actualDuration}분`:'' ].filter(Boolean).join(' · ');
+    events.push({date:d.date||r.doneDate,time,kind:'delay',label:'⏳ 지연기록',body,exact:!!time});
+  });
+  events.push({date:r.doneDate,time:completedClock(r),kind:'done',label:'✅ 업무 완료',body:'',exact:!!r.completedAt});
+  const order={status:0,note:1,delay:2,done:3};
+  events.sort((a,b)=>a.date.localeCompare(b.date) || ((a.time||'').localeCompare(b.time||'')) || (order[a.kind]-order[b.kind]));
+  return events;
+}
+function renderDoneTimeline(r){
+  const evs=buildDoneHistoryEvents(r);
+  return evs.map(e=>{
+    const time=e.time?`<span class="dl-event-time">${esc(e.time)}</span>`:'';
+    const kindClass=e.kind==='delay'?'delay':e.kind==='status'?'status':e.kind==='note'?'note':e.kind==='done'?'done':'';
+    const label=e.kind==='delay'?`<span class="dl-delay-label">⏳ 지연기록</span>`:`<span class="dl-kind">${esc(e.label)}</span>`;
+    const body=e.body?`<div class="${e.kind==='delay'?'dl-delay':'dl-step-body'}">${e.kind==='delay'?'': ''}${esc(e.body).replace(/\n/g,'<br>')}</div>`:'';
+    return `<div class="dl-step ${kindClass}"><div class="dl-step-head"><span>${esc(e.date)}</span>${time}${label}</div>${body}</div>`;
+  }).join('');
+}
+
 function renderArcDone(yd){
   const list = $('dayList'); list.innerHTML = '';
   const bar = document.createElement('div');
@@ -6005,21 +6145,29 @@ function renderArcDone(yd){
     : `${scopeTxt}${q? `에서 '${searchQ}'에 해당하는`: '에는'} 완료 업무가 없어요.`;
   list.appendChild(head);
 
-  records.forEach(r => {
-    const card=document.createElement('button'); card.type='button'; card.className='done-lib-card';
-    const meta=[doneDurationText(r.startDate,r.doneDate), `기록 ${r.recordedDays}일`];
-    if(r.noteChanges.length) meta.push(`메모 ${r.noteChanges.length}회`);
-    if(r.delays.length) meta.push(`지연 ${r.delays.length}회`);
-    card.innerHTML=`
-      <div class="dl-top">
-        <span class="dl-cat" style="color:${r.color};border-color:${r.color}88">${esc(r.category)}</span>
-        <span class="dl-when">${esc(doneTimeText(r.completedAt,r.doneDate))}</span>
-      </div>
-      <div class="dl-title">${esc(r.title)}</div>
-      <div class="dl-meta">${esc(meta.filter(Boolean).join(' · '))}</div>
-      ${r.finalNote? `<div class="dl-note">📝 ${esc(r.finalNote)}</div>`:''}`;
-    card.onclick=()=>openDoneLibraryDetail(r);
-    list.appendChild(card);
+  const groups=new Map();
+  records.forEach(r=>{
+    const k=doneCatKey(r.category);
+    if(!groups.has(k)) groups.set(k,{name:r.category,color:r.color,items:[],latest:r.doneDate});
+    const g=groups.get(k); g.items.push(r); if(r.doneDate>g.latest) g.latest=r.doneDate;
+  });
+  [...groups.values()].sort((a,b)=>b.latest.localeCompare(a.latest) || a.name.localeCompare(b.name,'ko')).forEach(g=>{
+    const sec=document.createElement('section'); sec.className='done-cat-group';
+    const hd=document.createElement('div'); hd.className='done-cat-head'; hd.style.borderBottomColor=g.color+'55';
+    hd.innerHTML=`<span style="color:${g.color}">${esc(g.name)}</span><span class="done-cat-count">${g.items.length}건</span>`;
+    sec.appendChild(hd);
+    g.items.forEach(r => {
+      const card=document.createElement('button'); card.type='button'; card.className='done-lib-card'; card.style.borderLeftColor=r.color;
+      const meta=[doneDurationText(r.startDate,r.doneDate), `기록 ${r.recordedDays}일`];
+      if(r.noteChanges.length) meta.push(`메모 ${r.noteChanges.length}회`);
+      if(r.delays.length) meta.push(`⏳ 지연 ${r.delays.length}회`);
+      card.innerHTML=`
+        <div class="dl-top"><span class="dl-when">${esc(doneTimeText(r.completedAt,r.doneDate))}</span></div>
+        <div class="dl-title">${esc(r.title)}</div>
+        <div class="dl-meta">${esc(meta.filter(Boolean).join(' · '))}</div>`;
+      card.onclick=()=>openDoneLibraryDetail(r); sec.appendChild(card);
+    });
+    list.appendChild(sec);
   });
 }
 
@@ -6027,24 +6175,17 @@ function openDoneLibraryDetail(r){
   doneLibSelected = r;
   $('doneLibTitle').textContent = '✅ ' + r.title;
   $('doneLibSub').textContent = `${r.category} · ${doneTimeText(r.completedAt,r.doneDate)}`;
-  const statusMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
-  const timeline = r.history.map((h, i) => {
-    const t=h.t;
-    const when=t.time ? `${t.time}${t.dur? ` · ${t.dur}분`:''}` : '';
-    const ds=(t.delayHistory||[]).filter(d=>d && d.reasonCode && d.date===h.date);
-    const dhtml=ds.map(d=>`<div class="dl-delay">⏳ ${esc(reasonLabel(d.reasonCode))}${d.reasonDetail? ` · ${esc(d.reasonDetail)}`:''}${d.actualStart? ` · 실제 ${esc(d.actualStart)}`:''}${d.actualDuration? ` ${d.actualDuration}분`:''}</div>`).join('');
-    return `<div class="dl-step ${t.done?'done':''}">
-      <div class="dl-step-head"><span>${esc(h.date)}</span><span>${esc(statusMap[t.status]||t.status||'대기')}</span>${when? `<span>⏰ ${esc(when)}</span>`:''}</div>
-      <div class="dl-step-body">${(t.note||'').trim()? `📝 ${esc((t.note||'').trim()).replace(/\n/g,'<br>')}` : '<span style="color:var(--ink-soft)">퀵메모 없음</span>'}</div>
-      ${dhtml}
-    </div>`;
-  }).join('');
+  const timeline=renderDoneTimeline(r);
   const pills=[doneDurationText(r.startDate,r.doneDate),`기록 ${r.recordedDays}일`,r.noteChanges.length?`메모 변경 ${r.noteChanges.length}회`:'',r.delays.length?`지연 ${r.delays.length}회`:''].filter(Boolean);
+  const notes=r.noteChanges.map((n,i)=>`<div class="dl-note-snap"><div class="dl-note-date">${esc(n.date)}${i===r.noteChanges.length-1?' · 최종본':''}</div>${esc(n.text).replace(/\n/g,'<br>')}</div>`).join('');
   $('doneLibBody').innerHTML=`
     <div class="dl-detail-meta">${pills.map(x=>`<span class="dl-pill">${esc(x)}</span>`).join('')}</div>
-    ${r.finalNote? `<div style="background:var(--paper-deep);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:.84rem;line-height:1.6"><b>최종 퀵메모</b><br>${esc(r.finalNote).replace(/\n/g,'<br>')}</div>`:''}
     <div style="font-family:'Jua';color:var(--accent-deep);font-size:1rem;margin:4px 0 8px">업무 히스토리</div>
-    <div class="dl-timeline">${timeline || '<div class="empty-note">히스토리가 없어요.</div>'}</div>`;
+    <div class="dl-timeline">${timeline || '<div class="empty-note">히스토리가 없어요.</div>'}</div>
+    <details class="dl-notes-fold">
+      <summary>📝 퀵메모 원문 모아보기 · ${r.noteChanges.length}개 기록</summary>
+      <div class="dl-notes-body">${notes || '<div class="empty-note">남겨 둔 퀵메모가 없어요.</div>'}</div>
+    </details>`;
   $('doneLibModal').classList.remove('hidden');
 }
 function closeDoneLibrary(){ $('doneLibModal').classList.add('hidden'); doneLibSelected=null; }
