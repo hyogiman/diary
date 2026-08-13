@@ -510,6 +510,11 @@ mark{background:var(--mark-bg);color:var(--mark-ink);border-radius:3px;padding:0
 .done-cat-group{margin:4px 0 18px}
 .done-cat-head{display:flex;align-items:center;gap:8px;margin:4px 2px 9px;padding:7px 9px;border-bottom:2px solid var(--rule);font-family:'Jua';font-size:1.02rem;color:var(--accent-deep)}
 .done-cat-count{font-family:inherit;font-size:.68rem;font-weight:900;background:var(--paper-deep);border-radius:999px;padding:2px 7px;color:var(--ink-soft)}
+.done-cat-detail{margin-left:auto;font-family:inherit;font-size:.68rem;font-weight:900;padding:4px 9px;border:1.5px solid var(--rule);border-radius:999px;background:var(--card);color:var(--accent-deep)}
+.done-cat-detail:active{transform:scale(.97);background:var(--paper-deep)}
+.done-cat-note-snap{padding:10px 0;border-bottom:1px dashed var(--rule);font-size:.84rem;line-height:1.65;color:var(--ink)}
+.done-cat-note-snap:last-child{border-bottom:none}
+.done-cat-note-date{font-size:.72rem;font-weight:900;color:var(--accent-deep);margin-bottom:5px}
 .dl-notes-fold{margin-top:14px;border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);overflow:hidden}
 .dl-notes-fold summary{cursor:pointer;padding:10px 12px;font-size:.8rem;font-weight:900;color:var(--accent-deep);list-style:none}
 .dl-notes-fold summary::-webkit-details-marker{display:none}
@@ -1029,6 +1034,8 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .dr-cat-banner{border-left:6px solid var(--dr-cat,#D96F2B);background:#FBF1E2;border-radius:0 10px 10px 0;
   padding:10px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
 .dr-cat-banner .name{font-family:'Jua';font-size:20px;color:#4B3423}.dr-cat-banner .meta{font-size:11px;color:#8B7460;font-weight:700}
+.dr-cat-note{background:#FFF6E6;border:1px solid #EAD9BA;border-left:4px solid var(--dr-cat,#D96F2B);border-radius:9px;padding:10px 12px;margin:0 0 14px;font-size:12px;line-height:1.65;color:#5A4633}
+.dr-cat-note .ttl{font-weight:900;color:#6E4B2E;margin-bottom:4px}.dr-cat-note .when{font-size:10px;color:#9A8068;font-weight:700;margin-left:6px}
 .dr-task-head{border:1.5px solid #E4D1B5;border-left:6px solid var(--dr-cat,#D96F2B);border-radius:11px;
   padding:13px 14px;background:#FFFDF7;margin:0 0 12px}
 .dr-task-title{font-size:18px;font-weight:900;line-height:1.35;color:#3F3025;margin-bottom:7px}
@@ -1944,6 +1951,16 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="bk-btns"><button class="btn-primary" id="askOk">확인</button><button class="btn-line" id="askCancel">취소</button></div>
   </div>
 </div>
+<div id="stampTimeModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:192;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:420px">
+    <h3>🕒 과거 시각 찍기</h3>
+    <p style="text-align:center;font-size:.82rem;line-height:1.55;color:var(--ink-soft);margin:8px 0 14px">실제 일이 일어난 날짜와 시각을 골라 주세요.<br>초까지 그대로 기록합니다.</p>
+    <div class="ev-field"><label>날짜</label><input type="date" id="stampPickDate"></div>
+    <div class="ev-field"><label>시각</label><input type="time" id="stampPickTime" step="1"></div>
+    <div id="stampPickPreview" style="margin:12px 0 2px;padding:9px 11px;border-radius:9px;background:var(--paper-deep);font-size:.82rem;font-weight:800;color:var(--accent-deep);text-align:center"></div>
+    <div class="bk-btns"><button class="btn-primary" id="stampPickOk">이 시각 넣기</button><button class="btn-line" id="stampPickCancel">취소</button></div>
+  </div>
+</div>
 <div id="confirmModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:195;display:flex;align-items:center;justify-content:center;padding:16px">
   <div class="bk-card" style="max-width:410px">
     <h3 id="cfTitle">확인</h3>
@@ -2002,6 +2019,13 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="doneLibOpenDay">📅 완료일 일지 열기</button>
       <button class="btn-line" id="doneLibClose2">닫기</button>
     </div>
+  </div>
+</div>
+<div id="doneCatNoteModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:183;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:560px;max-height:86vh;display:flex;flex-direction:column">
+    <h3 id="doneCatNoteTitle">📜 카테고리 메모</h3>
+    <div id="doneCatNoteBody" style="overflow-y:auto;margin:10px 0 4px;padding:4px 2px 8px"></div>
+    <button class="btn-line" id="doneCatNoteClose" style="margin-top:10px">닫기</button>
   </div>
 </div>
 <div id="exportStage"></div>
@@ -3155,22 +3179,34 @@ $('carryBtn').onclick = async () => {
   const prev = await findPrevWorkDay(curDate);
   if(!prev){ toast('이전에 작성한 기록이 없어요'); return; }
 
-  let moved = 0, skipped = 0;
+  let moved = 0, skipped = 0, carriedNotes = 0;
   prev.data.cats.forEach(pc => {
     if(pc.priv) return;                                      // 개인용무만 제외 (기타업무는 포함)
     const undone = pc.tasks.filter(t => !t.done && t.text.trim());
     if(!undone.length) return;
+    const prevCatNote = (pc.note||'').trim();
     let target = day.cats.find(c => c.name.trim() && c.name.trim() === pc.name.trim());
-    if(!target){ target = {id:uid8(), name:pc.name, color:pc.color||0, note:'', files:[], tasks:[]}; day.cats.push(target); }
+    if(!target){
+      target = {id:uid8(), name:pc.name, color:pc.color||0, note:pc.note||'', files:[], tasks:[]};
+      day.cats.push(target);
+      if(prevCatNote) carriedNotes++;
+    }else if(prevCatNote && !(target.note||'').trim()){
+      /* 오늘 이미 쓴 메모는 덮어쓰지 않고, 비어 있을 때만 전날 카테고리 메모를 이어받는다. */
+      target.note = pc.note||'';
+      carriedNotes++;
+    }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
       target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id), time:'', gcalId:''});   // 원본 계보 유지
       moved++;
     });
   });
-  if(moved){
+  if(moved || carriedNotes){
     markDirty(); renderCats();
-    toast(`${prev.label} 일지의 미완료 업무 ${moved}건을 가져왔어요` + (skipped? ` · 이미 있는 ${skipped}건 제외`:''));
+    const bits=[];
+    if(moved) bits.push(`미완료 업무 ${moved}건`);
+    if(carriedNotes) bits.push(`카테고리 메모 ${carriedNotes}건`);
+    toast(`${prev.label} 일지에서 ${bits.join(' · ')}을 가져왔어요` + (skipped? ` · 이미 있는 업무 ${skipped}건 제외`:''));
   }else{
     toast(skipped? `${prev.label} 일지의 미완료 업무는 이미 목록에 있어요`
                  : `${prev.label} 일지에 남은 미완료 업무가 없어요`);
@@ -4517,29 +4553,52 @@ function insertStampInto(el, text){
   refreshStampBtn();
   return true;
 }
-function parseManualStamp(v){
-  v=(v||'').trim();
-  const now=new Date();
-  let y=now.getFullYear(), m=now.getMonth()+1, d=now.getDate(), hh, mi, ss;
-  let x=v.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
-  if(x){ hh=+x[1]; mi=+x[2]; ss=+(x[3]||0); }
-  else if((x=v.match(/^(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/))){ m=+x[1]; d=+x[2]; hh=+x[3]; mi=+x[4]; ss=+(x[5]||0); }
-  else if((x=v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?$/))){ y=+x[1]; m=+x[2]; d=+x[3]; hh=+x[4]; mi=+x[5]; ss=+(x[6]||0); }
-  else return null;
-  if(hh>23 || mi>59 || ss>59 || m<1 || m>12 || d<1 || d>31) return null;
-  const out=new Date(y,m-1,d,hh,mi,ss,0);
-  if(out.getFullYear()!=y || out.getMonth()!=m-1 || out.getDate()!=d) return null;
-  return out;
+function stampPickerDateValue(d){
+  const p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
 }
-async function insertManualStamp(){
+function stampPickerTimeValue(d){
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+let stampPickerTarget=null;
+function stampPickerPreview(){
+  const ds=$('stampPickDate').value, ts=$('stampPickTime').value;
+  if(!ds || !ts){ $('stampPickPreview').textContent='날짜와 시각을 골라 주세요'; return; }
+  const parts=ds.split('-').map(Number), t=ts.split(':').map(Number);
+  if(parts.length!==3 || t.length<2){ $('stampPickPreview').textContent='날짜와 시각을 확인해 주세요'; return; }
+  const d=new Date(parts[0],parts[1]-1,parts[2],t[0],t[1],t[2]||0,0);
+  $('stampPickPreview').textContent='들어갈 기록  '+stampText(d);
+}
+function openStampTimePicker(el){
+  if(!stampable(el)) return;
+  stampPickerTarget=el;
+  const n=new Date();
+  $('stampPickDate').value=stampPickerDateValue(n);
+  $('stampPickTime').value=stampPickerTimeValue(n);
+  stampPickerPreview();
+  $('stampTimeModal').classList.remove('hidden');
+}
+function closeStampTimePicker(){ $('stampTimeModal').classList.add('hidden'); stampPickerTarget=null; }
+$('stampPickDate').addEventListener('change',stampPickerPreview);
+$('stampPickTime').addEventListener('input',stampPickerPreview);
+$('stampPickCancel').onclick=closeStampTimePicker;
+$('stampTimeModal').addEventListener('click',e=>{ if(e.target.id==='stampTimeModal') closeStampTimePicker(); });
+$('stampPickOk').onclick=()=>{
+  const el=stampPickerTarget, ds=$('stampPickDate').value, ts=$('stampPickTime').value;
+  if(!stampable(el) || !ds || !ts){ toast('날짜와 시각을 모두 골라 주세요'); return; }
+  const [y,m,d]=ds.split('-').map(Number), [hh,mi,ss=0]=ts.split(':').map(Number);
+  const when=new Date(y,m-1,d,hh,mi,ss,0);
+  if(when.getFullYear()!==y || when.getMonth()!==m-1 || when.getDate()!==d || hh>23 || mi>59 || ss>59){
+    toast('날짜나 시각을 다시 확인해 주세요'); return;
+  }
+  closeStampTimePicker();
+  insertStampInto(el,stampText(when));
+};
+function insertManualStamp(){
   const el=stampTarget;
   if(!stampable(el)) return;
-  const n=new Date(), p=x=>String(x).padStart(2,'0');
-  const v=await askInput({title:'🕒 과거 시각 찍기', desc:'실제 일이 일어난 시각을 적어 주세요. 오늘이면 HH:MM:SS, 날짜도 바꾸려면 M/D HH:MM:SS', value:`${p(n.getHours())}:${p(n.getMinutes())}:${p(n.getSeconds())}`});
-  if(v===null) return;
-  const d=parseManualStamp(v);
-  if(!d){ toast('시각 형식을 확인해 주세요 · 예: 10:15:30 또는 8/14 10:15:30'); return; }
-  insertStampInto(el, stampText(d));
+  openStampTimePicker(el);
 }
 let stampLongTimer=null, stampLongFired=false;
 $('fabStamp').addEventListener('pointerdown', () => {
@@ -6077,7 +6136,7 @@ function collectDoneLibrary(yd){
           if(!(t.text||'').trim()) return;
           const key = doneLineKey(t, catName);
           if(!lines.has(key)) lines.set(key, []);
-          lines.get(key).push({date, mm, dd, catName, col, isPersonal, t});
+          lines.get(key).push({date, mm, dd, catName, col, isPersonal, catNote:(c.note||'').trim(), t});
         });
       });
     });
@@ -6100,12 +6159,18 @@ function collectDoneLibrary(yd){
       if(n && n!==prev){ notes.push({date:h.date, text:n}); prev=n; }
     });
     const finalNote = (fin.t.note||'').trim() || (notes.length ? notes[notes.length-1].text : '');
+    const categoryNoteChanges=[]; let prevCatNote='';
+    until.forEach(h=>{
+      const n=(h.catNote||'').trim();
+      if(n && n!==prevCatNote){ categoryNoteChanges.push({date:h.date,text:n}); prevCatNote=n; }
+    });
+    const finalCategoryNote=(fin.catNote||'').trim() || (categoryNoteChanges.length?categoryNoteChanges[categoryNoteChanges.length-1].text:'');
     records.push({
       lineKey, title:(fin.t.text||'').trim(), category:fin.catName, color:fin.col,
       isPersonal:!!fin.isPersonal,
       doneDate:fin.date, completedAt:+fin.t.completedAt||0,
       startDate:dates[0] || fin.date, recordedDays:dates.length,
-      history:until, delays, noteChanges:notes, finalNote,
+      history:until, delays, noteChanges:notes, finalNote, categoryNoteChanges, finalCategoryNote,
       due:fin.t.due||'', goal:fin.t.goal||''
     });
   });
@@ -6206,6 +6271,32 @@ function renderDoneTimeline(r){
   }).join('');
 }
 
+function doneCategoryNoteSnapshots(items){
+  const raw=[];
+  (items||[]).forEach(r=>(r.categoryNoteChanges||[]).forEach(n=>{
+    const text=(n.text||'').trim(); if(text) raw.push({date:n.date,text});
+  }));
+  raw.sort((a,b)=>a.date.localeCompare(b.date));
+  const out=[];
+  raw.forEach(n=>{
+    /* 전날에서 그대로 이어진 같은 메모는 새 버전으로 세지 않는다. 내용이 바뀐 시점만 남긴다. */
+    if(out.length && out[out.length-1].text===n.text) return;
+    out.push(n);
+  });
+  return out;
+}
+function openDoneCategoryNote(group){
+  const notes=doneCategoryNoteSnapshots(group.items||[]);
+  $('doneCatNoteTitle').textContent=`📜 ${group.name} · 카테고리 메모`;
+  $('doneCatNoteBody').innerHTML=notes.length ? notes.map((n,i)=>
+    `<div class="done-cat-note-snap"><div class="done-cat-note-date">${esc(n.date)}${i===notes.length-1?' · 최근':''}</div>${esc(n.text).replace(/\n/g,'<br>')}</div>`
+  ).join('') : '<div class="empty-note">남겨 둔 카테고리 메모가 없어요.</div>';
+  $('doneCatNoteModal').classList.remove('hidden');
+}
+function closeDoneCategoryNote(){ $('doneCatNoteModal').classList.add('hidden'); }
+$('doneCatNoteClose').onclick=closeDoneCategoryNote;
+$('doneCatNoteModal').addEventListener('click',e=>{ if(e.target.id==='doneCatNoteModal') closeDoneCategoryNote(); });
+
 function renderArcDone(yd){
   const list = $('dayList'); list.innerHTML = '';
   const bar = document.createElement('div');
@@ -6223,7 +6314,7 @@ function renderArcDone(yd){
   let records = collectDoneLibrary(yd);
   const q = (searchQ||'').trim().toLowerCase();
   if(q) records = records.filter(r => {
-    const hay = [r.title,r.category,r.finalNote,...r.noteChanges.map(n=>n.text),...r.delays.map(d=>`${reasonLabel(d.reasonCode)} ${d.reasonDetail||''}`)].join(' ').toLowerCase();
+    const hay = [r.title,r.category,r.finalNote,r.finalCategoryNote,...r.noteChanges.map(n=>n.text),...(r.categoryNoteChanges||[]).map(n=>n.text),...r.delays.map(d=>`${reasonLabel(d.reasonCode)} ${d.reasonDetail||''}`)].join(' ').toLowerCase();
     return hay.includes(q);
   });
   arcDoneData = {records, total:records.length};
@@ -6248,7 +6339,8 @@ function renderArcDone(yd){
   }).forEach(g=>{
     const sec=document.createElement('section'); sec.className='done-cat-group';
     const hd=document.createElement('div'); hd.className='done-cat-head'; hd.style.borderBottomColor=g.color+'55';
-    hd.innerHTML=`<span style="color:${g.color}">${esc(g.name)}</span><span class="done-cat-count">${g.items.length}건</span>`;
+    hd.innerHTML=`<span style="color:${g.color}">${esc(g.name)}</span><span class="done-cat-count">${g.items.length}건</span><button type="button" class="done-cat-detail">상세</button>`;
+    hd.querySelector('.done-cat-detail').onclick=e=>{ e.stopPropagation(); openDoneCategoryNote(g); };
     sec.appendChild(hd);
     g.items.forEach(r => {
       const card=document.createElement('button'); card.type='button'; card.className='done-lib-card'; card.style.borderLeftColor=r.color;
@@ -6876,6 +6968,15 @@ function buildDoneReportPages(label, records){
     const delayN=items.reduce((n,r)=>n+r.delays.length,0);
     const ban=doneReportNode(`<div><span class="name">${catNo}. ${esc(cat)}</span><span class="meta">완료 ${items.length}건 · 지연 ${delayN}회</span></div>`,'dr-cat-banner'); ban.style.setProperty('--dr-cat',color);
     doneReportAppend(state,ban);
+    const catNotes=doneCategoryNoteSnapshots(items);
+    catNotes.forEach((memo,mi)=>{
+      const chunks=doneReportGroupedTextChunks(memo.text,1400);
+      chunks.forEach((tx,i)=>{
+        const node=doneReportNode(`<div class="ttl">📜 카테고리 메모${i?' · 이어서':''}<span class="when">${esc(memo.date)}${mi===catNotes.length-1?' · 최근':''}</span></div>${esc(tx).replace(/\n/g,'<br>')}`,'dr-cat-note');
+        node.style.setProperty('--dr-cat',color);
+        doneReportAppend(state,node,`${cat} · 카테고리 메모`);
+      });
+    });
     items.forEach((r,idx)=>{
       taskNo++;
       const parts=doneReportTaskParts(r);
@@ -9345,7 +9446,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','perModal','delayModal','doneLibModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','stampTimeModal','perModal','delayModal','doneCatNoteModal','doneLibModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -9365,8 +9466,8 @@ function closeOneOverlay(){
   if(el){
     if(el.id === 'confirmModal'){ finishChoice(null); return true; }
     /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
-    const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
-      bankModal:'bankClose', diaryModal:'diaryClose', doneLibModal:'doneLibClose', fontModal:'fontClose', themeModal:'themeClose',
+    const closer = {askModal:'askCancel', stampTimeModal:'stampPickCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
+      bankModal:'bankClose', diaryModal:'diaryClose', doneCatNoteModal:'doneCatNoteClose', doneLibModal:'doneLibClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
       diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose', delayModal:'delayClose', perModal:'perClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
