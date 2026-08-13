@@ -646,6 +646,12 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .tl-empty{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:26px 0}
 .sched-stale{background:#FBF2DC;border:1.5px solid #EBD3A0;color:#8A6A20;border-radius:10px;
   padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 auto 12px;max-width:900px}
+.ap-move{margin-left:auto;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
+.ap-movesel{max-width:150px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+  padding:5px 7px;font-size:.78rem;color:var(--ink);font-family:inherit}
+.ap-place{flex:1;min-width:0;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+  padding:6px 9px;font-size:.85rem;color:var(--ink);font-family:inherit}
+.ap-map{flex:none;text-decoration:none;display:inline-flex;align-items:center}
 .tg-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
 .tg-row select{flex:1;min-width:140px;border:1.5px solid var(--rule);border-radius:8px;
   background:var(--field);padding:7px 9px;font-size:.84rem;color:var(--ink)}
@@ -850,6 +856,10 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 #undoModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:159;
   display:flex;align-items:center;justify-content:center;padding:16px}
 .undo-help{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;margin-bottom:12px}
+.undo-what{display:flex;gap:6px;justify-content:center;margin-bottom:10px;flex-wrap:wrap}
+.undo-what .mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.undo-item .dv{flex:none;font-size:.68rem;font-weight:800;color:#fff;background:var(--ink-soft);
+  border-radius:999px;padding:1px 7px;margin-right:2px}
 .undo-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
 .undo-date{font-family:'Jua',sans-serif;font-size:1.05rem;color:var(--accent-deep);min-width:150px;text-align:center}
 .undo-list{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
@@ -1386,7 +1396,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
           </div>
         </div>
         <div class="inbox-wrap hidden" id="inboxWrap">
-          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 완료하면 그날 일지의 &#39;기타업무(완료)&#39;로 기록되고, 카테고리가 정해지면 ↥ 버튼으로 원하는 카테고리에 올릴 수 있어요.</div>
+          <div class="inbox-hint">분류가 애매한 업무는 일단 여기에. 완료하면 그날 일지의 &#39;기타업무(완료)&#39;로 기록돼요.</div>
           <div id="inboxList"></div>
         </div>
 
@@ -1588,6 +1598,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <h3>🕘 되돌리기</h3>
     <div class="undo-help">내용이 지워졌거나 엉뚱하게 바뀌었을 때, 자동으로 보관해 둔 예전 상태로 되돌립니다.<br>
       되돌리기 전의 상태도 함께 보관되니 다시 원래대로 돌아올 수 있어요.</div>
+    <div class="undo-what" id="undoWhat">
+      <button type="button" class="mini-btn on" data-w="day">📔 이 날짜</button>
+      <button type="button" class="mini-btn" data-w="goals">🎯 목표</button>
+      <button type="button" class="mini-btn" data-w="bank">📌 장기메모</button>
+    </div>
     <div class="undo-nav">
       <button class="date-arrow" id="undoPrev">◀</button>
       <div class="undo-date" id="undoDate">—</div>
@@ -2265,6 +2280,8 @@ function normTask(t){
     status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
     time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', gcalCalendar: t.gcalCalendar||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
+    place: t.place || '',                          /* 개인 용무 장소 — 캘린더 일정에도 들어간다 */
+    from: t.from || '',                            /* 완료로 넘어온 출신 — 완료를 풀면 되돌아간다 */
     timeDay: t.timeDay || '',                      /* 이 실행 시간을 어느 날 잡았는지 (보관함용) */
     delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
     open: false };
@@ -2352,7 +2369,7 @@ function peekRefresh(){
 /* ───────── 되돌리기 지점 ─────────
    덮어쓰기 전의 내용을 따로 보관해 둔다. 서버는 이력을 남기지 않으므로
    한번 덮어쓰면 되살릴 방법이 없기 때문. */
-const UNDO_KEEP = 8, UNDO_GAP = 10*60*1000;
+const UNDO_KEEP = 24, UNDO_GAP = 5*60*1000;   /* 촘촘히·오래 보관 — 되살릴 시점이 밀려나지 않게 */
 let dayBase = null;                 /* 이 날짜에 마지막으로 저장돼 있던 내용 */
 const undoLast = {};                /* 날짜별 마지막 보관 시각 */
 const undoKeys = {};                /* 날짜별 보관본 시각 목록 (내용을 다시 받지 않으려고) */
@@ -2370,18 +2387,50 @@ function riskyChange(before, after){
   return b.tasks < a.tasks - 1 || b.cats < a.cats || b.notes < a.notes
       || (a.chars > 400 && b.chars < a.chars * 0.7);
 }
+/* ── 이 기기가 어느 기기인지 ──
+   여러 기기로 쓰다 보면 "어느 기기가 쓴 내용인지"를 알아야 되살릴 것을 고를 수 있다.
+   처음 한 번 이름을 지어 두고, 설정에서 바꿀 수 있다. */
+function deviceName(){
+  let n = '';
+  try{ n = localStorage.getItem('devName') || ''; }catch(e){}
+  if(n) return n;
+  const ua = navigator.userAgent || '';
+  const guess = /iPad|Tablet|SM-T|Tab/i.test(ua) ? '태블릿'
+              : /Android|iPhone|Mobile/i.test(ua) ? '휴대폰' : 'PC';
+  try{ localStorage.setItem('devName', guess); }catch(e){}
+  return guess;
+}
+/* 오래된 보관본을 솎아 낸다 — 최근 것은 촘촘히, 지난 것은 듬성듬성 남긴다.
+   예전에는 최신 8개만 남겨서, 오래 작업하면 정작 되살리고 싶은 시점이 밀려나 사라졌다. */
+function thinUndoKeys(keys){
+  const now = Date.now(), sorted = keys.slice().sort((a,b)=>b-a);
+  const keep = [], seen = new Set();
+  for(const ts of sorted){
+    const age = now - ts;
+    let bucket;
+    if(age < 60*60*1000)          bucket = 'h'+ts;                       /* 1시간 안 — 전부 */
+    else if(age < 24*60*60*1000)  bucket = 'H'+Math.floor(ts/(60*60*1000));   /* 하루 안 — 시간당 1개 */
+    else if(age < 30*24*60*60*1000) bucket = 'D'+Math.floor(ts/(24*60*60*1000)); /* 한 달 안 — 하루 1개 */
+    else continue;                                                        /* 한 달 넘으면 버림 */
+    if(seen.has(bucket)) continue;
+    seen.add(bucket); keep.push(ts);
+    if(keep.length >= UNDO_KEEP) break;
+  }
+  return keep;
+}
 async function pushUndo(ds, data, why){
   if(!USER || !data) return;
   try{
     const ts = Date.now();
-    await db.ref(`diaries/${USER.uid}/undo/${ds}/${ts}`).set({ why: why||'', data });
+    await db.ref(`diaries/${USER.uid}/undo/${ds}/${ts}`).set({ why: why||'', dev: deviceName(), data });
     undoLast[ds] = ts;
     /* 오래된 보관본 정리 — 내용까지 받으면 무거우니 시각 목록만 확인한다 */
     undoKeys[ds] = (undoKeys[ds] || []).concat(ts);
-    const keys = undoKeys[ds].slice().sort((a,b)=>b-a);
-    for(const old of keys.slice(UNDO_KEEP))
+    const all = undoKeys[ds].slice().sort((a,b)=>b-a);
+    const keep = new Set(thinUndoKeys(all));
+    for(const old of all) if(!keep.has(old))
       await db.ref(`diaries/${USER.uid}/undo/${ds}/${old}`).remove();
-    undoKeys[ds] = keys.slice(0, UNDO_KEEP);
+    undoKeys[ds] = [...keep];
   }catch(e){ /* 보관 실패해도 저장은 진행 */ }
 }
 
@@ -2521,6 +2570,8 @@ function renderCats(){
   $('emptyTasks').classList.toggle('hidden', day.cats.length>0);
   const catOrder = day.cats.map((cat,ci)=>({cat,ci}));
   catOrder.sort((a,b)=> (isDoneCat(a.cat)?1:0) - (isDoneCat(b.cat)?1:0));   // 완료 모음 카테고리는 맨 아래
+  /* 완료만 모이는 칸 — 여기에 새 업무를 더할 일은 없다 */
+  const isDoneBox = c => /\(완료\)$/.test((c.name||'').trim());
   catOrder.forEach(({cat, ci}) => {
     if(!Array.isArray(cat.files)) cat.files = [];      /* 이 칸이 없던 예전 카테고리 대비 */
     if(typeof cat.note !== 'string') cat.note = '';
@@ -2532,8 +2583,8 @@ function renderCats(){
         <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button>
-          <button title="업무 추가">＋</button>
-          <button class="cat-note-btn" title="이 카테고리 메모 — 지시사항·유의점">📝${(cat.note||'').trim()? '<span class="dot"></span>':''}${(cat.files||[]).length? `<span class="cnt">📎${cat.files.length}</span>`:''}</button>
+          ${isDoneBox(cat) ? '<span class="ctl-gap"></span>' : '<button title="업무 추가">＋</button>'}
+          <button class="cat-note-btn" title="이 카테고리 메모 — 지시사항·유의점">📜${(cat.note||'').trim()? '<span class="dot"></span>':''}${(cat.files||[]).length? `<span class="cnt">📎${cat.files.length}</span>`:''}</button>
           <button class="del" title="삭제">✕</button>
         </div>
       </div>
@@ -2547,7 +2598,11 @@ function renderCats(){
       </div>
       <div class="task-list"></div>`;
     el.querySelector('.cat-dot').onclick = () => { cat.color = ((cat.color||0)+1)%PALETTE.length; markDirty(); renderCats(); };
-    const [up,down,add,noteBtn,del] = el.querySelectorAll('.cat-head .ctl button');
+    const cbtns = el.querySelectorAll('.cat-head .ctl button');
+    const up = cbtns[0], down = cbtns[1];
+    const noteBtn = el.querySelector('.cat-head .cat-note-btn');
+    const del = el.querySelector('.cat-head .ctl .del');
+    const add = [...cbtns].find(b => b.title === '업무 추가');
     /* 카테고리 메모 — 소업무가 끝나 사라져도 남는, 그 묶음 전체에 걸친 기록 */
     const cnBox = el.querySelector('.cat-note');
     noteBtn.onclick = () => {
@@ -2557,7 +2612,14 @@ function renderCats(){
     };
     const cnText = cnBox.querySelector('.cn-text');
     cnText.value = cat.note || '';
-    cnText.addEventListener('input', e => { cat.note = e.target.value; markDirty(); autoGrow(e.target); });
+    /* 적는 즉시 초록 점을 켜고 끈다 — 예전엔 다시 그릴 때(새로고침)까지 안 나타났다 */
+    const cnDot = () => {
+      const has = (cat.note||'').trim();
+      let d = noteBtn.querySelector('.dot');
+      if(has && !d){ d = document.createElement('span'); d.className='dot'; noteBtn.appendChild(d); }
+      else if(!has && d) d.remove();
+    };
+    cnText.addEventListener('input', e => { cat.note = e.target.value; markDirty(); autoGrow(e.target); cnDot(); });
     cnText.addEventListener('focus', e => autoGrow(e.target));
     if(cat.open) autoGrow(cnText);
     cnBox.querySelector('.cn-img').onclick = () => pickFile('image/*', f =>
@@ -2571,7 +2633,7 @@ function renderCats(){
     });
     up.onclick   = () => moveArr(day.cats, ci, -1, markDirty, renderCats);
     down.onclick = () => moveArr(day.cats, ci, 1, markDirty, renderCats);
-    add.onclick  = () => {
+    if(add) add.onclick  = () => {
       const tid = uid8();
       cat.tasks.push({...newTask(), id:tid});
       markDirty(); renderCats();
@@ -2590,7 +2652,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', gcalCalendar:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', place:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', gcalCalendar:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
 /* ═══════════════ ⏳ 지연기록 — 계획한 시간과 실제가 어긋났을 때 ═══════════════
    재촉이 목적이 아니라, 어긋난 까닭을 부담 없이 남겨 나중에 패턴을 보기 위한 것. */
 const DELAY_REASONS = [
@@ -2706,6 +2768,7 @@ function taskRow(t, ctx){
   row.querySelector('.chk').onclick = () => {
     if(ctx.priv && !t.done){ completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
     if(ctx.inbox && !ctx.priv && !t.done){ completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
+    if(t.done && t.from && !ctx.inbox){ uncompleteBack(t, ctx); return; }         // 완료 해제 → 원래 함으로
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
@@ -2775,21 +2838,50 @@ function taskRow(t, ctx){
           ? '<span class="mini-btn ap-caldone" title="이 업무는 캘린더에 올라가 있어요 — 시간을 바꾸면 캘린더도 함께 바뀝니다">✓ 캘린더 등록완료</span>'
           : '<button class="mini-btn ap-cal">📅 캘린더 등록</button>'}
       </div>
-      <div class="tg-row">
-        <span class="ap-title">🎯 주간 목표</span>
-        <select class="ap-goal">${weekGoalOptions(t.goal)}</select>
-      </div>
+      ${ctx.priv
+        ? `<div class="tg-row">
+             <span class="ap-title">📍 장소</span>
+             <input class="ap-place" type="text" placeholder="어디에서 — 캘린더 일정에도 함께 들어가요"
+                    value="${esc(t.place||'')}" autocomplete="off">
+             ${(t.place||'').trim() ? `<a class="mini-btn ap-map" target="_blank" rel="noopener"
+                    href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(t.place)}">🗺 지도</a>` : ''}
+           </div>`
+        : `<div class="tg-row">
+             <span class="ap-title">🎯 주간 목표</span>
+             <select class="ap-goal">${weekGoalOptions(t.goal)}</select>
+           </div>`}
       <textarea class="qnote" placeholder="퀵메모 — 진행 상황, 상세 내용, 특이사항을 적어 두세요">${esc(t.note)}</textarea>
       <div class="ap-head">
         <span class="ap-title">📎 첨부 (${t.files.length})</span>
         <button class="mini-btn ap-img">🖼 사진</button>
         <button class="mini-btn ap-aud">🎵 녹음파일</button>
+        ${ctx.inbox && !ctx.priv && !t.done ? `
+          <span class="ap-move">
+            <select class="ap-movesel">${catMoveOptions()}</select>
+            <button class="mini-btn ap-movego">↥ 이동</button>
+          </span>` : ''}
       </div>
       <div class="file-grid"></div>`;
-    panel.querySelector('.ap-goal').addEventListener('change', e => {
+    const goalSel = panel.querySelector('.ap-goal');
+    if(goalSel) goalSel.addEventListener('change', e => {
       t.goal = e.target.value; ctx.save(); ctx.rerender();
       if(peekOpen) renderPeek();                      /* 연결/해제 즉시 🎯 숫자 반영 */
     });
+    /* 개인 용무 — 장소. 캘린더에 올린 일정이면 장소도 함께 고친다 */
+    const placeIn = panel.querySelector('.ap-place');
+    if(placeIn){
+      placeIn.addEventListener('input', e => { t.place = e.target.value; ctx.save(); });
+      placeIn.addEventListener('change', e => {
+        t.place = e.target.value; ctx.save(); ctx.rerender();
+        if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
+      });
+    }
+    /* 기타 업무함 → 오늘 일지의 카테고리로 옮기기 */
+    const moveGo = panel.querySelector('.ap-movego');
+    if(moveGo) moveGo.onclick = () => {
+      const sel = panel.querySelector('.ap-movesel');
+      moveInboxToCat(t, ctx.idx, sel && sel.value);
+    };
     const qn = panel.querySelector('.qnote');
     qn.addEventListener('focus', () => grow(qn, 72));
     qn.addEventListener('click', () => grow(qn, 72));
@@ -4214,14 +4306,30 @@ $('undoBtn').onclick = () => {
 };
 $('undoClose').onclick = () => $('undoModal').classList.add('hidden');
 $('undoModal').addEventListener('click', e => { if(e.target.id==='undoModal') $('undoModal').classList.add('hidden'); });
-$('undoPrev').onclick = () => { undoDate = shiftDate(undoDate, -1); renderUndoList(); };
-$('undoNext').onclick = () => { undoDate = shiftDate(undoDate, +1); renderUndoList(); };
+$('undoPrev').onclick = () => { if(!UNDO_SPECIAL[undoDate]){ undoDate = shiftDate(undoDate, -1); renderUndoList(); } };
+$('undoNext').onclick = () => { if(!UNDO_SPECIAL[undoDate]){ undoDate = shiftDate(undoDate, +1); renderUndoList(); } };
+/* 날짜 말고 통째로 보관되는 것들 */
+const UNDO_SPECIAL = { goals:'🎯 목표', bank:'📌 장기메모' };
+$('undoWhat').onclick = e => {
+  const b = e.target.closest('button'); if(!b) return;
+  undoDate = b.dataset.w === 'day' ? curDate : b.dataset.w;
+  renderUndoList();
+};
 function shiftDate(ds, n){
   const d = new Date(ds+'T12:00:00'); d.setDate(d.getDate()+n);
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 /* 보관본 한 줄 요약 */
-function undoSummary(d){
+function undoSummary(d, kind){
+  if(kind === 'goals'){
+    const n = goalCount(d);
+    return n ? `목표 <b>${n}</b>개` : '목표 없음';
+  }
+  if(kind === 'bank'){
+    const arr = Array.isArray(d) ? d : Object.values(d||{});
+    const first = (arr[0] && (arr[0].title||arr[0].body||'').trim()) || '';
+    return arr.length ? `메모 <b>${arr.length}</b>건${first? ` · “${esc(first.slice(0,16))}”`:''}` : '메모 없음';
+  }
   const z = daySize(d);
   const bits = [];
   if(z.tasks) bits.push(`업무 <b>${z.tasks}</b>건`);
@@ -4233,8 +4341,16 @@ function undoSummary(d){
   return bits.length ? bits.join(' · ') : '내용 없음';
 }
 async function renderUndoList(){
-  const d = new Date(undoDate+'T12:00:00');
-  $('undoDate').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+  [...$('undoWhat').children].forEach(b =>
+    b.classList.toggle('on', b.dataset.w === (UNDO_SPECIAL[undoDate] ? undoDate : 'day')));
+  if(UNDO_SPECIAL[undoDate]){
+    $('undoDate').textContent = UNDO_SPECIAL[undoDate];
+    $('undoPrev').classList.add('hidden'); $('undoNext').classList.add('hidden');
+  }else{
+    const d = new Date(undoDate+'T12:00:00');
+    $('undoDate').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]})`;
+    $('undoPrev').classList.remove('hidden'); $('undoNext').classList.remove('hidden');
+  }
   const box = $('undoList');
   box.innerHTML = '<div class="undo-none">불러오는 중…</div>';
   let v = {};
@@ -4254,16 +4370,34 @@ async function renderUndoList(){
     const when = new Date(+ts).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'undo-item';
-    b.innerHTML = `<span class="t">${when}</span><span class="s">${undoSummary(rec.data||{})}</span><span class="go">되돌리기 ↩</span>`;
+    const dev = rec.dev ? `<span class="dv">${esc(rec.dev)}</span>` : '';
+    b.innerHTML = `<span class="t">${when}</span>${dev}<span class="s">${undoSummary(rec.data||{}, UNDO_SPECIAL[undoDate]? undoDate : '')}</span><span class="go">되돌리기 ↩</span>`;
     b.onclick = () => restoreUndo(undoDate, ts, rec);
     box.appendChild(b);
   });
 }
 async function restoreUndo(ds, ts, rec){
   const when = new Date(+ts).toLocaleString('ko-KR', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+  const what = UNDO_SPECIAL[ds] || `${ds.replace(/-/g,'.')} 의 내용`;
   if(!(await askConfirm(
-    `${ds.replace(/-/g,'.')} 의 내용을\n${when} 시점 상태로 되돌립니다.\n\n${undoSummary(rec.data||{}).replace(/<[^>]+>/g,'')}\n\n지금 내용도 보관되니 다시 돌아올 수 있어요.`,
+    `${what}을(를)\n${when}${rec.dev? ` · ${rec.dev}`:''} 시점 상태로 되돌립니다.\n\n${undoSummary(rec.data||{}, UNDO_SPECIAL[ds]? ds : '').replace(/<[^>]+>/g,'')}\n\n지금 내용도 보관되니 다시 돌아올 수 있어요.`,
     {title:'🕘 되돌리기', ok:'되돌리기', danger:true}))) return;
+  /* 목표·장기메모는 날짜가 아니라 통째로 되돌린다 */
+  if(UNDO_SPECIAL[ds]){
+    try{
+      const path = ds === 'goals' ? 'goals' : 'bank';
+      const cur = await withTimeout(db.ref(`diaries/${USER.uid}/${path}`).get(), 6000);
+      if(cur.exists()) await pushUndo(ds, cur.val(), '되돌리기 직전');
+      await db.ref(`diaries/${USER.uid}/${path}`).set(rec.data);
+      const now = Date.now();
+      await db.ref(`diaries/${USER.uid}/${path}Ts`).set(now);
+      if(ds === 'goals'){ goalsTsSeen = now; await loadGoals(); renderGoals(); if(typeof peekOpen!=='undefined' && peekOpen) renderPeek(); }
+      else { bankTsSeen = now; await loadBank(); renderBankList(); }
+      $('undoModal').classList.add('hidden');
+      toast(`${UNDO_SPECIAL[ds]}를 ${when} 상태로 되돌렸어요`);
+    }catch(e){ toast('되돌리지 못했어요: ' + (e.code || e.message || '')); }
+    return;
+  }
   try{
     await flushSave();
     const cur = await withTimeout(dayRef(ds).get(), 6000);
@@ -4788,7 +4922,7 @@ $('inboxAddBtn').onclick = () => {
 function completeInbox(t, idx){
   let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
   if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate};
+  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'inbox'};
   target.tasks.push(completed);
   inbox.splice(idx,1);
   markDirty(); markInbox(); renderAll();
@@ -4797,11 +4931,61 @@ function completeInbox(t, idx){
   toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
 }
 
+/* 오늘 일지에 있는 카테고리 목록 (완료 전용 칸은 뺀다) */
+function catMoveOptions(){
+  const list = (day.cats||[]).filter(c => !c.priv && !/\(완료\)$/.test((c.name||'').trim()));
+  const opts = list.map(c => `<option value="${c.id}">${esc((c.name||'').trim() || '(무제)')}</option>`).join('');
+  return `<option value="">— 옮길 카테고리 —</option>${opts}<option value="__new">＋ 새 카테고리</option>`;
+}
+/* 기타 업무함의 업무를 카테고리로 올린다.
+   목표·퀵메모·첨부·시간까지 그대로 따라가고, 자리는 기존 규칙대로 잡는다
+   (시간이 잡혀 있으면 위쪽, 아니면 맨 아래). */
+async function moveInboxToCat(t, idx, cid){
+  if(!cid){ toast('옮길 카테고리를 골라 주세요'); return; }
+  let cat;
+  if(cid === '__new'){
+    const name = await askInput({title:'＋ 새 카테고리', desc:'이 업무를 담을 카테고리 이름', value:''});
+    if(name === null) return;
+    cat = {id:uid8(), name:(name||'').trim(), color: day.cats.length%PALETTE.length, note:'', files:[], tasks:[]};
+    day.cats.push(cat);
+  }else{
+    cat = (day.cats||[]).find(c => c.id === cid);
+    if(!cat){ toast('그 카테고리를 찾지 못했어요'); return; }
+  }
+  const moved = {...normTask(t), id:uid8(), from:''};      /* 목표·퀵메모·첨부·시간 그대로 */
+  if(moved.time){                                          /* 시간이 잡힌 업무는 위쪽으로 */
+    const at = cat.tasks.findIndex(x => !x.time || x.time > moved.time);
+    cat.tasks.splice(at < 0 ? cat.tasks.length : at, 0, moved);
+  }else cat.tasks.push(moved);
+  inbox.splice(idx, 1);
+  markDirty(); markInbox(); renderAll();
+  toast(`'${(cat.name||'').trim() || '무제'}'로 옮겼어요`);
+}
+
+/* 완료를 풀면 원래 있던 함으로 되돌려 보낸다.
+   예전에는 완료 목록에 미완료로 남아 어느 쪽에도 속하지 않는 상태가 됐다. */
+function uncompleteBack(t, ctx){
+  const back = t.from === 'priv' ? priv : inbox;
+  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', from:''};
+  restored.gcalId = '';                                   /* 완료 일정은 따라가지 않는다 */
+  back.push(restored);
+  const i = ctx.arr.indexOf(t);
+  if(i >= 0) ctx.arr.splice(i, 1);
+  if(ctx.cat && !ctx.cat.tasks.length){                   /* 빈 완료 카테고리는 치운다 */
+    const ci = day.cats.indexOf(ctx.cat);
+    if(ci >= 0) day.cats.splice(ci, 1);
+  }
+  markDirty();
+  if(t.from === 'priv') markPriv(); else markInbox();
+  renderAll();
+  toast(t.from === 'priv' ? '개인 용무함으로 되돌렸어요' : '기타 업무함으로 되돌렸어요');
+}
+
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
 function completePriv(t, idx){
   let target = day.cats.find(c => c.priv);
   if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate};
+  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'priv'};
   target.tasks.push(completed);
   priv.splice(idx,1);
   markDirty(); markPriv(); renderAll();
@@ -4835,12 +5019,12 @@ function calBody(t, cat){
     const [hh, mm] = t.time.split(':').map(Number);
     const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
     const en = new Date(st.getTime() + (t.dur||60)*60000);
-    body = { summary:title, description:details,
+    body = { summary:title, description:details, location:(t.place||'').trim() || undefined,
       start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz} };
   }else{
     const nx = new Date(base+'T12:00:00'); nx.setDate(nx.getDate()+1);
     const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-    body = { summary:title, description:details, start:{date:base}, end:{date:ymd(nx)} };
+    body = { summary:title, description:details, location:(t.place||'').trim() || undefined, start:{date:base}, end:{date:ymd(nx)} };
   }
   const al = (t.alarm===undefined? 10 : t.alarm);
   body.reminders = al < 0 ? {useDefault:false, overrides:[]}
@@ -7028,6 +7212,7 @@ async function loadGoals(){
   try{
     const snap = await withTimeout(db.ref(`diaries/${USER.uid}/goals`).get(), 5000);
     goals = snap.exists()? (snap.val()||{}) : {};
+    try{ const t = await db.ref(`diaries/${USER.uid}/goalsTs`).get(); goalsTsSeen = t.exists()? +t.val()||0 : 0; }catch(e){}
     goalsLoaded = true;
     clearTimeout(goalRetryTimer); goalRetryTimer = null;
   }catch(e){
@@ -7064,12 +7249,25 @@ function markGoals(){
   goalDirty = true; clearTimeout(goalTimer); goalTimer = setTimeout(saveGoals, 800);
   if(peekOpen) renderPeek();                        // 목록 탭 🎯 내용도 즉시 갱신
 }
+let goalsTsSeen = 0;                 /* 내가 마지막으로 알고 있는 서버의 목표 수정 시각 */
 async function saveGoals(){
   if(!goalDirty || !USER || !goalsLoaded) return;
   goalDirty = false;
   const snapshot = JSON.parse(JSON.stringify(goals));
   try{
+    /* 다른 기기가 그 사이 고쳤으면 덮어쓰지 않는다 — 예전엔 무조건 덮어써서 내용이 사라졌다 */
+    let serverTs = 0;
+    try{ const t = await db.ref(`diaries/${USER.uid}/goalsTs`).get(); serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
+    if(serverTs && goalsTsSeen && serverTs > goalsTsSeen){
+      goalDirty = true;
+      toast('다른 기기에서 목표를 고쳤어요 — 목표 탭을 다시 열어 확인해 주세요');
+      return;
+    }
+    try{ const cur = await db.ref(`diaries/${USER.uid}/goals`).get();
+         if(cur.exists()) await pushUndo('goals', cur.val(), '목표가 바뀌기 직전'); }catch(e){}
     await db.ref(`diaries/${USER.uid}/goals`).set(snapshot);
+    goalsTsSeen = Date.now();
+    try{ await db.ref(`diaries/${USER.uid}/goalsTs`).set(goalsTsSeen); }catch(e){}
     await keepGoalBackup(snapshot);
   }
   catch(e){ goalDirty = true; }
@@ -7508,15 +7706,29 @@ async function loadBank(){
       id:b.id||uid8(), title:b.title||'', body:b.body||'', ts:b.ts||Date.now(),
       files: Array.isArray(b.files)? b.files : Object.values(b.files||{})
     }));
+    try{ const t = await db.ref(`diaries/${USER.uid}/bankTs`).get(); bankTsSeen = t.exists()? +t.val()||0 : 0; }catch(e2){}
   }catch(e){ bank = bank || []; }
 }
 function markBank(){ bankDirty = true; clearTimeout(bankTimer); bankTimer = setTimeout(saveBank, 800); }
+let bankTsSeen = 0;                  /* 내가 마지막으로 알고 있는 서버의 장기메모 수정 시각 */
 async function saveBank(){
   if(!bankDirty || !USER) return;
   bankDirty = false;
   try{
+    /* 목표와 같은 이유 — 다른 기기의 최신본을 덮어쓰지 않는다 */
+    let serverTs = 0;
+    try{ const t = await db.ref(`diaries/${USER.uid}/bankTs`).get(); serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
+    if(serverTs && bankTsSeen && serverTs > bankTsSeen){
+      bankDirty = true;
+      toast('다른 기기에서 장기메모를 고쳤어요 — 📌 를 다시 열어 확인해 주세요');
+      return;
+    }
+    try{ const cur = await db.ref(`diaries/${USER.uid}/bank`).get();
+         if(cur.exists()) await pushUndo('bank', cur.val(), '장기메모가 바뀌기 직전'); }catch(e){}
     if(bank.length) await db.ref(`diaries/${USER.uid}/bank`).set(JSON.parse(JSON.stringify(bank)));
     else await db.ref(`diaries/${USER.uid}/bank`).remove();
+    bankTsSeen = Date.now();
+    try{ await db.ref(`diaries/${USER.uid}/bankTs`).set(bankTsSeen); }catch(e){}
   }catch(e){ bankDirty = true; }
 }
 function renderBankList(){
