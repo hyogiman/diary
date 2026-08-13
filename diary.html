@@ -646,6 +646,12 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .tl-empty{text-align:center;color:var(--ink-soft);font-size:.85rem;padding:26px 0}
 .sched-stale{background:#FBF2DC;border:1.5px solid #EBD3A0;color:#8A6A20;border-radius:10px;
   padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 auto 12px;max-width:900px}
+.ap-when{flex-wrap:wrap;gap:6px}
+.ap-due{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
+  padding:5px 8px;font-size:.84rem;color:var(--ink);font-family:inherit}
+.ap-whenhint{font-size:.76rem;color:var(--ink-soft);font-weight:700}
+.ap-cal.edit{background:var(--amber);border-color:var(--amber);color:#fff}
+.due-chip.view{cursor:default;opacity:.9}
 .ap-move{margin-left:auto;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
 .ap-movesel{max-width:150px;border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:5px 7px;font-size:.78rem;color:var(--ink);font-family:inherit}
@@ -2281,6 +2287,7 @@ function normTask(t){
     time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', gcalCalendar: t.gcalCalendar||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
     place: t.place || '',                          /* 개인 용무 장소 — 캘린더 일정에도 들어간다 */
+    gcalSig: t.gcalSig || '',                      /* 캘린더에 보낸 내용의 표식 */
     from: t.from || '',                            /* 완료로 넘어온 출신 — 완료를 풀면 되돌아간다 */
     timeDay: t.timeDay || '',                      /* 이 실행 시간을 어느 날 잡았는지 (보관함용) */
     delayHistory: normDelays(t.delayHistory),      /* 지연기록 — 다음 날로 가져와도 이어진다 */
@@ -2686,8 +2693,13 @@ function plannedRange(t){
 }
 /* '지금 지연 중'인가 — 저장하지 않고 늘 현재 날짜·시각으로 계산한다.
    그래서 날이 바뀌면 전날 버튼은 저절로 사라진다. */
+function isPastPlan(t){                              /* 지난 날짜로 잡아 둔 일정 */
+  return !!(t && t.due && t.time && !t.done && t.due < todayStr());
+}
 function isDelayedNow(t){
   if(!t || t.done) return false;
+  if(isPastPlan(t)) return true;                    /* 지난 날짜로 넣은 것은 바로 기록 대상 */
+  if(t.due && t.due > todayStr()) return false;     /* 앞으로 할 일은 아직 지연이 아니다 */
   if(curDate !== todayStr()) return false;          /* 오늘 일지에서만 */
   const end = plannedEndMin(t);
   if(end === null) return false;
@@ -2736,6 +2748,29 @@ function taskOrder(list){
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 
 /* ── 공용 업무 행: ctx = {arr, idx, save, rerender, cat|null, inbox?} ── */
+/* 지금 입력대로면 언제 일정이 되는지 한 줄로 알려 준다 */
+function calWhenHint(t){
+  const base = t.due || curDate;
+  const d = new Date(base+'T12:00:00');
+  const day = `${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`;
+  const today = todayStr();
+  const when = base < today ? '지난' : base > today ? '앞으로' : '오늘';
+  if(!t.due && !t.time) return '날짜나 시간을 넣으면 캘린더에 올릴 수 있어요';
+  if(!t.time)           return `${day} 하루 종일`;
+  if(!t.due)            return `오늘 ${timeRange(t)}`;
+  return `${when} ${day} ${timeRange(t)}`;
+}
+/* 캘린더에 보낸 내용과 지금 내용이 같은지 — 다르면 '캘린더 수정'이 나타난다 */
+function calSig(t){
+  return [t.due||'', t.time||'', +t.dur||60, (t.place||'').trim(), (t.text||'').trim(), t.done?1:0].join('|');
+}
+/* 지금 어떤 버튼을 보여줄지 — 규칙을 한 곳에 모았다 */
+function calBtnState(t){
+  if(!t.due && !t.time) return 'none';            /* 날짜도 시간도 없으면 버튼 자체를 숨긴다 */
+  if(!t.gcalId)         return 'new';             /* 아직 안 올렸으면 등록 */
+  if(t.gcalSig !== calSig(t)) return 'edit';      /* 올린 뒤 날짜·시간이 바뀌었으면 수정 */
+  return 'done';                                   /* 최신 상태 — 누를 것 없음 */
+}
 function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
@@ -2754,8 +2789,7 @@ function taskRow(t, ctx){
       ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <span class="due-wrap">
-        <button class="due-chip ${overdue?'over':''}" title="${t.due||'마감일 지정'}">${dueLabel}</button>
-        <input type="date" value="${t.due}" title="마감일">
+        <span class="due-chip view ${overdue?'over':''}" title="${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : '📝 안에서 날짜를 정하세요'}">${dueLabel}</span>
       </span>
       <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       ${delayBtnHTML(t)}
@@ -2790,7 +2824,7 @@ function taskRow(t, ctx){
     if(wasDone !== t.done) reflectTaskCompletion(t, ctx.cat);
     if(t.done && !ctx.inbox) clearCarriedCopies(t, ctx.cat, curDate);
   };
-  row.querySelector('.due-wrap input').addEventListener('change', e => { t.due=e.target.value; ctx.save(); ctx.rerender(); syncTaskToCalendar(t, ctx.cat); });
+  /* 날짜는 상세(📝) 안에서만 고친다 — 목록에서는 보여 주기만 */
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const tb = row.querySelector('.time-badge');
   if(tb) tb.onclick = () => { t.open=!t.open; ctx.rerender(); };
@@ -2834,9 +2868,18 @@ function taskRow(t, ctx){
             .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
         </select>
         <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
-        ${t.gcalId
-          ? '<span class="mini-btn ap-caldone" title="이 업무는 캘린더에 올라가 있어요 — 시간을 바꾸면 캘린더도 함께 바뀝니다">✓ 캘린더 등록완료</span>'
-          : '<button class="mini-btn ap-cal">📅 캘린더 등록</button>'}
+      </div>
+      <div class="ap-head ap-when">
+        <span class="ap-title">📅 언제</span>
+        <input class="ap-due" type="date" value="${t.due||''}" title="하는 날 — 비우면 보고 있는 날">
+        ${t.due? '<button class="mini-btn ap-dclr">✕ 날짜 지우기</button>':''}
+        <span class="ap-whenhint">${calWhenHint(t)}</span>
+        ${(() => { const st = calBtnState(t);
+          if(st === 'none') return '';
+          if(st === 'new')  return '<button class="mini-btn ap-cal">📅 캘린더 등록</button>';
+          if(st === 'edit') return '<button class="mini-btn ap-cal edit">🔄 캘린더 수정</button>';
+          return '<span class="mini-btn ap-caldone" title="캘린더와 같은 상태예요">✓ 캘린더 등록완료</span>';
+        })()}
       </div>
       ${ctx.priv
         ? `<div class="tg-row">
@@ -2855,9 +2898,9 @@ function taskRow(t, ctx){
         <span class="ap-title">📎 첨부 (${t.files.length})</span>
         <button class="mini-btn ap-img">🖼 사진</button>
         <button class="mini-btn ap-aud">🎵 녹음파일</button>
-        ${ctx.inbox && !ctx.priv && !t.done ? `
+        ${!t.done ? `
           <span class="ap-move">
-            <select class="ap-movesel">${catMoveOptions()}</select>
+            <select class="ap-movesel">${catMoveOptions(ctx.cat && ctx.cat.id, ctx)}</select>
             <button class="mini-btn ap-movego">↥ 이동</button>
           </span>` : ''}
       </div>
@@ -2876,11 +2919,18 @@ function taskRow(t, ctx){
         if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
       });
     }
+    const dueIn = panel.querySelector('.ap-due');
+    if(dueIn) dueIn.addEventListener('change', e => {
+      t.due = e.target.value || ''; ctx.save(); ctx.rerender();   /* 캘린더는 버튼을 눌러야 */
+    });
+    const dclr = panel.querySelector('.ap-dclr');
+    if(dclr) dclr.onclick = () => { t.due = ''; ctx.save(); ctx.rerender(); };
+
     /* 기타 업무함 → 오늘 일지의 카테고리로 옮기기 */
     const moveGo = panel.querySelector('.ap-movego');
     if(moveGo) moveGo.onclick = () => {
       const sel = panel.querySelector('.ap-movesel');
-      moveInboxToCat(t, ctx.idx, sel && sel.value);
+      moveTaskTo(t, ctx, sel && sel.value);
     };
     const qn = panel.querySelector('.qnote');
     qn.addEventListener('focus', () => grow(qn, 72));
@@ -2892,14 +2942,12 @@ function taskRow(t, ctx){
     panel.querySelector('.ap-time').addEventListener('change', e => {
       if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
       t.time = e.target.value; ctx.save(); ctx.rerender();
-      /* 연결된 Calendar 일정이 있을 때만 낙관적 표시 + PATCH. 미연결 로컬 time은 시간표의 서버 일정으로 가장하지 않는다. */
-      if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
-      else if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+      /* 캘린더로는 바로 보내지 않는다 — '📅 캘린더 등록/수정'을 눌러야 반영된다 */
+      if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
       t.dur = +e.target.value; ctx.save(); ctx.rerender();
-      if(t.gcalId) syncTaskToCalendar(t, ctx.cat);
-      else if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+      if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
     panel.querySelector('.ap-alarm').addEventListener('change', e => {
       t.alarm = +e.target.value; ctx.save(); syncTaskToCalendar(t, ctx.cat); });
@@ -3583,7 +3631,7 @@ function renderDelayModal(){
   const past = validDelays(t);
   const rec  = delayOf(t, today);
 
-  $('delayTitle').textContent = (t.text||'').trim() || '(제목 없는 업무)';
+  $('delayTitle').textContent = ((isPastPlan(t)? '📆 과거 일정 입력 — ':'') + ((t.text||'').trim() || '(제목 없는 업무)'));
   const bits = [];
   if(t.time) bits.push(`계획 ${plannedRange(t)}`);
   if(past.length) bits.push(`지금까지 ${past.length}회 기록`);
@@ -3596,9 +3644,11 @@ function renderDelayModal(){
 
   if(editable){
     const cur = rec || {};
-    $('delayWhich').textContent = live
-      ? `오늘로 ${past.some(r=>r.date===today) ? past.length : past.length+1}번째 기록이에요`
-      : '오늘 기록을 보완할 수 있어요';
+    $('delayWhich').textContent = isPastPlan(t)
+      ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)} 로 잡아 둔 일정이에요 — 그때 못 했다면 까닭을, 했다면 완료로 체크해 주세요`
+      : live
+        ? `오늘로 ${past.some(r=>r.date===today) ? past.length : past.length+1}번째 기록이에요`
+        : '오늘 기록을 보완할 수 있어요';
     /* 사유 칩 */
     const box = $('delayChips');
     if(!box.children.length){
@@ -4931,35 +4981,48 @@ function completeInbox(t, idx){
   toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
 }
 
-/* 오늘 일지에 있는 카테고리 목록 (완료 전용 칸은 뺀다) */
-function catMoveOptions(){
-  const list = (day.cats||[]).filter(c => !c.priv && !/\(완료\)$/.test((c.name||'').trim()));
+/* 옮겨 갈 수 있는 곳 — 지금 있는 자리는 뺀다 */
+function catMoveOptions(curCid, ctx){
+  const list = (day.cats||[]).filter(c =>
+    !c.priv && !/\(완료\)$/.test((c.name||'').trim()) && c.id !== curCid);
   const opts = list.map(c => `<option value="${c.id}">${esc((c.name||'').trim() || '(무제)')}</option>`).join('');
-  return `<option value="">— 옮길 카테고리 —</option>${opts}<option value="__new">＋ 새 카테고리</option>`;
+  const boxes = [
+    (ctx && ctx.inbox && !ctx.priv) ? '' : '<option value="__inbox">★ 기타 업무함</option>',
+    (ctx && ctx.priv)               ? '' : '<option value="__priv">★ 개인 용무함</option>'
+  ].join('');
+  return `<option value="">— 옮길 곳 —</option>${opts}<option value="__new">＋ 새 카테고리</option>${boxes}`;
 }
-/* 기타 업무함의 업무를 카테고리로 올린다.
-   목표·퀵메모·첨부·시간까지 그대로 따라가고, 자리는 기존 규칙대로 잡는다
-   (시간이 잡혀 있으면 위쪽, 아니면 맨 아래). */
-async function moveInboxToCat(t, idx, cid){
-  if(!cid){ toast('옮길 카테고리를 골라 주세요'); return; }
-  let cat;
-  if(cid === '__new'){
-    const name = await askInput({title:'＋ 새 카테고리', desc:'이 업무를 담을 카테고리 이름', value:''});
-    if(name === null) return;
-    cat = {id:uid8(), name:(name||'').trim(), color: day.cats.length%PALETTE.length, note:'', files:[], tasks:[]};
-    day.cats.push(cat);
-  }else{
-    cat = (day.cats||[]).find(c => c.id === cid);
-    if(!cat){ toast('그 카테고리를 찾지 못했어요'); return; }
+/* 업무를 다른 카테고리·보관함으로 옮긴다.
+   목표·퀵메모·첨부·시간까지 그대로 따라가고, 시간이 잡혀 있으면 그 카테고리 위쪽에 놓는다. */
+async function moveTaskTo(t, ctx, dest){
+  if(!dest){ toast('옮길 곳을 골라 주세요'); return; }
+  const moved = {...normTask(t), id:uid8(), from:''};
+  let where = '';
+  if(dest === '__inbox'){ inbox.push(moved); markInbox(); where = '기타 업무함'; }
+  else if(dest === '__priv'){ priv.push(moved); markPriv(); where = '개인 용무함'; }
+  else{
+    let cat;
+    if(dest === '__new'){
+      const name = await askInput({title:'＋ 새 카테고리', desc:'이 업무를 담을 카테고리 이름', value:''});
+      if(name === null) return;
+      cat = {id:uid8(), name:(name||'').trim(), color: day.cats.length%PALETTE.length, note:'', files:[], tasks:[]};
+      day.cats.push(cat);
+    }else{
+      cat = (day.cats||[]).find(c => c.id === dest);
+      if(!cat){ toast('그 카테고리를 찾지 못했어요'); return; }
+    }
+    if(moved.time){
+      const at = cat.tasks.findIndex(x => !x.time || x.time > moved.time);
+      cat.tasks.splice(at < 0 ? cat.tasks.length : at, 0, moved);
+    }else cat.tasks.push(moved);
+    where = (cat.name||'').trim() || '무제';
   }
-  const moved = {...normTask(t), id:uid8(), from:''};      /* 목표·퀵메모·첨부·시간 그대로 */
-  if(moved.time){                                          /* 시간이 잡힌 업무는 위쪽으로 */
-    const at = cat.tasks.findIndex(x => !x.time || x.time > moved.time);
-    cat.tasks.splice(at < 0 ? cat.tasks.length : at, 0, moved);
-  }else cat.tasks.push(moved);
-  inbox.splice(idx, 1);
-  markDirty(); markInbox(); renderAll();
-  toast(`'${(cat.name||'').trim() || '무제'}'로 옮겼어요`);
+  /* 원래 있던 자리에서 뺀다 */
+  const i = ctx.arr.indexOf(t);
+  if(i >= 0) ctx.arr.splice(i, 1);
+  if(ctx.priv) markPriv(); else if(ctx.inbox) markInbox();
+  markDirty(); renderAll();
+  toast(`'${where}'로 옮겼어요`);
 }
 
 /* 완료를 풀면 원래 있던 함으로 되돌려 보낸다.
@@ -5012,8 +5075,10 @@ function calDates(t){
 function calBody(t, cat){
   const tz = (Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Asia/Seoul';
   const title = (t.done? '✔ ':'') + (cat && cat.name.trim()? `[${cat.name.trim()}] `:'') + t.text.trim();
-  const details = (t.due? `마감: ${+t.due.slice(5,7)}/${+t.due.slice(8,10)}\n` : '') + (t.note || 'Daily Log에서 등록');
-  const base = t.time ? curDate : (t.due || curDate);
+  const details = t.note || 'Daily Log에서 등록';
+  /* 규칙 — 날짜를 넣었으면 그 날짜에, 안 넣었으면 보고 있는 날에.
+     예전에는 시간이 있으면 날짜를 무시하고 늘 '오늘'로 만들어 버렸다. */
+  const base = t.due || curDate;
   let body;
   if(t.time){
     const [hh, mm] = t.time.split(':').map(Number);
@@ -5055,7 +5120,8 @@ async function openCalendar(t, cat, ctxRerender){
       body: JSON.stringify(calBody(t, cat))
     });
     t.gcalId = (j.event && j.event.id) || t.gcalId;
-    t.gcalCalendar = key;
+    t.gcalCalendar = (j && j.calendar) || key;
+    t.gcalSig = calSig(t);                      /* 지금 내용으로 올렸다는 표식 */
     markDirty();
     const al = (t.alarm===undefined? 10 : t.alarm);
     const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
@@ -5154,6 +5220,7 @@ async function syncTaskToCalendar(t, cat){
     await calendarApiFetch(`/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`, {
       method:'PATCH', body:JSON.stringify(calBody(t, cat))
     });
+    t.gcalSig = calSig(t); markDirty();      /* 수정한 내용으로 표식 갱신 */
     calendarUx('done', '수정');
     refreshScheduleDrawer();
     if(pendingMarked) schedulePendingRechecks();
@@ -5651,7 +5718,7 @@ function renderPrio(){
       if(wasDone !== t.done) reflectTaskCompletion(t, c);
       if(t.done && c) clearCarriedCopies(t, c, curDate);
     };
-    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); if(t.gcalId) syncTaskToCalendar(t, c); });
+    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
     const ptb = row.querySelector('.time-badge');
     if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
       if(bx==='inbox') inboxOpen = true;
