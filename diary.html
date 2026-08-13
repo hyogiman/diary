@@ -2354,6 +2354,8 @@ auth.onAuthStateChanged(async u => {
   if(u){
     $('loginView').classList.add('hidden');
     $('appView').classList.remove('hidden');
+    /* 다른 초기 데이터 로드와 병렬로 일기 PIN을 미리 가져와 첫 클릭 체감을 줄인다. */
+    setTimeout(prefetchDiaryPin, 0);
     await loadName();
     await loadGoals();
     await loadBank();
@@ -6492,6 +6494,10 @@ $('delTodayBtn').onclick = async () => {
 
 /* ═══════════════ 📖 오늘의 일기 (비밀번호 4자리) ═══════════════ */
 let pinHashCache;
+let pinHashPromise = null;                         /* 동시에 여러 번 눌러도 Firebase PIN 조회는 하나만 */
+let pinHashUid = null;                             /* 로그인 사용자가 바뀌면 이전 PIN 캐시를 재사용하지 않음 */
+let diaryPinGateSeq = 0;                           /* PIN 조회 중 닫기/재호출 경쟁상태 방지 */
+let diaryOpenPending = false;
 async function pinHash(p){
   try{
     const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('diary-hyogi:'+p));
@@ -6499,12 +6505,35 @@ async function pinHash(p){
   }catch(e){ return 'p:'+p; }
 }
 async function getPinHash(force=false){
-  if(!force && pinHashCache !== undefined) return pinHashCache;
   if(!USER) throw new Error('not_signed_in');
+  const uid = USER.uid;
+  if(pinHashUid !== uid){
+    pinHashUid = uid;
+    pinHashCache = undefined;
+    pinHashPromise = null;
+  }
+  if(!force && pinHashCache !== undefined) return pinHashCache;
+  if(!force && pinHashPromise) return pinHashPromise;
+
   /* 일기 버튼이 조용히 멈추지 않도록 PIN 조회도 타임아웃을 둔다. */
-  const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/diaryPin`).get(), 6000);
-  pinHashCache = snap.exists()? snap.val() : null;
-  return pinHashCache;
+  const req = withTimeout(db.ref(`diaries/${uid}/settings/diaryPin`).get(), 6000).then(snap => {
+    const h = snap.exists()? snap.val() : null;
+    if(USER && USER.uid === uid){ pinHashCache = h; pinHashUid = uid; }
+    return h;
+  });
+  if(!force) pinHashPromise = req;
+  try{
+    return await req;
+  }finally{
+    if(!force && pinHashPromise === req) pinHashPromise = null;
+  }
+}
+function prefetchDiaryPin(){
+  /* 로그인 직후 미리 읽어 두되, 실패는 조용히 넘기고 실제 버튼 클릭 때 다시 시도한다. */
+  getPinHash().catch(e => {
+    console.warn('Diary PIN prefetch failed', e);
+    if(USER && pinHashUid === USER.uid) pinHashCache = undefined;
+  });
 }
 $('setPinBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
@@ -6526,6 +6555,8 @@ $('setPinBtn').onclick = async () => {
   toast('일기 비밀번호를 저장했어요');
 };
 $('diaryBtn').onclick = async () => {
+  if(diaryOpenPending) return;                     /* 연속 탭으로 같은 열기 흐름이 겹치지 않게 */
+  diaryOpenPending = true;
   const d = new Date(curDate+'T12:00:00');
   const label = `📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`;
   try{
@@ -6537,6 +6568,8 @@ $('diaryBtn').onclick = async () => {
   }catch(e){
     console.error('Diary open failed', e);
     toast('일기를 열지 못했어요 — 연결 상태를 확인한 뒤 다시 눌러 주세요');
+  }finally{
+    diaryOpenPending = false;
   }
 };
 /* ═══════════════ 오늘 기분 · 컨디션 ═══════════════
@@ -6624,8 +6657,12 @@ $('diaryText').addEventListener('input', e => { day.diary = e.target.value; mark
 $('diaryText').addEventListener('focus', e => grow(e.target, 280));
 $('diaryText').addEventListener('click', e => grow(e.target, 280));
 $('diaryClose').onclick = async () => {
+  ++diaryPinGateSeq;                               /* PIN 조회 중 닫아도 늦은 응답이 창을 되살리지 않게 */
   await flushSave();
   $('diaryModal').classList.add('hidden');
+  $('diaryPinIn').disabled = false;
+  $('diaryOpenBtn').disabled = false;
+  $('diaryOpenBtn').textContent = '열기';
   if(pinCanceler) pinCanceler();
   if(arcDiary){ disarmLock(); refreshArchive(); }   // 일기 목록으로 복귀 — 잠금 타이머 미가동
   else armLock();                                   // 일기 화면을 완전히 벗어남 → 1분 뒤 자동 잠금
@@ -7091,29 +7128,55 @@ document.addEventListener('visibilitychange', () => {   // 앱을 백그라운�
 
 /* 비밀번호 게이트 — 일기장과 같은 모달 사용 */
 async function askPin(titleText){
-  let h;
-  try{
-    h = await getPinHash();
-  }catch(e){
-    console.warn('Diary PIN read failed', e);
-    /* 한 번의 일시적인 Firebase 조회 실패 때문에 버튼이 영원히 대기상태가 되지 않게 한다. */
-    pinHashCache = undefined;
-    toast('일기 잠금 정보를 불러오지 못했어요 — 잠시 후 다시 눌러 주세요');
-    return false;
-  }
-  if(!h){ toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요'); return false; }
+  const gateSeq = ++diaryPinGateSeq;
 
   /* 이전 PIN 창이 비정상적으로 남아 있었어도 새 요청이 정상적으로 시작되게 정리한다. */
   if(pinCanceler){ try{ pinCanceler(); }catch(e){} }
   pinResolver = null; pinCanceler = null;
 
+  /* Firebase 응답을 기다리는 동안에도 눌렸다는 반응을 즉시 보여준다. */
+  $('diaryTitle').textContent = titleText;
+  $('diaryLock').classList.remove('hidden');
+  $('diaryBody').classList.add('hidden');
+  $('diaryPinIn').value = '';
+  $('diaryPinIn').disabled = true;
+  $('diaryOpenBtn').disabled = true;
+  $('diaryOpenBtn').textContent = '불러오는 중…';
+  $('diaryMsg').textContent = '잠금 정보를 불러오는 중…';
+  $('diaryModal').classList.remove('hidden');
+
+  let h;
+  try{
+    h = await getPinHash();
+  }catch(e){
+    if(gateSeq !== diaryPinGateSeq) return false;  /* 사용자가 로딩 중 닫은 경우 */
+    console.warn('Diary PIN read failed', e);
+    /* 한 번의 일시적인 Firebase 조회 실패 때문에 버튼이 영원히 대기상태가 되지 않게 한다. */
+    pinHashCache = undefined;
+    $('diaryModal').classList.add('hidden');
+    $('diaryPinIn').disabled = false;
+    $('diaryOpenBtn').disabled = false;
+    $('diaryOpenBtn').textContent = '열기';
+    toast('일기 잠금 정보를 불러오지 못했어요 — 잠시 후 다시 눌러 주세요');
+    return false;
+  }
+  if(gateSeq !== diaryPinGateSeq) return false;
+  if(!h){
+    $('diaryModal').classList.add('hidden');
+    $('diaryPinIn').disabled = false;
+    $('diaryOpenBtn').disabled = false;
+    $('diaryOpenBtn').textContent = '열기';
+    toast('설정(⚙)에서 일기 비밀번호를 먼저 만들어 주세요');
+    return false;
+  }
+
+  $('diaryPinIn').disabled = false;
+  $('diaryOpenBtn').disabled = false;
+  $('diaryOpenBtn').textContent = '열기';
+  $('diaryMsg').textContent = '';
+  $('diaryPinIn').focus();
+
   return new Promise(resolve => {
-    $('diaryTitle').textContent = titleText;
-    $('diaryLock').classList.remove('hidden');
-    $('diaryBody').classList.add('hidden');
-    $('diaryPinIn').value = ''; $('diaryMsg').textContent = '';
-    $('diaryModal').classList.remove('hidden');
-    $('diaryPinIn').focus();
     pinResolver = async () => {
       try{
         if(await pinHash($('diaryPinIn').value) !== h){
