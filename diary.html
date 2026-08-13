@@ -6048,14 +6048,14 @@ function collectDoneLibrary(yd){
       const date = `${arcYear}-${mm}-${dd}`;
       const v = normalize(month[dd]);
       (v.cats||[]).forEach(c => {
-        if(c.priv) return;                                      /* 완료 '업무' 라이브러리 — 개인 용무 제외 */
-        const catName = (c.name||'').trim() || '무제';
+        const isPersonal = !!c.priv;
+        const catName = isPersonal ? '개인용무' : ((c.name||'').trim() || '무제');
         const col = catColor(c);
         (c.tasks||[]).forEach(t => {
           if(!(t.text||'').trim()) return;
           const key = doneLineKey(t, catName);
           if(!lines.has(key)) lines.set(key, []);
-          lines.get(key).push({date, mm, dd, catName, col, t});
+          lines.get(key).push({date, mm, dd, catName, col, isPersonal, t});
         });
       });
     });
@@ -6080,17 +6080,29 @@ function collectDoneLibrary(yd){
     const finalNote = (fin.t.note||'').trim() || (notes.length ? notes[notes.length-1].text : '');
     records.push({
       lineKey, title:(fin.t.text||'').trim(), category:fin.catName, color:fin.col,
+      isPersonal:!!fin.isPersonal,
       doneDate:fin.date, completedAt:+fin.t.completedAt||0,
       startDate:dates[0] || fin.date, recordedDays:dates.length,
       history:until, delays, noteChanges:notes, finalNote,
       due:fin.t.due||'', goal:fin.t.goal||''
     });
   });
-  records.sort((a,b)=> b.doneDate.localeCompare(a.doneDate) || doneTsMs(b.completedAt)-doneTsMs(a.completedAt));
+  /* 웹 완료업무는 오래된 완료부터 아래로 자연스럽게 이어지도록 오름차순 */
+  records.sort((a,b)=> a.doneDate.localeCompare(b.doneDate) || doneTsMs(a.completedAt)-doneTsMs(b.completedAt));
   return records;
 }
 
 function doneCatKey(name){ return String(name||'무제').trim().replace(/\s+/g,' ').toLowerCase(); }
+/* 완료 라이브러리 카테고리 표시 순서: 일반 업무 → 기타업무 → 개인용무 */
+function doneIsMiscCategory(name){
+  const n=String(name||'').replace(/\s+/g,'');
+  return /^기타업무(?:\(완료\))?$/.test(n);
+}
+function doneCategoryRank(name, isPersonal){
+  if(isPersonal) return 2;
+  if(doneIsMiscCategory(name)) return 1;
+  return 0;
+}
 function inferStampDate(mm, dd, fallbackDate){
   let y=+fallbackDate.slice(0,4), fm=+fallbackDate.slice(5,7);
   mm=+mm; dd=+dd;
@@ -6204,11 +6216,14 @@ function renderArcDone(yd){
 
   const groups=new Map();
   records.forEach(r=>{
-    const k=doneCatKey(r.category);
-    if(!groups.has(k)) groups.set(k,{name:r.category,color:r.color,items:[],latest:r.doneDate});
-    const g=groups.get(k); g.items.push(r); if(r.doneDate>g.latest) g.latest=r.doneDate;
+    const k=(r.isPersonal?'personal:':'work:')+doneCatKey(r.category);
+    if(!groups.has(k)) groups.set(k,{name:r.category,color:r.color,items:[],first:r.doneDate,isPersonal:!!r.isPersonal});
+    const g=groups.get(k); g.items.push(r); if(r.doneDate<g.first) g.first=r.doneDate;
   });
-  [...groups.values()].sort((a,b)=>b.latest.localeCompare(a.latest) || a.name.localeCompare(b.name,'ko')).forEach(g=>{
+  [...groups.values()].sort((a,b)=>{
+    const ar=doneCategoryRank(a.name,a.isPersonal), br=doneCategoryRank(b.name,b.isPersonal);
+    return ar-br || a.first.localeCompare(b.first) || a.name.localeCompare(b.name,'ko');
+  }).forEach(g=>{
     const sec=document.createElement('section'); sec.className='done-cat-group';
     const hd=document.createElement('div'); hd.className='done-cat-head'; hd.style.borderBottomColor=g.color+'55';
     hd.innerHTML=`<span style="color:${g.color}">${esc(g.name)}</span><span class="done-cat-count">${g.items.length}건</span>`;
@@ -6604,17 +6619,20 @@ $('setNameBtn').onclick = async () => {
 };
 
 /* ═══════════════ 완료 업무 라이브러리 내보내기 (상세 PDF · Excel) ═══════════════
-   REPORT ENGINE: paged-v3 · 2026-08-14 */
+   REPORT ENGINE: paged-v4 · 2026-08-14 */
 function doneReportStats(records){
   const cats=new Map();
   let delays=0, days=0, exact=0, sameDay=0;
   records.forEach(r=>{
     const k=r.category||'무제';
-    if(!cats.has(k)) cats.set(k,{name:k,color:r.color||'#D96F2B',count:0,delays:0,days:0});
+    if(!cats.has(k)) cats.set(k,{name:k,color:r.color||'#D96F2B',isPersonal:!!r.isPersonal,count:0,delays:0,days:0});
     const c=cats.get(k); c.count++; c.delays+=r.delays.length; c.days+=r.recordedDays||1;
     delays+=r.delays.length; days+=r.recordedDays||1; if(r.completedAt) exact++; if(r.startDate===r.doneDate) sameDay++;
   });
-  return {cats:[...cats.values()].sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ko')),
+  return {cats:[...cats.values()].sort((a,b)=>{
+      const ar=doneCategoryRank(a.name,!!a.isPersonal), br=doneCategoryRank(b.name,!!b.isPersonal);
+      return ar-br || b.count-a.count || a.name.localeCompare(b.name,'ko');
+    }),
     delays, avgDays:records.length?(days/records.length):0, exact, sameDay};
 }
 function reportDateText(){
@@ -6671,6 +6689,59 @@ function doneReportTaskHeader(r){
   const h=doneReportNode(`<div class="dr-task-title">✔ ${esc(r.title)}</div><div class="dr-task-meta">${pills.map(x=>`<span class="dr-chip">${esc(x)}</span>`).join('')}</div>`,'dr-task-head');
   h.style.setProperty('--dr-cat',r.color||'#D96F2B'); return h;
 }
+/* 새 업무가 현재 페이지에 전부 들어가지 않으면 제목부터 다음 장에서 시작한다.
+   업무가 A4 한 장보다 긴 경우에도 새 장 맨 위에서 시작한 뒤 세부 블록 단위로 이어진다. */
+function doneReportTaskParts(r){
+  const parts=[];
+  parts.push({node:doneReportTaskHeader(r), cont:''});
+  if(r.finalNote){
+    const chunks=doneReportTextChunks(r.finalNote,360);
+    chunks.forEach((tx,i)=>parts.push({node:doneReportNode(`${i===0?'<b>최종 퀵메모</b>':''}${esc(tx).replace(/\n/g,'<br>')}`,'dr-final-note'),cont:r.title}));
+  }
+  parts.push({node:doneReportNode('업무 히스토리','dr-subtitle'),cont:r.title});
+  const evs=buildDoneHistoryEvents(r);
+  evs.forEach(e=>{
+    const chunks=doneReportTextChunks(e.body||'',280); if(!chunks.length) chunks.push('');
+    chunks.forEach((tx,i)=>{
+      const cls=`dr-event ${e.kind==='delay'?'delay':e.kind==='done'?'done':''}`;
+      const node=doneReportNode(`<div class="date">${esc(e.date)}</div><div class="time">${esc(e.time||'시간 미기록')}</div><div><div class="kind">${esc(e.label)}</div>${tx?`<div class="body">${esc(tx)}</div>`:''}${i>0?'<div class="body">(이어서)</div>':''}</div>`,cls);
+      parts.push({node,cont:`${r.title} · 업무 히스토리`});
+    });
+  });
+  if(r.delays.length){
+    parts.push({node:doneReportNode('지연 기록 상세','dr-subtitle'),cont:r.title});
+    r.delays.forEach(d=>{
+      const txt=[reasonLabel(d.reasonCode),d.reasonDetail||'',d.plannedStart?`계획 ${d.plannedStart}${d.plannedDuration?` / ${d.plannedDuration}분`:''}`:'',d.actualStart?`실제 ${d.actualStart}${d.actualDuration?` / ${d.actualDuration}분`:''}`:''].filter(Boolean).join(' · ');
+      doneReportTextChunks(txt,360).forEach(tx=>parts.push({node:doneReportNode(`<b>⏳ 지연기록 · ${esc(d.date||r.doneDate)}</b><br>${esc(tx)}`,'dr-delay-box'),cont:`${r.title} · 지연 기록`}));
+    });
+  }
+  if(r.noteChanges.length){
+    parts.push({node:doneReportNode('퀵메모 기록','dr-subtitle'),cont:r.title});
+    r.noteChanges.forEach((n,ni)=>{
+      doneReportTextChunks(n.text,360).forEach((tx,ci)=>parts.push({node:doneReportNode(`<div class="date">${esc(n.date)}${ni===r.noteChanges.length-1&&ci===0?' · 최종본':''}</div>${esc(tx)}`,'dr-note-snap'),cont:`${r.title} · 퀵메모 기록`}));
+    });
+  }
+  return parts;
+}
+function doneReportTaskFitsCurrent(page, parts){
+  const body=page.querySelector('.dr-body');
+  const wrap=document.createElement('div');
+  wrap.className='dr-task-fit-probe';
+  parts.forEach(p=>wrap.appendChild(p.node.cloneNode(true)));
+  body.appendChild(wrap);
+  const ok=!doneReportOverflow(page);
+  wrap.remove();
+  return ok;
+}
+function doneReportStartFreshPage(state){
+  const p=doneReportPage(state.label);
+  state.pages.push(p); state.page=p;
+}
+function doneReportEnsureTaskStart(state, parts){
+  const body=state.page.querySelector('.dr-body');
+  if(!body.children.length || doneReportTaskFitsCurrent(state.page,parts)) return;
+  doneReportStartFreshPage(state);
+}
 function buildDoneReportPages(label, records){
   const stage=$('exportStage'); stage.innerHTML='';
   const stats=doneReportStats(records), pages=[];
@@ -6696,48 +6767,35 @@ function buildDoneReportPages(label, records){
   doneReportAppend(state,doneReportNode(`<div class="dr-subtitle">카테고리별 완료 현황</div><div class="dr-cat-row head"><div>카테고리</div><div class="dr-num">완료</div><div class="dr-num">지연</div><div class="dr-num">평균 기록일</div></div>`),'카테고리별 완료 현황');
   stats.cats.forEach(c=>doneReportAppend(state,doneReportNode(`<div class="dr-cat-row"><div class="dr-cat-name" style="color:${c.color}">● ${esc(c.name)}</div><div class="dr-num">${c.count}건</div><div class="dr-num">${c.delays}회</div><div class="dr-num">${(c.days/c.count).toFixed(1)}일</div></div>`),'카테고리별 완료 현황'));
 
-  /* 3. 카테고리별 상세. 업무/이벤트/문단 단위로 넘겨 절대 중간 절단하지 않는다. */
+  /* 3. 카테고리별 상세. 일반 카테고리 뒤에 기타업무를 두고, 업무는 오래된 완료부터 정렬한다. */
   const groups=new Map();
-  records.slice().reverse().forEach(r=>{ if(!groups.has(r.category)) groups.set(r.category,[]); groups.get(r.category).push(r); });
+  records.forEach(r=>{
+    const k=doneCatKey(r.category);
+    if(!groups.has(k)) groups.set(k,{name:r.category,color:r.color,items:[],first:r.doneDate,isPersonal:!!r.isPersonal});
+    const g=groups.get(k); g.items.push(r); if(r.doneDate<g.first) g.first=r.doneDate;
+  });
+  const orderedGroups=[...groups.values()].sort((a,b)=>{
+    const ar=doneCategoryRank(a.name,a.isPersonal), br=doneCategoryRank(b.name,b.isPersonal);
+    return ar-br || a.first.localeCompare(b.first) || a.name.localeCompare(b.name,'ko');
+  });
   let catNo=0, taskNo=0;
-  groups.forEach((items,cat)=>{
+  orderedGroups.forEach(g=>{
+    const cat=g.name, items=g.items, color=g.color||'#D96F2B';
     catNo++;
     page=doneReportPage(label); pages.push(page); state={page,pages,label};
-    const delayN=items.reduce((n,r)=>n+r.delays.length,0), color=items[0].color||'#D96F2B';
+    const delayN=items.reduce((n,r)=>n+r.delays.length,0);
     const ban=doneReportNode(`<div><span class="name">${catNo}. ${esc(cat)}</span><span class="meta">완료 ${items.length}건 · 지연 ${delayN}회</span></div>`,'dr-cat-banner'); ban.style.setProperty('--dr-cat',color);
     doneReportAppend(state,ban);
     items.forEach((r,idx)=>{
       taskNo++;
-      /* 새 업무가 남은 공간의 하단에 어색하게 걸리지 않도록 헤더가 안 들어가면 다음 장 */
-      const head=doneReportTaskHeader(r); doneReportAppend(state,head,`${cat} · ${r.title}`);
-      if(r.finalNote){
-        const chunks=doneReportTextChunks(r.finalNote,360);
-        chunks.forEach((tx,i)=>doneReportAppend(state,doneReportNode(`${i===0?'<b>최종 퀵메모</b>':''}${esc(tx).replace(/\n/g,'<br>')}`,'dr-final-note'),`${r.title}`));
-      }
-      doneReportAppend(state,doneReportNode('업무 히스토리','dr-subtitle'),`${r.title}`);
-      const evs=buildDoneHistoryEvents(r);
-      evs.forEach(e=>{
-        const parts=doneReportTextChunks(e.body||'',280); if(!parts.length) parts.push('');
-        parts.forEach((tx,i)=>{
-          const cls=`dr-event ${e.kind==='delay'?'delay':e.kind==='done'?'done':''}`;
-          const node=doneReportNode(`<div class="date">${esc(e.date)}</div><div class="time">${esc(e.time||'시간 미기록')}</div><div><div class="kind">${esc(e.label)}</div>${tx?`<div class="body">${esc(tx)}</div>`:''}${i>0?'<div class="body">(이어서)</div>':''}</div>`,cls);
-          doneReportAppend(state,node,`${r.title} · 업무 히스토리`);
-        });
-      });
-      if(r.delays.length){
-        doneReportAppend(state,doneReportNode('지연 기록 상세','dr-subtitle'),`${r.title}`);
-        r.delays.forEach(d=>{
-          const txt=[reasonLabel(d.reasonCode),d.reasonDetail||'',d.plannedStart?`계획 ${d.plannedStart}${d.plannedDuration?` / ${d.plannedDuration}분`:''}`:'',d.actualStart?`실제 ${d.actualStart}${d.actualDuration?` / ${d.actualDuration}분`:''}`:''].filter(Boolean).join(' · ');
-          doneReportTextChunks(txt,360).forEach(tx=>doneReportAppend(state,doneReportNode(`<b>⏳ 지연기록 · ${esc(d.date||r.doneDate)}</b><br>${esc(tx)}`,'dr-delay-box'),`${r.title} · 지연 기록`));
-        });
-      }
-      if(r.noteChanges.length){
-        doneReportAppend(state,doneReportNode('퀵메모 기록','dr-subtitle'),`${r.title}`);
-        r.noteChanges.forEach((n,ni)=>{
-          doneReportTextChunks(n.text,360).forEach((tx,ci)=>doneReportAppend(state,doneReportNode(`<div class="date">${esc(n.date)}${ni===r.noteChanges.length-1&&ci===0?' · 최종본':''}</div>${esc(tx)}`,'dr-note-snap'),`${r.title} · 퀵메모 기록`));
-        });
-      }
-      if(idx<items.length-1){ doneReportAppend(state,doneReportNode('<div style="height:12px"></div>')); }
+      const parts=doneReportTaskParts(r);
+      /* 현재 페이지의 남은 공간에 업무 전체가 안 들어가면 제목부터 새 페이지에서 시작.
+         업무 자체가 한 페이지보다 길면 새 페이지에서 시작 후 블록 단위로 자연스럽게 이어짐. */
+      /* 카테고리의 첫 업무는 카테고리 배너 바로 아래에서 시작해도 충분히 상단이다.
+         두 번째 업무부터는 남은 공간에 전체가 안 들어가면 제목부터 새 페이지로 보낸다. */
+      if(idx>0) doneReportEnsureTaskStart(state,parts);
+      parts.forEach((part,pi)=>doneReportAppend(state,part.node,pi===0?'':part.cont));
+      if(idx<items.length-1) doneReportAppend(state,doneReportNode('<div style="height:12px"></div>'));
     });
   });
 
@@ -6752,7 +6810,7 @@ async function exportArcDone(kind){
   if(kind==='xls'){
     if(typeof XLSX==='undefined'){ toast('엑셀 모듈을 불러오지 못했어요 — 인터넷 연결을 확인해 주세요'); return; }
     const rows=[['완료일','완료시각','시작일','기록일수','카테고리','업무','최종 퀵메모','지연횟수','업무 히스토리']];
-    records.slice().reverse().forEach(r=>{
+    records.forEach(r=>{
       const ms=doneTsMs(r.completedAt), dt=ms?new Date(ms):null;
       const time=dt? `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
       const hist=r.history.map(h=>`${h.date} [${statusLabelOf(h.t.status)}]${h.t.time? ' '+h.t.time:''}${(h.t.note||'').trim()? ' · '+(h.t.note||'').trim().replace(/\n/g,' / '):''}`).join('\n');
@@ -6766,7 +6824,9 @@ async function exportArcDone(kind){
     toast('완료 업무 보고서를 만드는 중…');
     try{
       await document.fonts.ready;
-      const pages=buildDoneReportPages(label,records);
+      const pdfRecords=records.filter(r=>!r.isPersonal);
+      if(!pdfRecords.length){ toast('PDF에 넣을 완료 업무가 없어요'); return; }
+      const pages=buildDoneReportPages(label,pdfRecords);
       await new Promise(r=>setTimeout(r,350));
       const shots=[];
       for(let i=0;i<pages.length;i++){
