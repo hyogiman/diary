@@ -989,6 +989,63 @@ body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:
 .a4 .a4-foot{position:absolute;bottom:26px;left:0;right:0;text-align:center;font-size:11px;color:#B7A288}
 
 
+/* ───────── 완료 업무 PDF 보고서 ─────────
+   긴 화면을 픽셀로 자르지 않고 A4 한 장씩 독립 렌더링한다. */
+.a4.done-report-page{width:794px;height:1123px;min-height:1123px;box-sizing:border-box;overflow:hidden;
+  padding:46px 50px 38px;background:#FFF9EE;display:flex;flex-direction:column;color:#3F3025}
+.done-report-page .dr-head{flex:none;border-bottom:2.5px solid #D96F2B;padding-bottom:10px;margin-bottom:16px;
+  display:flex;justify-content:space-between;align-items:flex-end;gap:18px}
+.done-report-page .dr-brand{font-family:'Jua';font-size:17px;color:#D96F2B}
+.done-report-page .dr-range{font-size:11.5px;color:#8D7561;font-weight:700;text-align:right}
+.done-report-page .dr-body{flex:1;min-height:0;overflow:hidden}
+.done-report-page .dr-foot{flex:none;margin-top:12px;padding-top:8px;border-top:1px solid #E8D9C2;
+  display:flex;justify-content:space-between;font-size:10.5px;color:#A58C72}
+.dr-cover .dr-head{border-bottom:none;margin:0}
+.dr-cover .dr-body{display:flex;flex-direction:column;justify-content:center;padding:10px 16px 54px}
+.dr-cover-kicker{font-size:14px;font-weight:800;color:#C96A2D;letter-spacing:.08em;margin-bottom:14px}
+.dr-cover-title{font-family:'Jua';font-size:42px;line-height:1.16;color:#4B3423;margin-bottom:13px}
+.dr-cover-sub{font-size:17px;line-height:1.6;color:#816B58;margin-bottom:38px}
+.dr-cover-rule{width:86px;height:5px;border-radius:99px;background:#E5762E;margin-bottom:34px}
+.dr-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:4px 0 28px}
+.dr-stat{border:1.5px solid #E5D1B4;border-radius:12px;background:#FFFDF7;padding:13px 10px;text-align:center}
+.dr-stat .n{font-family:'Jua';font-size:25px;color:#C95F1D;line-height:1.1}
+.dr-stat .l{font-size:10.5px;color:#8D7561;margin-top:4px;font-weight:700}
+.dr-cover-note{font-size:12px;line-height:1.7;color:#8B7460;background:#F8EEDC;border-radius:10px;padding:12px 14px}
+.dr-section-title{font-family:'Jua';font-size:23px;color:#4B3423;margin:2px 0 12px}
+.dr-section-sub{font-size:12px;color:#8B7460;line-height:1.6;margin:-5px 0 15px}
+.dr-summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.dr-summary-card{border:1.5px solid #E5D1B4;border-radius:10px;background:#FFFDF7;padding:11px 8px;text-align:center}
+.dr-summary-card .n{font-family:'Jua';font-size:21px;color:#C95F1D}.dr-summary-card .l{font-size:10px;color:#8B7460;margin-top:3px}
+.dr-cat-row{display:grid;grid-template-columns:1fr 74px 74px 84px;gap:8px;align-items:center;padding:10px 10px;
+  border-bottom:1px solid #E9DCC7;font-size:12px;break-inside:avoid}
+.dr-cat-row.head{font-weight:800;color:#8A684D;border-top:2px solid #D96F2B;border-bottom:2px solid #D96F2B;background:#FBF1E2}
+.dr-cat-name{font-weight:800}.dr-num{text-align:center}
+.dr-cat-banner{border-left:6px solid var(--dr-cat,#D96F2B);background:#FBF1E2;border-radius:0 10px 10px 0;
+  padding:10px 13px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.dr-cat-banner .name{font-family:'Jua';font-size:20px;color:#4B3423}.dr-cat-banner .meta{font-size:11px;color:#8B7460;font-weight:700}
+.dr-task-head{border:1.5px solid #E4D1B5;border-left:6px solid var(--dr-cat,#D96F2B);border-radius:11px;
+  padding:13px 14px;background:#FFFDF7;margin:0 0 12px}
+.dr-task-title{font-size:18px;font-weight:900;line-height:1.35;color:#3F3025;margin-bottom:7px}
+.dr-task-meta{display:flex;gap:6px;flex-wrap:wrap}.dr-chip{font-size:10.5px;font-weight:750;color:#735B46;
+  border:1px solid #E4D1B5;border-radius:999px;padding:4px 8px;background:#FBF3E7}
+.dr-final-note{background:#FFF4DE;border:1px solid #E9D0A3;border-radius:9px;padding:10px 12px;margin:0 0 12px;
+  font-size:12px;line-height:1.58;white-space:pre-wrap;word-break:break-word}
+.dr-final-note b{display:block;color:#B85C24;margin-bottom:3px}
+.dr-subtitle{font-family:'Jua';font-size:15px;color:#B85C24;margin:13px 0 7px;padding-bottom:5px;border-bottom:1px solid #E9D6BB}
+.dr-event{display:grid;grid-template-columns:78px 92px 1fr;gap:8px;padding:7px 5px;border-bottom:1px dashed #E8D9C2;
+  font-size:11.3px;line-height:1.45;break-inside:avoid}
+.dr-event .date{font-weight:800;color:#715A46}.dr-event .time{font-variant-numeric:tabular-nums;color:#9A6E4D}
+.dr-event .kind{font-weight:850;color:#4C3B2E}.dr-event .body{grid-column:3;color:#75604E;white-space:pre-wrap;word-break:break-word;margin-top:2px}
+.dr-event.delay{background:#FFF4E3;border:1px solid #E9C990;border-left:5px solid #D89432;border-radius:8px;margin:5px 0;padding:8px}
+.dr-event.delay .kind{color:#A96316}.dr-event.done{background:#EEF7EE;border-radius:8px;border-bottom:none;margin-top:5px}
+.dr-delay-box{background:#FFF4E3;border:1px solid #E8C789;border-left:5px solid #D89432;border-radius:8px;padding:9px 11px;margin:6px 0;
+  font-size:11.5px;line-height:1.5;break-inside:avoid}.dr-delay-box b{color:#A96316}
+.dr-note-snap{border-left:4px solid #B5A7D9;background:#F7F3FD;border-radius:0 8px 8px 0;padding:9px 11px;margin:6px 0;
+  font-size:11.4px;line-height:1.5;white-space:pre-wrap;word-break:break-word;break-inside:avoid}
+.dr-note-snap .date{font-weight:850;color:#67548D;margin-bottom:3px}
+.dr-continue{font-size:11px;color:#9A806A;font-weight:700;margin:-3px 0 9px}
+
+
 /* ───────── 오늘 페이지 테마 (오늘 날짜일 때만 적용) ───────── */
 body[data-theme]{transition:background .3s}
 
@@ -6546,34 +6603,148 @@ $('setNameBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
 };
 
-/* ═══════════════ 완료 업무 라이브러리 내보내기 (상세 PDF · Excel) ═══════════════ */
-function buildDoneA4(label, records){
-  const el=document.createElement('div'); el.className='a4';
-  let blocks='';
-  records.slice().reverse().forEach(r=>{
-    const hist=r.history.map(h=>{
-      const t=h.t;
-      const tm=t.time? ` · ${t.time}${t.dur? `/${t.dur}분`:''}`:'';
-      const note=(t.note||'').trim();
-      return `<div style="font-size:12px;line-height:1.55;padding:3px 0;border-bottom:1px dashed #E7D6BA"><b>${esc(h.date)}</b> · ${esc(statusLabelOf(t.status))}${esc(tm)}${note? `<br><span style="color:#7D6650">└ ${esc(note).replace(/\n/g,'<br>')}</span>`:''}</div>`;
-    }).join('');
-    const delays=r.delays.map(d=>`<div style="font-size:11.5px;color:#8A5E2B;line-height:1.5">⏳ ${esc(d.date||'')} ${esc(reasonLabel(d.reasonCode))}${d.reasonDetail? ` · ${esc(d.reasonDetail)}`:''}</div>`).join('');
-    blocks += `<div style="border:1.5px solid #E8D7BB;border-left:5px solid ${r.color};border-radius:10px;padding:12px 14px;margin-bottom:12px;break-inside:avoid">
-      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
-        <div><div style="font-size:12px;font-weight:800;color:${r.color}">${esc(r.category)}</div><div style="font-size:16px;font-weight:800;margin-top:2px">✔ ${esc(r.title)}</div></div>
-        <div style="font-size:11.5px;color:#8A705A;text-align:right">${esc(doneTimeText(r.completedAt,r.doneDate))}<br>${esc(doneDurationText(r.startDate,r.doneDate))}</div>
-      </div>
-      ${r.finalNote? `<div style="margin-top:8px;background:#FFF6E8;border-radius:7px;padding:7px 9px;font-size:12px;line-height:1.55"><b>최종 퀵메모</b><br>${esc(r.finalNote).replace(/\n/g,'<br>')}</div>`:''}
-      <div style="margin-top:9px;font-size:12px;font-weight:800;color:#8A705A">업무 히스토리</div>
-      <div>${hist}</div>${delays? `<div style="margin-top:6px">${delays}</div>`:''}
-    </div>`;
+/* ═══════════════ 완료 업무 라이브러리 내보내기 (상세 PDF · Excel) ═══════════════
+   REPORT ENGINE: paged-v3 · 2026-08-14 */
+function doneReportStats(records){
+  const cats=new Map();
+  let delays=0, days=0, exact=0, sameDay=0;
+  records.forEach(r=>{
+    const k=r.category||'무제';
+    if(!cats.has(k)) cats.set(k,{name:k,color:r.color||'#D96F2B',count:0,delays:0,days:0});
+    const c=cats.get(k); c.count++; c.delays+=r.delays.length; c.days+=r.recordedDays||1;
+    delays+=r.delays.length; days+=r.recordedDays||1; if(r.completedAt) exact++; if(r.startDate===r.doneDate) sameDay++;
   });
-  el.innerHTML=`
-    <div class="a4-head" style="justify-content:space-between"><div class="a4-title">✅ 완료 업무 라이브러리</div><div class="a4-date">${esc(label)} · 총 ${records.length}건</div></div>
-    <div style="height:14px"></div>${blocks || '<div class="empty-note">완료 업무가 없습니다.</div>'}
-    <div class="a4-foot">${esc(label)} · ${esc(userName||'나')}의 Daily Log</div>`;
-  return el;
+  return {cats:[...cats.values()].sort((a,b)=>b.count-a.count||a.name.localeCompare(b.name,'ko')),
+    delays, avgDays:records.length?(days/records.length):0, exact, sameDay};
 }
+function reportDateText(){
+  const d=new Date(), p=n=>String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function doneReportPage(label, cls=''){
+  const el=document.createElement('div'); el.className=`a4 done-report-page ${cls}`.trim();
+  el.innerHTML=`<div class="dr-head"><div class="dr-brand">Daily Log · 완료 업무 보고서</div><div class="dr-range">${esc(label)}</div></div>
+    <div class="dr-body"></div><div class="dr-foot"><span>${esc(userName||'나')}의 Daily Log</span><span class="dr-page-no"></span></div>`;
+  $('exportStage').appendChild(el); return el;
+}
+function doneReportOverflow(page){
+  const b=page.querySelector('.dr-body'); return b.scrollHeight>b.clientHeight+1;
+}
+function doneReportTextChunks(text, limit=520){
+  text=String(text||'').trim(); if(!text) return [];
+  const paras=text.split(/\n+/), out=[];
+  paras.forEach(p=>{
+    let x=p.trim(); if(!x){ return; }
+    while(x.length>limit){
+      let cut=x.lastIndexOf(' ',limit); if(cut<limit*.55) cut=limit;
+      out.push(x.slice(0,cut).trim()); x=x.slice(cut).trim();
+    }
+    if(x) out.push(x);
+  });
+  return out;
+}
+function doneReportNode(html, className=''){
+  const n=document.createElement('div'); if(className) n.className=className; n.innerHTML=html; return n;
+}
+function doneReportAppend(state, node, continuationLabel=''){
+  let page=state.page, body=page.querySelector('.dr-body');
+  body.appendChild(node);
+  if(!doneReportOverflow(page)) return;
+
+  /* 현재 페이지에 안 들어가면 노드 자체를 자르지 않고 다음 A4로 통째로 이동한다. */
+  node.remove();
+  page=doneReportPage(state.label); state.pages.push(page); state.page=page; body=page.querySelector('.dr-body');
+  if(continuationLabel){
+    const c=doneReportNode(`${esc(continuationLabel)} · 이어서`,'dr-continue'); body.appendChild(c);
+  }
+  body.appendChild(node);
+
+  /* 새 페이지에서도 넘친다면 픽셀 절단을 허용하지 않는다.
+     모든 긴 텍스트는 호출부에서 문단 조각으로 나뉘므로 여기까지 오면 예상 밖의 초대형 블록이다. */
+  if(doneReportOverflow(page)){
+    node.remove();
+    throw new Error('보고서 한 블록이 A4 한 페이지보다 큽니다. 내용을 더 작은 단위로 나눠야 합니다.');
+  }
+}
+function doneReportTaskHeader(r){
+  const pills=[doneTimeText(r.completedAt,r.doneDate),doneDurationText(r.startDate,r.doneDate),`기록 ${r.recordedDays}일`,r.delays.length?`지연 ${r.delays.length}회`:'지연 없음'].filter(Boolean);
+  const h=doneReportNode(`<div class="dr-task-title">✔ ${esc(r.title)}</div><div class="dr-task-meta">${pills.map(x=>`<span class="dr-chip">${esc(x)}</span>`).join('')}</div>`,'dr-task-head');
+  h.style.setProperty('--dr-cat',r.color||'#D96F2B'); return h;
+}
+function buildDoneReportPages(label, records){
+  const stage=$('exportStage'); stage.innerHTML='';
+  const stats=doneReportStats(records), pages=[];
+
+  /* 1. 표지 */
+  let page=doneReportPage(label,'dr-cover'); pages.push(page);
+  const body=page.querySelector('.dr-body');
+  body.innerHTML=`<div class="dr-cover-kicker">WORK COMPLETION REPORT</div><div class="dr-cover-title">완료 업무<br>보고서</div>
+    <div class="dr-cover-sub">${esc(label)} 동안 완료한 업무의 진행 과정과 지연 기록, 퀵메모를 한 문서로 정리했습니다.</div><div class="dr-cover-rule"></div>
+    <div class="dr-stat-grid"><div class="dr-stat"><div class="n">${records.length}</div><div class="l">완료 업무</div></div>
+    <div class="dr-stat"><div class="n">${stats.cats.length}</div><div class="l">업무 카테고리</div></div>
+    <div class="dr-stat"><div class="n">${stats.delays}</div><div class="l">지연 기록</div></div>
+    <div class="dr-stat"><div class="n">${stats.avgDays.toFixed(1)}</div><div class="l">평균 기록일수</div></div></div>
+    <div class="dr-cover-note">완료 시각은 기록이 있는 업무만 정확한 시각을 사용합니다. 과거 기록처럼 완료 타임스탬프가 없는 업무에는 임의의 시간을 만들지 않습니다.<br>보고서 생성: ${esc(reportDateText())}</div>`;
+
+  /* 2. 전체 요약 + 카테고리 현황. 행 단위로 페이지 넘김 */
+  page=doneReportPage(label); pages.push(page);
+  let state={page,pages,label};
+  doneReportAppend(state,doneReportNode(`<div class="dr-section-title">1. 전체 완료 현황</div><div class="dr-section-sub">기간 내 완료 업무를 카테고리와 수행 기록 기준으로 요약합니다.</div>
+    <div class="dr-summary-grid"><div class="dr-summary-card"><div class="n">${records.length}</div><div class="l">완료</div></div>
+    <div class="dr-summary-card"><div class="n">${stats.sameDay}</div><div class="l">당일 완료</div></div><div class="dr-summary-card"><div class="n">${stats.delays}</div><div class="l">지연 기록</div></div>
+    <div class="dr-summary-card"><div class="n">${stats.exact}</div><div class="l">완료시각 기록</div></div></div>`));
+  doneReportAppend(state,doneReportNode(`<div class="dr-subtitle">카테고리별 완료 현황</div><div class="dr-cat-row head"><div>카테고리</div><div class="dr-num">완료</div><div class="dr-num">지연</div><div class="dr-num">평균 기록일</div></div>`),'카테고리별 완료 현황');
+  stats.cats.forEach(c=>doneReportAppend(state,doneReportNode(`<div class="dr-cat-row"><div class="dr-cat-name" style="color:${c.color}">● ${esc(c.name)}</div><div class="dr-num">${c.count}건</div><div class="dr-num">${c.delays}회</div><div class="dr-num">${(c.days/c.count).toFixed(1)}일</div></div>`),'카테고리별 완료 현황'));
+
+  /* 3. 카테고리별 상세. 업무/이벤트/문단 단위로 넘겨 절대 중간 절단하지 않는다. */
+  const groups=new Map();
+  records.slice().reverse().forEach(r=>{ if(!groups.has(r.category)) groups.set(r.category,[]); groups.get(r.category).push(r); });
+  let catNo=0, taskNo=0;
+  groups.forEach((items,cat)=>{
+    catNo++;
+    page=doneReportPage(label); pages.push(page); state={page,pages,label};
+    const delayN=items.reduce((n,r)=>n+r.delays.length,0), color=items[0].color||'#D96F2B';
+    const ban=doneReportNode(`<div><span class="name">${catNo}. ${esc(cat)}</span><span class="meta">완료 ${items.length}건 · 지연 ${delayN}회</span></div>`,'dr-cat-banner'); ban.style.setProperty('--dr-cat',color);
+    doneReportAppend(state,ban);
+    items.forEach((r,idx)=>{
+      taskNo++;
+      /* 새 업무가 남은 공간의 하단에 어색하게 걸리지 않도록 헤더가 안 들어가면 다음 장 */
+      const head=doneReportTaskHeader(r); doneReportAppend(state,head,`${cat} · ${r.title}`);
+      if(r.finalNote){
+        const chunks=doneReportTextChunks(r.finalNote,360);
+        chunks.forEach((tx,i)=>doneReportAppend(state,doneReportNode(`${i===0?'<b>최종 퀵메모</b>':''}${esc(tx).replace(/\n/g,'<br>')}`,'dr-final-note'),`${r.title}`));
+      }
+      doneReportAppend(state,doneReportNode('업무 히스토리','dr-subtitle'),`${r.title}`);
+      const evs=buildDoneHistoryEvents(r);
+      evs.forEach(e=>{
+        const parts=doneReportTextChunks(e.body||'',280); if(!parts.length) parts.push('');
+        parts.forEach((tx,i)=>{
+          const cls=`dr-event ${e.kind==='delay'?'delay':e.kind==='done'?'done':''}`;
+          const node=doneReportNode(`<div class="date">${esc(e.date)}</div><div class="time">${esc(e.time||'시간 미기록')}</div><div><div class="kind">${esc(e.label)}</div>${tx?`<div class="body">${esc(tx)}</div>`:''}${i>0?'<div class="body">(이어서)</div>':''}</div>`,cls);
+          doneReportAppend(state,node,`${r.title} · 업무 히스토리`);
+        });
+      });
+      if(r.delays.length){
+        doneReportAppend(state,doneReportNode('지연 기록 상세','dr-subtitle'),`${r.title}`);
+        r.delays.forEach(d=>{
+          const txt=[reasonLabel(d.reasonCode),d.reasonDetail||'',d.plannedStart?`계획 ${d.plannedStart}${d.plannedDuration?` / ${d.plannedDuration}분`:''}`:'',d.actualStart?`실제 ${d.actualStart}${d.actualDuration?` / ${d.actualDuration}분`:''}`:''].filter(Boolean).join(' · ');
+          doneReportTextChunks(txt,360).forEach(tx=>doneReportAppend(state,doneReportNode(`<b>⏳ 지연기록 · ${esc(d.date||r.doneDate)}</b><br>${esc(tx)}`,'dr-delay-box'),`${r.title} · 지연 기록`));
+        });
+      }
+      if(r.noteChanges.length){
+        doneReportAppend(state,doneReportNode('퀵메모 기록','dr-subtitle'),`${r.title}`);
+        r.noteChanges.forEach((n,ni)=>{
+          doneReportTextChunks(n.text,360).forEach((tx,ci)=>doneReportAppend(state,doneReportNode(`<div class="date">${esc(n.date)}${ni===r.noteChanges.length-1&&ci===0?' · 최종본':''}</div>${esc(tx)}`,'dr-note-snap'),`${r.title} · 퀵메모 기록`));
+        });
+      }
+      if(idx<items.length-1){ doneReportAppend(state,doneReportNode('<div style="height:12px"></div>')); }
+    });
+  });
+
+  pages.forEach((p,i)=>p.querySelector('.dr-page-no').textContent=`${i+1} / ${pages.length}`);
+  return pages;
+}
+
 async function exportArcDone(kind){
   const records=arcDoneData.records||[];
   if(!records.length){ toast('내보낼 완료 업무가 없어요'); return; }
@@ -6592,15 +6763,18 @@ async function exportArcDone(kind){
     const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'완료 업무');
     XLSX.writeFile(wb,`완료업무_${label}.xlsx`); toast('완료 업무 히스토리를 Excel로 저장했어요');
   }else{
-    toast('상세 PDF를 만드는 중…');
+    toast('완료 업무 보고서를 만드는 중…');
     try{
       await document.fonts.ready;
-      const stage=$('exportStage'); stage.innerHTML='';
-      const node=buildDoneA4(label,records); stage.appendChild(node);
-      await new Promise(r=>setTimeout(r,300));
-      const canvas=await html2canvas(node,{scale:2,backgroundColor:'#FBF2E1'});
-      stage.innerHTML=''; downloadBlob(canvasToPdfBlob(canvas),`완료업무_${label}.pdf`);
-      toast('완료 업무 상세 PDF를 저장했어요');
+      const pages=buildDoneReportPages(label,records);
+      await new Promise(r=>setTimeout(r,350));
+      const shots=[];
+      for(let i=0;i<pages.length;i++){
+        shots.push(await html2canvas(pages[i],{scale:2,backgroundColor:'#FFF9EE',useCORS:true}));
+      }
+      $('exportStage').innerHTML='';
+      downloadBlob(canvasesToPdfBlob(shots),`완료업무_보고서_${label}.pdf`);
+      toast(`완료 업무 보고서 ${shots.length}쪽을 저장했어요`);
     }catch(e){ $('exportStage').innerHTML=''; toast('PDF 생성 실패: '+e.message); }
   }
 }
