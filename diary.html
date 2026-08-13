@@ -473,6 +473,35 @@ mark{background:var(--mark-bg);color:var(--mark-ink);border-radius:3px;padding:0
 .done-row .dr-cat{font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--surface);flex:none}
 .done-row .dr-text{flex:1;color:var(--ink);min-width:0;overflow:hidden;
   text-overflow:ellipsis;white-space:nowrap}
+
+/* ───────── 완료 업무 라이브러리 ───────── */
+.done-lib-card{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--green);
+  border-radius:14px;padding:13px 14px;margin-bottom:10px;cursor:pointer;transition:.14s;text-align:left;width:100%;font-family:inherit;color:var(--ink)}
+.done-lib-card:hover{transform:translateX(2px);box-shadow:var(--shadow)}
+.dl-top{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:6px}
+.dl-cat{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;background:var(--surface);border:1px solid var(--rule)}
+.dl-when{margin-left:auto;font-size:.72rem;color:var(--ink-soft);font-weight:700}
+.dl-title{font-size:1rem;font-weight:800;line-height:1.45;margin-bottom:6px}
+.dl-meta{font-size:.73rem;color:var(--ink-soft);line-height:1.5}
+.dl-note{font-size:.8rem;color:var(--ink);margin-top:8px;padding-top:7px;border-top:1px dashed var(--rule);
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dl-timeline{position:relative;margin-top:8px;padding-left:18px}
+.dl-timeline::before{content:'';position:absolute;left:5px;top:8px;bottom:8px;width:2px;background:var(--rule)}
+.dl-step{position:relative;padding:0 0 13px 8px}
+.dl-step::before{content:'';position:absolute;left:-17px;top:6px;width:9px;height:9px;border-radius:50%;background:var(--accent);border:2px solid var(--paper)}
+.dl-step.done::before{background:var(--green)}
+.dl-step-head{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:.76rem;font-weight:800;color:var(--accent-deep)}
+.dl-step-body{font-size:.8rem;color:var(--ink);line-height:1.55;margin-top:3px}
+.dl-delay{margin-top:5px;padding:6px 8px;border-radius:8px;background:#FFF3DF;color:#8A5E2B;font-size:.74rem;line-height:1.45}
+.dl-detail-meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 12px}
+.dl-pill{font-size:.7rem;font-weight:800;padding:3px 8px;border-radius:999px;background:var(--paper-deep);color:var(--ink-soft)}
+#doneLibModal{position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:181;display:flex;align-items:center;justify-content:center;padding:16px}
+#doneLibModal .bank-panel{max-width:680px}
+#doneLibBody{overflow-y:auto;padding:14px 16px 18px}
+@media (max-width:520px){
+  .dl-when{margin-left:0;width:100%}
+  .done-lib-card{padding:12px}
+}
 #schedOpen{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:110;
   background:var(--card);border:1.5px solid var(--rule);border-right:none;
   border-radius:12px 0 0 12px;padding:14px 7px;box-shadow:-3px 0 12px rgba(120,80,40,.16);
@@ -1493,7 +1522,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="arc-tools arc-tools-row">
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
       <span class="at-spacer"></span>
-      <button class="mini-btn" id="arcDoneBtn">✔ 완료 모아보기</button>
+      <button class="mini-btn" id="arcDoneBtn">✅ 완료 업무</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
@@ -1878,6 +1907,20 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="mini-btn" id="fsUp">＋</button>
     </div>
     <button class="btn-line" id="fontClose" style="margin-top:12px;border-style:dashed">닫기</button>
+  </div>
+</div>
+<div id="doneLibModal" class="hidden">
+  <div class="bank-panel">
+    <div class="bank-head">
+      <b id="doneLibTitle">✅ 완료 업무</b>
+      <span class="bank-sub" id="doneLibSub">업무 히스토리</span>
+      <button class="icon-btn" id="doneLibClose" title="닫기">✕</button>
+    </div>
+    <div id="doneLibBody"></div>
+    <div class="bk-btns" style="padding:0 16px 16px">
+      <button class="btn-line" id="doneLibOpenDay">📅 완료일 일지 열기</button>
+      <button class="btn-line" id="doneLibClose2">닫기</button>
+    </div>
   </div>
 </div>
 <div id="exportStage"></div>
@@ -2284,7 +2327,7 @@ async function loadDay(dateStr){
 }
 function normTask(t){
   return { id: t.id||uid8(), text: t.text||'', done: !!t.done,
-    status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'',
+    status: t.status||'wait', due: t.due||'', note: t.note||'', doneAt: t.doneAt||'', completedAt: +t.completedAt||0,
     time: t.time||'', dur: t.dur||60, alarm: (t.alarm===undefined? 10 : t.alarm), gcalId: t.gcalId||'', gcalCalendar: t.gcalCalendar||'', goal: t.goal||'', offPrio: !!t.offPrio, origin: t.origin||'',
     files: Array.isArray(t.files)? t.files : Object.values(t.files||{}),
     place: t.place || '',                          /* 개인 용무 장소 — 캘린더 일정에도 들어간다 */
@@ -2663,7 +2706,7 @@ function renderCats(){
     box.appendChild(el);
   });
 }
-function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', place:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', gcalCalendar:'', goal:'', offPrio:false, origin:'', files:[], delayHistory:[], open:false}; }
+function newTask(){ return {id:uid8(), text:'', done:false, status:'wait', due:'', note:'', place:'', time:'', timeDay:'', dur:60, alarm:10, gcalId:'', gcalCalendar:'', goal:'', offPrio:false, origin:'', doneAt:'', completedAt:0, files:[], delayHistory:[], open:false}; }
 /* ═══════════════ ⏳ 지연기록 — 계획한 시간과 실제가 어긋났을 때 ═══════════════
    재촉이 목적이 아니라, 어긋난 까닭을 부담 없이 남겨 나중에 패턴을 보기 위한 것. */
 const DELAY_REASONS = [
@@ -2808,7 +2851,8 @@ function taskRow(t, ctx){
     if(ctx.inbox && !ctx.priv && !t.done){ await completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
     if(t.done && t.from && !ctx.inbox){ uncompleteBack(t, ctx); return; }         // 완료 해제 → 원래 함으로
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
-    if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
+    t.doneAt = t.done ? curDate : '';
+    t.completedAt = t.done ? Date.now() : 0;
     ctx.save(); ctx.rerender();
     clearTimeout(saveTimer);
     const diarySaved = await saveNow();             /* 완료 상태는 Diary 저장을 먼저 확정 */
@@ -2829,7 +2873,10 @@ function taskRow(t, ctx){
     const wasDone = t.done;
     t.status = next;
     t.done = t.status==='done';
-    if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
+    if(wasDone !== t.done){
+      t.doneAt = t.done ? curDate : '';
+      t.completedAt = t.done ? Date.now() : 0;
+    }
     ctx.save(); ctx.rerender();
     if(wasDone !== t.done){
       clearTimeout(saveTimer);
@@ -3293,11 +3340,27 @@ async function getYear(y){
 }
 async function renderArchive(){
   await flushSave();
-  $('monthGrid').classList.remove('hidden');
   if(!arcMonth) arcMonth = curDate.slice(5,7);
+  const yd = await getYear(arcYear);
+
+  /* 기록 탭 안에서 '날짜별 기록 ↔ 완료 업무'를 같은 버튼으로 전환한다. */
+  $('arcDoneBtn').classList.toggle('active', arcDone);
+  $('arcDoneBtn').textContent = arcDone ? '📅 날짜별 기록' : '✅ 완료 업무';
+  $('arcDiaryBtn').classList.toggle('active', arcDiary);
+  if(arcDone){
+    $('monthGrid').classList.add('hidden');
+    $('evtHint').classList.add('hidden');
+    $('searchIn').placeholder = '🔍 완료 업무·카테고리·퀵메모 검색';
+    $('yearLabel').textContent = arcDoneScope==='year' ? `${arcYear}년 완료 업무` : `${arcYear}년 ${+arcMonth}월 완료 업무`;
+    renderArcDone(yd);
+    return;
+  }
+
+  $('monthGrid').classList.remove('hidden');
+  $('evtHint').classList.remove('hidden');
+  $('searchIn').placeholder = '🔍 기록 검색 — 언제 무슨 일을 했는지 찾아보세요';
   $('yearLabel').textContent = `${arcYear}년 ${+arcMonth}월`;
   loadHolidays(arcYear);
-  const yd = await getYear(arcYear);
   const md = yd[arcMonth] || {};
 
   /* 달력 */
@@ -4995,7 +5058,7 @@ async function completeInbox(t, idx){
   let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
   const madeTarget = !target;
   if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, note:'', files:[], tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'inbox'};
+  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done', doneAt:curDate, completedAt:Date.now(), from:'inbox'};
   target.tasks.push(completed);
   markDirty();
   clearTimeout(saveTimer);
@@ -5076,7 +5139,7 @@ async function moveTaskTo(t, ctx, dest){
    예전에는 완료 목록에 미완료로 남아 어느 쪽에도 속하지 않는 상태가 됐다. */
 function uncompleteBack(t, ctx){
   const back = t.from === 'priv' ? priv : inbox;
-  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', from:''};
+  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', completedAt:0, from:''};
   restored.gcalId = '';                                   /* 완료 일정은 따라가지 않는다 */
   back.push(restored);
   const i = ctx.arr.indexOf(t);
@@ -5097,7 +5160,7 @@ async function completePriv(t, idx){
   let target = day.cats.find(c => c.priv);
   const madeTarget = !target;
   if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, note:'', files:[], tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'priv'};
+  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done', doneAt:curDate, completedAt:Date.now(), from:'priv'};
   target.tasks.push(completed);
   markDirty();
   clearTimeout(saveTimer);
@@ -5310,7 +5373,7 @@ $('searchIn').addEventListener('input', e => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>{ searchQ = e.target.value.trim(); refreshArchive(); }, 300);
 });
-function refreshArchive(){ searchQ ? doSearch(searchQ) : renderArchive(); }
+function refreshArchive(){ (searchQ && !arcDone) ? doSearch(searchQ) : renderArchive(); }
 function hl(text, q){
   const i = text.toLowerCase().indexOf(q.toLowerCase());
   if(i<0) return esc(text);
@@ -5772,7 +5835,7 @@ function renderPrio(){
     row.querySelector('.chk').onclick = async () => {
       if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t)); return; }
       if(bx==='priv'){ await completePriv(t, priv.indexOf(t)); return; }
-      t.done = true; t.status = 'done'; markDirty(); renderCats();
+      t.done = true; t.status = 'done'; t.doneAt = curDate; t.completedAt = Date.now(); markDirty(); renderCats();
       clearTimeout(saveTimer);
       const diarySaved = await saveNow();
       if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
@@ -5788,6 +5851,7 @@ function renderPrio(){
       if(bx==='priv' && next==='done'){ await completePriv(t, priv.indexOf(t)); return; }
       const wasDone = t.done;
       t.status = next; t.done = t.status==='done';
+      if(wasDone !== t.done){ t.doneAt = t.done ? curDate : ''; t.completedAt = t.done ? Date.now() : 0; }
       save(); renderCats();
       if(wasDone !== t.done){
         clearTimeout(saveTimer);
@@ -5818,65 +5882,181 @@ function renderPrio(){
   });
 }
 
-/* ═══════════════ 기록 탭: ✔ 완료 모아보기 (월/연 단위) ═══════════════ */
-let arcDone = false, arcDoneScope = 'month', arcDoneData = {groups:[], total:0};
-$('arcDoneBtn').onclick = () => { arcDone = !arcDone; if(arcDone && arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); } refreshArchive(); };
+/* ═══════════════ 기록 탭: ✅ 완료 업무 라이브러리 ═══════════════ */
+let arcDone = false, arcDoneScope = 'month', arcDoneData = {records:[], total:0};
+let doneLibSelected = null;
+
+$('arcDoneBtn').onclick = () => {
+  arcDone = !arcDone;
+  searchQ = ''; $('searchIn').value = '';
+  if(arcDone && arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
+  refreshArchive();
+};
+
+const statusLabelOf = k => ((STATUS.find(s=>s.k===k)||{}).label || k || '대기');
+function doneLineKey(t, catName){
+  if(t.origin) return String(t.origin);
+  if(t.id) return String(t.id);
+  return `legacy:${catName||''}:${(t.text||'').trim()}`;
+}
+function doneTsMs(v){
+  const n = +v || 0;
+  if(!n) return 0;
+  return n < 100000000000 ? n*1000 : n;
+}
+function doneTimeText(ts, date){
+  const ms = doneTsMs(ts);
+  if(!ms) return `${+date.slice(5,7)}/${+date.slice(8,10)} · 완료 시각 기록 없음`;
+  const d = new Date(ms);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function doneDurationText(start, end){
+  if(!start || !end) return '';
+  const a = new Date(start+'T12:00:00'), b = new Date(end+'T12:00:00');
+  const n = Math.max(1, Math.round((b-a)/86400000)+1);
+  return start===end ? '당일 완료' : `${start.slice(5).replace('-','/')} → ${end.slice(5).replace('-','/')} · ${n}일`;
+}
+function dedupeDelays(history){
+  const out=[], seen=new Set();
+  history.forEach(h => (h.t.delayHistory||[]).forEach(r => {
+    if(!r || !r.reasonCode) return;
+    const k = r.id || `${r.date}|${r.reasonCode}|${r.reasonDetail||''}|${r.actualStart||''}|${r.actualDuration||0}`;
+    if(seen.has(k)) return; seen.add(k); out.push(r);
+  }));
+  return out.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+}
+function collectDoneLibrary(yd){
+  const lines = new Map();
+  Object.keys(yd||{}).sort().forEach(mm => {
+    const month = yd[mm] || {};
+    Object.keys(month).sort().forEach(dd => {
+      const date = `${arcYear}-${mm}-${dd}`;
+      const v = normalize(month[dd]);
+      (v.cats||[]).forEach(c => {
+        if(c.priv) return;                                      /* 완료 '업무' 라이브러리 — 개인 용무 제외 */
+        const catName = (c.name||'').trim() || '무제';
+        const col = catColor(c);
+        (c.tasks||[]).forEach(t => {
+          if(!(t.text||'').trim()) return;
+          const key = doneLineKey(t, catName);
+          if(!lines.has(key)) lines.set(key, []);
+          lines.get(key).push({date, mm, dd, catName, col, t});
+        });
+      });
+    });
+  });
+
+  const records=[];
+  lines.forEach((history, lineKey) => {
+    history.sort((a,b)=> a.date.localeCompare(b.date) || String(a.t.id||'').localeCompare(String(b.t.id||'')));
+    const dones = history.filter(h => h.t.done);
+    if(!dones.length) return;
+    const fin = dones[dones.length-1];                         /* 같은 계보가 재완료됐다면 최종 완료를 대표로 */
+    if(arcDoneScope==='month' && fin.mm !== arcMonth) return;
+    const until = history.filter(h => h.date <= fin.date);
+    const dates = [...new Set(until.map(h=>h.date))];
+    const delays = dedupeDelays(until);
+    const notes = [];
+    let prev='';
+    until.forEach(h => {
+      const n=(h.t.note||'').trim();
+      if(n && n!==prev){ notes.push({date:h.date, text:n}); prev=n; }
+    });
+    const finalNote = (fin.t.note||'').trim() || (notes.length ? notes[notes.length-1].text : '');
+    records.push({
+      lineKey, title:(fin.t.text||'').trim(), category:fin.catName, color:fin.col,
+      doneDate:fin.date, completedAt:+fin.t.completedAt||0,
+      startDate:dates[0] || fin.date, recordedDays:dates.length,
+      history:until, delays, noteChanges:notes, finalNote,
+      due:fin.t.due||'', goal:fin.t.goal||''
+    });
+  });
+  records.sort((a,b)=> b.doneDate.localeCompare(a.doneDate) || doneTsMs(b.completedAt)-doneTsMs(a.completedAt));
+  return records;
+}
+
 function renderArcDone(yd){
   const list = $('dayList'); list.innerHTML = '';
   const bar = document.createElement('div');
-  bar.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:14px';
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap';
   bar.innerHTML = `
     <button class="mini-btn ${arcDoneScope==='month'?'active':''}" data-s="month">${+arcMonth}월</button>
     <button class="mini-btn ${arcDoneScope==='year'?'active':''}" data-s="year">${arcYear}년 전체</button>
     <span style="width:6px"></span>
-    <button class="mini-btn" data-x="pdf">📄 PDF</button>
+    <button class="mini-btn" data-x="pdf">📄 상세 PDF</button>
     <button class="mini-btn" data-x="xls">📊 Excel</button>`;
   bar.querySelectorAll('button[data-s]').forEach(b => b.onclick = () => { arcDoneScope = b.dataset.s; renderArchive(); });
   bar.querySelectorAll('button[data-x]').forEach(b => b.onclick = () => exportArcDone(b.dataset.x));
   list.appendChild(bar);
 
-  const months = arcDoneScope==='month' ? [arcMonth] : Object.keys(yd).sort().reverse();
-  let total = 0; const groups = [];
-  months.forEach(mm => {
-    if(!yd[mm]) return;
-    Object.keys(yd[mm]).sort().reverse().forEach(dd => {
-      const v = normalize(yd[mm][dd]);
-      const items = [];
-      v.cats.forEach(c => c.tasks.forEach(t => { if(t.done && t.text.trim()) items.push({c,t}); }));
-      if(items.length){ total += items.length; groups.push({mm, dd, items}); }
-    });
+  let records = collectDoneLibrary(yd);
+  const q = (searchQ||'').trim().toLowerCase();
+  if(q) records = records.filter(r => {
+    const hay = [r.title,r.category,r.finalNote,...r.noteChanges.map(n=>n.text),...r.delays.map(d=>`${reasonLabel(d.reasonCode)} ${d.reasonDetail||''}`)].join(' ').toLowerCase();
+    return hay.includes(q);
   });
-  groups.sort((a,b) => (b.mm+b.dd).localeCompare(a.mm+a.dd));
-  arcDoneData = { groups, total };
+  arcDoneData = {records, total:records.length};
+
   const head = document.createElement('div');
-  head.className = 'empty-note'; head.style.padding = '0 0 12px';
-  head.textContent = total
-    ? `✔ ${arcDoneScope==='month'? (+arcMonth)+'월에':arcYear+'년에'} 완료한 업무 ${total}건`
-    : `${arcDoneScope==='month'? (+arcMonth)+'월에는':arcYear+'년에는'} 완료한 업무가 아직 없어요.`;
+  head.className='empty-note'; head.style.padding='0 0 12px';
+  const scopeTxt = arcDoneScope==='month' ? `${+arcMonth}월` : `${arcYear}년`;
+  head.textContent = records.length
+    ? `✅ ${scopeTxt} 완료 업무 ${records.length}건${q? ` · '${searchQ}' 검색 결과`:''}`
+    : `${scopeTxt}${q? `에서 '${searchQ}'에 해당하는`: '에는'} 완료 업무가 없어요.`;
   list.appendChild(head);
 
-  groups.forEach(g => {
-    const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
-    const card = document.createElement('div');
-    card.className = 'day-card';
-    card.style.flexDirection = 'column'; card.style.alignItems = 'stretch'; card.style.cursor = 'default';
-    const rows = g.items.map(({c,t,kind}) => {
-      const col = c? catColor(c) : (kind==='priv'? PRIV_COLOR : '#B08A5A');
-      const nm = c? ((c.priv? '🏠 ':'') + (c.name.trim()||'무제')) : (kind==='priv'? '🏠 개인 용무' : '📥 기타함');
-      return `<div class="done-row" style="border-top:1px solid var(--rule);padding:8px 2px">
-        <span class="dr-chk">✔</span>
-        <span class="dr-cat" style="color:${col};border:1.5px ${(c&&!c.priv)?'solid':'dashed'} ${col}88">${c? (c.priv? nm : esc(nm)) : nm}</span>
-        <span class="dr-text">${esc(t.text)}</span></div>`;
-    }).join('');
-    card.innerHTML = `
-      <div class="ad-head" style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;padding-bottom:6px">
-        <b style="color:var(--accent-deep);font-family:'Jua';font-weight:400">${+g.mm}/${+g.dd} (${DOW[dt.getDay()]})</b>
-        <span style="font-size:.8rem;color:var(--ink-soft)">${g.items.length}건 · 열기 ›</span>
-      </div>${rows}`;
-    card.querySelector('.ad-head').onclick = () => { switchTab(true); loadDay(`${arcYear}-${g.mm}-${g.dd}`); };
+  records.forEach(r => {
+    const card=document.createElement('button'); card.type='button'; card.className='done-lib-card';
+    const meta=[doneDurationText(r.startDate,r.doneDate), `기록 ${r.recordedDays}일`];
+    if(r.noteChanges.length) meta.push(`메모 ${r.noteChanges.length}회`);
+    if(r.delays.length) meta.push(`지연 ${r.delays.length}회`);
+    card.innerHTML=`
+      <div class="dl-top">
+        <span class="dl-cat" style="color:${r.color};border-color:${r.color}88">${esc(r.category)}</span>
+        <span class="dl-when">${esc(doneTimeText(r.completedAt,r.doneDate))}</span>
+      </div>
+      <div class="dl-title">${esc(r.title)}</div>
+      <div class="dl-meta">${esc(meta.filter(Boolean).join(' · '))}</div>
+      ${r.finalNote? `<div class="dl-note">📝 ${esc(r.finalNote)}</div>`:''}`;
+    card.onclick=()=>openDoneLibraryDetail(r);
     list.appendChild(card);
   });
 }
+
+function openDoneLibraryDetail(r){
+  doneLibSelected = r;
+  $('doneLibTitle').textContent = '✅ ' + r.title;
+  $('doneLibSub').textContent = `${r.category} · ${doneTimeText(r.completedAt,r.doneDate)}`;
+  const statusMap = Object.fromEntries(STATUS.map(s=>[s.k,s.label]));
+  const timeline = r.history.map((h, i) => {
+    const t=h.t;
+    const when=t.time ? `${t.time}${t.dur? ` · ${t.dur}분`:''}` : '';
+    const ds=(t.delayHistory||[]).filter(d=>d && d.reasonCode && d.date===h.date);
+    const dhtml=ds.map(d=>`<div class="dl-delay">⏳ ${esc(reasonLabel(d.reasonCode))}${d.reasonDetail? ` · ${esc(d.reasonDetail)}`:''}${d.actualStart? ` · 실제 ${esc(d.actualStart)}`:''}${d.actualDuration? ` ${d.actualDuration}분`:''}</div>`).join('');
+    return `<div class="dl-step ${t.done?'done':''}">
+      <div class="dl-step-head"><span>${esc(h.date)}</span><span>${esc(statusMap[t.status]||t.status||'대기')}</span>${when? `<span>⏰ ${esc(when)}</span>`:''}</div>
+      <div class="dl-step-body">${(t.note||'').trim()? `📝 ${esc((t.note||'').trim()).replace(/\n/g,'<br>')}` : '<span style="color:var(--ink-soft)">퀵메모 없음</span>'}</div>
+      ${dhtml}
+    </div>`;
+  }).join('');
+  const pills=[doneDurationText(r.startDate,r.doneDate),`기록 ${r.recordedDays}일`,r.noteChanges.length?`메모 변경 ${r.noteChanges.length}회`:'',r.delays.length?`지연 ${r.delays.length}회`:''].filter(Boolean);
+  $('doneLibBody').innerHTML=`
+    <div class="dl-detail-meta">${pills.map(x=>`<span class="dl-pill">${esc(x)}</span>`).join('')}</div>
+    ${r.finalNote? `<div style="background:var(--paper-deep);border-radius:10px;padding:10px 12px;margin-bottom:12px;font-size:.84rem;line-height:1.6"><b>최종 퀵메모</b><br>${esc(r.finalNote).replace(/\n/g,'<br>')}</div>`:''}
+    <div style="font-family:'Jua';color:var(--accent-deep);font-size:1rem;margin:4px 0 8px">업무 히스토리</div>
+    <div class="dl-timeline">${timeline || '<div class="empty-note">히스토리가 없어요.</div>'}</div>`;
+  $('doneLibModal').classList.remove('hidden');
+}
+function closeDoneLibrary(){ $('doneLibModal').classList.add('hidden'); doneLibSelected=null; }
+$('doneLibClose').onclick = closeDoneLibrary;
+$('doneLibClose2').onclick = closeDoneLibrary;
+$('doneLibModal').addEventListener('click',e=>{ if(e.target.id==='doneLibModal') closeDoneLibrary(); });
+$('doneLibOpenDay').onclick = () => {
+  if(!doneLibSelected) return;
+  const ds=doneLibSelected.doneDate;
+  closeDoneLibrary(); arcDone=false; searchQ=''; $('searchIn').value='';
+  switchTab('today'); loadDay(ds);
+};
 
 /* ═══════════════ ⚙ 설정: 당일 전체 삭제 · 일기 비밀번호 ═══════════════ */
 $('settingsBtn').onclick = () => {
@@ -6225,68 +6405,61 @@ $('setNameBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
 };
 
-/* ═══════════════ 완료 업무 내보내기 (PDF · Excel) ═══════════════ */
-function buildDoneA4(label, groupsAsc, total){
-  const el = document.createElement('div'); el.className = 'a4';
-  let rows = '';
-  groupsAsc.forEach(g => {
-    const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
-    g.items.forEach(({c,t,kind}, i) => {
-      t.__kind = kind;
-      const col = c ? catColor(c) : (kind==='priv'? PRIV_COLOR : '#B08A5A');
-      rows += `<tr>
-        ${i===0 ? `<td rowspan="${g.items.length}" style="width:15%;font-weight:700;color:#C95F1D;vertical-align:top">${+g.mm}/${+g.dd} (${DOW[dt.getDay()]})</td>` : ''}
-        <td style="width:19%;color:${col};font-weight:700">${c ? esc(c.name.trim()||'무제') : (t.__kind==='priv'? '개인 용무' : '기타함')}</td>
-        <td style="text-align:left">✔ ${esc(t.text)}${t.note.trim()? `<div style="font-size:12px;color:#8A705A;padding-top:2px">└ ${esc(t.note.trim()).replace(/\n/g,'<br>')}</div>` : ''}</td>
-      </tr>`;
-    });
+/* ═══════════════ 완료 업무 라이브러리 내보내기 (상세 PDF · Excel) ═══════════════ */
+function buildDoneA4(label, records){
+  const el=document.createElement('div'); el.className='a4';
+  let blocks='';
+  records.slice().reverse().forEach(r=>{
+    const hist=r.history.map(h=>{
+      const t=h.t;
+      const tm=t.time? ` · ${t.time}${t.dur? `/${t.dur}분`:''}`:'';
+      const note=(t.note||'').trim();
+      return `<div style="font-size:12px;line-height:1.55;padding:3px 0;border-bottom:1px dashed #E7D6BA"><b>${esc(h.date)}</b> · ${esc(statusLabelOf(t.status))}${esc(tm)}${note? `<br><span style="color:#7D6650">└ ${esc(note).replace(/\n/g,'<br>')}</span>`:''}</div>`;
+    }).join('');
+    const delays=r.delays.map(d=>`<div style="font-size:11.5px;color:#8A5E2B;line-height:1.5">⏳ ${esc(d.date||'')} ${esc(reasonLabel(d.reasonCode))}${d.reasonDetail? ` · ${esc(d.reasonDetail)}`:''}</div>`).join('');
+    blocks += `<div style="border:1.5px solid #E8D7BB;border-left:5px solid ${r.color};border-radius:10px;padding:12px 14px;margin-bottom:12px;break-inside:avoid">
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">
+        <div><div style="font-size:12px;font-weight:800;color:${r.color}">${esc(r.category)}</div><div style="font-size:16px;font-weight:800;margin-top:2px">✔ ${esc(r.title)}</div></div>
+        <div style="font-size:11.5px;color:#8A705A;text-align:right">${esc(doneTimeText(r.completedAt,r.doneDate))}<br>${esc(doneDurationText(r.startDate,r.doneDate))}</div>
+      </div>
+      ${r.finalNote? `<div style="margin-top:8px;background:#FFF6E8;border-radius:7px;padding:7px 9px;font-size:12px;line-height:1.55"><b>최종 퀵메모</b><br>${esc(r.finalNote).replace(/\n/g,'<br>')}</div>`:''}
+      <div style="margin-top:9px;font-size:12px;font-weight:800;color:#8A705A">업무 히스토리</div>
+      <div>${hist}</div>${delays? `<div style="margin-top:6px">${delays}</div>`:''}
+    </div>`;
   });
-  el.innerHTML = `
-    <div class="a4-head" style="justify-content:space-between">
-      <div class="a4-title">✔ 완료 업무 목록</div>
-      <div class="a4-date">${label} · 총 ${total}건</div>
-    </div>
-    <div style="height:14px"></div>
-    <table>
-      <tr><th>완료일</th><th>카테고리</th><th style="text-align:left;padding-left:14px">업무 내용</th></tr>
-      ${rows}
-    </table>
-    <div class="a4-foot">${label} · ${esc(userName||'나')}의 Daily Log</div>`;
+  el.innerHTML=`
+    <div class="a4-head" style="justify-content:space-between"><div class="a4-title">✅ 완료 업무 라이브러리</div><div class="a4-date">${esc(label)} · 총 ${records.length}건</div></div>
+    <div style="height:14px"></div>${blocks || '<div class="empty-note">완료 업무가 없습니다.</div>'}
+    <div class="a4-foot">${esc(label)} · ${esc(userName||'나')}의 Daily Log</div>`;
   return el;
 }
 async function exportArcDone(kind){
-  if(!arcDoneData.total){ toast('내보낼 완료 업무가 없어요'); return; }
-  const label = `${arcYear}년 ${arcDoneScope==='month'? (+arcMonth)+'월' : '전체'}`;
-  const asc = [...arcDoneData.groups].sort((a,b) => (a.mm+a.dd).localeCompare(b.mm+b.dd));
-  if(kind === 'xls'){
-    if(typeof XLSX === 'undefined'){ toast('엑셀 모듈을 불러오지 못했어요 — 인터넷 연결을 확인해 주세요'); return; }
-    const rows = [['완료일','요일','카테고리','업무 내용','퀵메모','마감일']];
-    asc.forEach(g => {
-      const dt = new Date(`${arcYear}-${g.mm}-${g.dd}T12:00:00`);
-      g.items.forEach(({c,t,kind}) => rows.push([
-        `${arcYear}-${g.mm}-${g.dd}`, DOW[dt.getDay()],
-        c ? ((c.priv? '[개인] ':'') + (c.name.trim()||'무제')) : (kind==='priv'? '개인 용무' : '기타함'),
-        t.text, t.note||'', t.due||''
-      ]));
+  const records=arcDoneData.records||[];
+  if(!records.length){ toast('내보낼 완료 업무가 없어요'); return; }
+  const label=`${arcYear}년 ${arcDoneScope==='month'? (+arcMonth)+'월' : '전체'}`;
+  if(kind==='xls'){
+    if(typeof XLSX==='undefined'){ toast('엑셀 모듈을 불러오지 못했어요 — 인터넷 연결을 확인해 주세요'); return; }
+    const rows=[['완료일','완료시각','시작일','기록일수','카테고리','업무','최종 퀵메모','지연횟수','업무 히스토리']];
+    records.slice().reverse().forEach(r=>{
+      const ms=doneTsMs(r.completedAt), dt=ms?new Date(ms):null;
+      const time=dt? `${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`:'';
+      const hist=r.history.map(h=>`${h.date} [${statusLabelOf(h.t.status)}]${h.t.time? ' '+h.t.time:''}${(h.t.note||'').trim()? ' · '+(h.t.note||'').trim().replace(/\n/g,' / '):''}`).join('\n');
+      rows.push([r.doneDate,time,r.startDate,r.recordedDays,r.category,r.title,r.finalNote||'',r.delays.length,hist]);
     });
-    const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:12},{wch:5},{wch:16},{wch:46},{wch:32},{wch:12}];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, '완료 업무');
-    XLSX.writeFile(wb, `완료업무_${label}.xlsx`);
-    toast('엑셀 파일을 저장했어요');
+    const ws=XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols']=[{wch:12},{wch:9},{wch:12},{wch:9},{wch:18},{wch:42},{wch:38},{wch:9},{wch:70}];
+    const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'완료 업무');
+    XLSX.writeFile(wb,`완료업무_${label}.xlsx`); toast('완료 업무 히스토리를 Excel로 저장했어요');
   }else{
-    toast('PDF를 만드는 중…');
+    toast('상세 PDF를 만드는 중…');
     try{
       await document.fonts.ready;
-      const stage = $('exportStage'); stage.innerHTML = '';
-      const node = buildDoneA4(label, asc, arcDoneData.total);
-      stage.appendChild(node);
-      await new Promise(r => setTimeout(r, 300));
-      const canvas = await html2canvas(node, {scale:2, backgroundColor:'#FBF2E1'});
-      stage.innerHTML = '';
-      downloadBlob(canvasToPdfBlob(canvas), `완료업무_${label}.pdf`);
-      toast('PDF를 저장했어요');
+      const stage=$('exportStage'); stage.innerHTML='';
+      const node=buildDoneA4(label,records); stage.appendChild(node);
+      await new Promise(r=>setTimeout(r,300));
+      const canvas=await html2canvas(node,{scale:2,backgroundColor:'#FBF2E1'});
+      stage.innerHTML=''; downloadBlob(canvasToPdfBlob(canvas),`완료업무_${label}.pdf`);
+      toast('완료 업무 상세 PDF를 저장했어요');
     }catch(e){ $('exportStage').innerHTML=''; toast('PDF 생성 실패: '+e.message); }
   }
 }
@@ -6372,6 +6545,7 @@ async function askPin(titleText){
 let pinResolver = null, pinCanceler = null;
 
 $('arcDiaryBtn').onclick = async () => {
+  searchQ = ''; $('searchIn').value = '';
   if(arcDiary){                                 // 끄기(잠금은 유지, 3분 뒤 자동 잠금 예약)
     arcDiary = false; armLock(); refreshArchive(); return;
   }
@@ -8706,7 +8880,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','perModal','delayModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','perModal','delayModal','doneLibModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -8727,7 +8901,7 @@ function closeOneOverlay(){
     if(el.id === 'confirmModal'){ finishChoice(null); return true; }
     /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
     const closer = {askModal:'askCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
-      bankModal:'bankClose', diaryModal:'diaryClose', fontModal:'fontClose', themeModal:'themeClose',
+      bankModal:'bankClose', diaryModal:'diaryClose', doneLibModal:'doneLibClose', fontModal:'fontClose', themeModal:'themeClose',
       backupModal:'bkCancel', settingsMenu:'setClose', exportMenu:'expClose',
       diaryExpMenu:'dexClose', undoModal:'undoClose', aiModal:'aiClose', delayModal:'delayClose', perModal:'perClose'}[el.id];
     if(closer && $(closer)) $(closer).click();
@@ -8751,6 +8925,7 @@ window.addEventListener('popstate', () => {
     renderCats(); renderInbox(); renderPriv(); return; }
   if(peekOpen){ peekOpen = false;            // ③ 목표 펼침 닫기
     $('goalPeekBox').classList.add('hidden'); return; }
+  if(arcDone && !$('archiveView').classList.contains('hidden')){ arcDone=false; searchQ=''; $('searchIn').value=''; refreshArchive(); return; }
   if($('todayView').classList.contains('hidden')){ switchTab('today'); return; }   // ④ 목록 탭으로
   if(curDate !== todayStr()){ loadDay(todayStr()); return; }                        // ⑤ 오늘로
 
