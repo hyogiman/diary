@@ -2169,10 +2169,11 @@ function calendarUx(stage, action='반영'){
 /* 완료 상태 변경 공통 규칙
    - Diary 시간표는 즉시 흐리게/복원한다.
    - Google Calendar에는 새 일정을 만들지 않고, 이미 연결된 일정의 제목(✔)만 PATCH한다. */
-function reflectTaskCompletion(t, cat){
+async function reflectTaskCompletion(t, cat){
   setTimeout(refreshDelayButtons, 0);
   if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache || []);
-  if(t && t.gcalId) syncTaskToCalendar(t, cat);
+  if(t && t.gcalId) return await syncTaskToCalendar(t, cat);
+  return true;
 }
 
 
@@ -2442,8 +2443,9 @@ async function pushUndo(ds, data, why){
 }
 
 async function saveNow(){
-  if(!dirty || !USER) return;
-  if(!dayOwner){ dirty = false; return; }     /* 어느 날짜의 내용인지 확정 전이면 저장하지 않는다 */
+  if(!dirty) return true;                     /* 저장할 것이 없으면 이미 안전한 상태 */
+  if(!USER) return false;
+  if(!dayOwner){ dirty = false; return false; }     /* 어느 날짜의 내용인지 확정 전이면 저장하지 않는다 */
   dirty = false;
   const ds = dayOwner;                        /* 화면이 다른 날짜로 옮겨가도 내용은 제 날짜에 저장 */
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
@@ -2462,9 +2464,11 @@ async function saveNow(){
     patchYearCache(ds, isEmpty ? null : clean);      /* 캐시를 통째로 버리지 않고 그 날짜만 손본다 */
     try{ await idbDel(dayKey(ds)); await removePending('day:'+ds); }catch(e){}   // 서버 완료 → 기기 임시본 삭제
     $('saveState').textContent = '✓ 저장됨 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
+    return true;
   }catch(e){                                  // ② 실패했을 때만 기기에 임시 보관
     try{ await idbSet(dayKey(ds), {__ts: Date.now(), __del: isEmpty, data: isEmpty? null : clean}); await addPending('day:'+ds); }catch(e2){}
     $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
+    return false;
   }
 }
 async function flushSave(){ clearTimeout(saveTimer); await saveNow(); clearTimeout(inboxTimer); await saveInbox(); clearTimeout(privTimer); await savePriv(); clearTimeout(goalTimer); await saveGoals(); clearTimeout(bankTimer); await saveBank(); clearTimeout(vacTimer); await saveVacs(); clearTimeout(evtTimer); await saveEvents(); }
@@ -2799,30 +2803,44 @@ function taskRow(t, ctx){
       </div>
     </div>`;
   bindDelayBtn(row, t, ctx);
-  row.querySelector('.chk').onclick = () => {
-    if(ctx.priv && !t.done){ completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
-    if(ctx.inbox && !ctx.priv && !t.done){ completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
+  row.querySelector('.chk').onclick = async () => {
+    if(ctx.priv && !t.done){ await completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
+    if(ctx.inbox && !ctx.priv && !t.done){ await completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
     if(t.done && t.from && !ctx.inbox){ uncompleteBack(t, ctx); return; }         // 완료 해제 → 원래 함으로
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
-    reflectTaskCompletion(t, ctx.cat);
-    if(t.done && !ctx.inbox) clearCarriedCopies(t, ctx.cat, curDate);   // 이월본 정리
+    clearTimeout(saveTimer);
+    const diarySaved = await saveNow();             /* 완료 상태는 Diary 저장을 먼저 확정 */
+    if(!diarySaved){
+      toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요');
+      return;
+    }
+    if(t.done && !ctx.inbox) await clearCarriedCopies(t, ctx.cat, curDate);   // 이월본 정리
+    await reflectTaskCompletion(t, ctx.cat);         /* Diary 확정 뒤 Calendar PATCH */
   };
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
-  row.querySelector('.status-chip').onclick = () => {
+  row.querySelector('.status-chip').onclick = async () => {
     const i = STATUS.findIndex(s=>s.k===t.status);
     const next = STATUS[(i+1)%STATUS.length].k;
-    if(ctx.priv && next==='done'){ completePriv(t, ctx.idx); return; }
-    if(ctx.inbox && !ctx.priv && next==='done'){ completeInbox(t, ctx.idx); return; }
+    if(ctx.priv && next==='done'){ await completePriv(t, ctx.idx); return; }
+    if(ctx.inbox && !ctx.priv && next==='done'){ await completeInbox(t, ctx.idx); return; }
     const wasDone = t.done;
     t.status = next;
     t.done = t.status==='done';
     if(ctx.inbox) t.doneAt = t.done? todayStr() : '';
     ctx.save(); ctx.rerender();
-    if(wasDone !== t.done) reflectTaskCompletion(t, ctx.cat);
-    if(t.done && !ctx.inbox) clearCarriedCopies(t, ctx.cat, curDate);
+    if(wasDone !== t.done){
+      clearTimeout(saveTimer);
+      const diarySaved = await saveNow();           /* 완료 진입/해제는 Diary 먼저 */
+      if(!diarySaved){
+        toast('Diary 서버 저장이 확인되지 않아 Calendar 상태 반영은 보류했어요');
+        return;
+      }
+      if(t.done && !ctx.inbox) await clearCarriedCopies(t, ctx.cat, curDate);
+      await reflectTaskCompletion(t, ctx.cat);
+    }
   };
   /* 날짜는 상세(📝) 안에서만 고친다 — 목록에서는 보여 주기만 */
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
@@ -4916,7 +4934,8 @@ function markInbox(){
   inboxTimer = setTimeout(saveInbox, 800);
 }
 async function saveInbox(){
-  if(!inboxDirty || !USER) return;
+  if(!inboxDirty) return true;
+  if(!USER) return false;
   inboxDirty = false;
   const clean = JSON.parse(JSON.stringify(inbox, (k,v)=> k==='open'? undefined : v));
   const ts = Date.now();
@@ -4925,8 +4944,10 @@ async function saveInbox(){
     else await db.ref(`diaries/${USER.uid}/inbox`).remove();
     await db.ref(`diaries/${USER.uid}/inboxTs`).set(ts);
     try{ await idbDel(inboxKey()); await removePending('inbox'); }catch(e){}
+    return true;
   }catch(e){
     try{ await idbSet(inboxKey(), {__ts: ts, data: clean}); await addPending('inbox'); }catch(e2){}
+    return false;
   }
 }
 let inboxOpen = false;
@@ -4969,16 +4990,42 @@ $('inboxAddBtn').onclick = () => {
   if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 /* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
-function completeInbox(t, idx){
+async function completeInbox(t, idx){
+  /* 데이터 유실 방지: 완료본을 날짜 일지에 먼저 저장하고, 성공한 뒤 원본을 기타 업무함에서 뺀다. */
   let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
-  if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, tasks:[]}; day.cats.push(target); }
+  const madeTarget = !target;
+  if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, note:'', files:[], tasks:[]}; day.cats.push(target); }
   const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'inbox'};
   target.tasks.push(completed);
-  inbox.splice(idx,1);
-  markDirty(); markInbox(); renderAll();
-  reflectTaskCompletion(completed, target);
+  markDirty();
+  clearTimeout(saveTimer);
+  const daySaved = await saveNow();
+  if(!daySaved){
+    /* 서버 확정 실패면 원본은 절대 지우지 않는다. 화면의 임시 완료본도 되돌린다. */
+    const ci = target.tasks.indexOf(completed);
+    if(ci >= 0) target.tasks.splice(ci,1);
+    if(madeTarget && !target.tasks.length){ const ti = day.cats.indexOf(target); if(ti >= 0) day.cats.splice(ti,1); }
+    markDirty(); clearTimeout(saveTimer); await saveNow();
+    renderAll();
+    toast('완료 기록을 Diary 서버에 저장하지 못해 원본 업무를 그대로 유지했어요');
+    return false;
+  }
+
+  const liveIdx = inbox.indexOf(t);
+  if(liveIdx >= 0) inbox.splice(liveIdx,1);
+  else if(idx >= 0 && idx < inbox.length) inbox.splice(idx,1);
+  markInbox();
+  clearTimeout(inboxTimer);
+  const inboxSaved = await saveInbox();
+  renderAll();
+
+  /* 날짜 일지에 완료본이 확정된 뒤에만 Google Calendar를 완료로 바꾼다. */
+  await reflectTaskCompletion(completed, target);
   const d = new Date(curDate+'T12:00:00');
-  toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
+  toast(inboxSaved
+    ? `완료! ${d.getMonth()+1}/${d.getDate()} 일지에 안전하게 기록했어요`
+    : `완료 기록은 ${d.getMonth()+1}/${d.getDate()} 일지에 저장됐고, 기타 업무함 정리는 연결 후 자동 반영돼요`);
+  return true;
 }
 
 /* 옮겨 갈 수 있는 곳 — 지금 있는 자리는 뺀다 */
@@ -5045,16 +5092,40 @@ function uncompleteBack(t, ctx){
 }
 
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
-function completePriv(t, idx){
+async function completePriv(t, idx){
+  /* 개인 용무도 같은 원칙: 날짜 일지 완료본을 먼저 확정한 뒤 원본을 제거한다. */
   let target = day.cats.find(c => c.priv);
-  if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, tasks:[]}; day.cats.push(target); }
+  const madeTarget = !target;
+  if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, note:'', files:[], tasks:[]}; day.cats.push(target); }
   const completed = {...normTask(t), id:uid8(), done:true, status:'done', doneAt:curDate, from:'priv'};
   target.tasks.push(completed);
-  priv.splice(idx,1);
-  markDirty(); markPriv(); renderAll();
-  reflectTaskCompletion(completed, target);
+  markDirty();
+  clearTimeout(saveTimer);
+  const daySaved = await saveNow();
+  if(!daySaved){
+    const ci = target.tasks.indexOf(completed);
+    if(ci >= 0) target.tasks.splice(ci,1);
+    if(madeTarget && !target.tasks.length){ const ti = day.cats.indexOf(target); if(ti >= 0) day.cats.splice(ti,1); }
+    markDirty(); clearTimeout(saveTimer); await saveNow();
+    renderAll();
+    toast('완료 기록을 Diary 서버에 저장하지 못해 원본 용무를 그대로 유지했어요');
+    return false;
+  }
+
+  const liveIdx = priv.indexOf(t);
+  if(liveIdx >= 0) priv.splice(liveIdx,1);
+  else if(idx >= 0 && idx < priv.length) priv.splice(idx,1);
+  markPriv();
+  clearTimeout(privTimer);
+  const privSaved = await savePriv();
+  renderAll();
+
+  await reflectTaskCompletion(completed, target);
   const d = new Date(curDate+'T12:00:00');
-  toast(`완료! ${d.getMonth()+1}/${d.getDate()} 일지에 기록했어요`);
+  toast(privSaved
+    ? `완료! ${d.getMonth()+1}/${d.getDate()} 일지에 안전하게 기록했어요`
+    : `완료 기록은 ${d.getMonth()+1}/${d.getDate()} 일지에 저장됐고, 개인 용무함 정리는 연결 후 자동 반영돼요`);
+  return true;
 }
 /* 구글 캘린더 등록 — 시간이 있으면 시간 일정, 없으면 종일 일정 */
 function calDates(t){
@@ -5698,25 +5769,33 @@ function renderPrio(){
         </div>
       </div>`;
     bindDelayBtn(row, t, {inbox:!!bx});
-    row.querySelector('.chk').onclick = () => {
-      if(bx==='inbox'){ completeInbox(t, inbox.indexOf(t)); return; }
-      if(bx==='priv'){ completePriv(t, priv.indexOf(t)); return; }
+    row.querySelector('.chk').onclick = async () => {
+      if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t)); return; }
+      if(bx==='priv'){ await completePriv(t, priv.indexOf(t)); return; }
       t.done = true; t.status = 'done'; markDirty(); renderCats();
-      reflectTaskCompletion(t, c);
-      clearCarriedCopies(t, c, curDate);
-      toast('완료! 다음 순위로 넘어가요');
+      clearTimeout(saveTimer);
+      const diarySaved = await saveNow();
+      if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
+      await clearCarriedCopies(t, c, curDate);
+      await reflectTaskCompletion(t, c);
+      toast('완료! Diary 저장 후 Calendar에 반영했어요');
     };
     row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
-    row.querySelector('.status-chip').onclick = () => {
+    row.querySelector('.status-chip').onclick = async () => {
       const k = STATUS.findIndex(x=>x.k===t.status);
       const next = STATUS[(k+1)%STATUS.length].k;
-      if(bx==='inbox' && next==='done'){ completeInbox(t, inbox.indexOf(t)); return; }
-      if(bx==='priv' && next==='done'){ completePriv(t, priv.indexOf(t)); return; }
+      if(bx==='inbox' && next==='done'){ await completeInbox(t, inbox.indexOf(t)); return; }
+      if(bx==='priv' && next==='done'){ await completePriv(t, priv.indexOf(t)); return; }
       const wasDone = t.done;
       t.status = next; t.done = t.status==='done';
       save(); renderCats();
-      if(wasDone !== t.done) reflectTaskCompletion(t, c);
-      if(t.done && c) clearCarriedCopies(t, c, curDate);
+      if(wasDone !== t.done){
+        clearTimeout(saveTimer);
+        const diarySaved = await saveNow();
+        if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 상태 반영은 보류했어요'); return; }
+        if(t.done && c) await clearCarriedCopies(t, c, curDate);
+        await reflectTaskCompletion(t, c);
+      }
     };
     row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
     const ptb = row.querySelector('.time-badge');
@@ -6328,7 +6407,8 @@ async function loadPriv(){
 }
 function markPriv(){ privDirty = true; clearTimeout(privTimer); privTimer = setTimeout(savePriv, 800); }
 async function savePriv(){
-  if(!privDirty || !USER) return;
+  if(!privDirty) return true;
+  if(!USER) return false;
   privDirty = false;
   const clean = JSON.parse(JSON.stringify(priv, (k,v)=> k==='open'? undefined : v));
   const ts = Date.now();
@@ -6337,8 +6417,10 @@ async function savePriv(){
     else await db.ref(`diaries/${USER.uid}/priv`).remove();
     await db.ref(`diaries/${USER.uid}/privTs`).set(ts);
     try{ await idbDel(privKey()); await removePending('priv'); }catch(e){}
+    return true;
   }catch(e){
     try{ await idbSet(privKey(), {__ts: ts, data: clean}); await addPending('priv'); }catch(e2){}
+    return false;
   }
 }
 function renderPriv(){
