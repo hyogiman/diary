@@ -2357,7 +2357,7 @@ $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden')
 /* ───────── 날짜 이동/로드 ───────── */
 let dayLoadSeq = 0, dayReady = false;
 let dayOwner = null;   /* 지금 메모리에 올라온 day 가 어느 날짜의 것인지 — 저장은 항상 이 날짜로 */
-async function loadDay(dateStr){
+async function loadDay(dateStr, opts={}){
   const seq = ++dayLoadSeq;                       /* 빠르게 여러 번 눌러도 마지막 것만 반영 */
   dayReady = false;
   $('sheet').classList.add('loading');
@@ -2371,13 +2371,29 @@ async function loadDay(dateStr){
   if(pending){ try{ local = await idbGet(dayKey(dateStr)); }catch(e){} }
   const localTs = local? (local.__ts||0) : 0;
   const localData = local? (local.data!==undefined? local.data : local) : null;
+
+  /* 완료 업무 라이브러리에서 날짜를 여는 경우에는 이미 getYear()로 받아 둔
+     같은 날짜의 서버 데이터를 먼저 쓴다. 과거 날짜를 다시 단독 GET 하다가
+     순간 타임아웃이 나서 빈 '오프라인 일지'가 뜨는 현상을 막기 위한 경로다.
+     이후 attachDayListener()가 updatedAt을 확인하므로 서버에 더 최신본이 있으면 자동 보정된다. */
+  const yy = +dateStr.slice(0,4), mm = dateStr.slice(5,7), dd = dateStr.slice(8,10);
+  const cachedYear = (typeof yearCache !== 'undefined' && yearCache[yy]) ? yearCache[yy] : null;
+  const cachedDay = cachedYear && cachedYear[mm] ? cachedYear[mm][dd] : null;
+  const useYearCache = !!(opts && opts.preferYearCache && !pending && cachedDay);
+
   let v = null, got = false;
-  try{
-    const snap = await withTimeout(dayRef(dateStr).get(), 5000);
-    v = snap.exists()? snap.val() : null;
-    got = true;
+  if(useYearCache){
+    v = JSON.parse(JSON.stringify(cachedDay));
+    got = true;                                    /* 방금 기록 탭에서 서버로 받아 둔 유효 데이터 */
     $('saveState').textContent = '';
-  }catch(e){}
+  }else{
+    try{
+      const snap = await withTimeout(dayRef(dateStr).get(), 5000);
+      v = snap.exists()? snap.val() : null;
+      got = true;
+      $('saveState').textContent = '';
+    }catch(e){}
+  }
   if(got && pending){
     const serverTs = (v && v.updatedAt) || 0;
     if(localTs > serverTs){                 // 기기 임시본이 더 최신 → 그 기준으로 보여주고 곧바로 동기화
@@ -6311,7 +6327,9 @@ $('doneLibOpenDay').onclick = async () => {
   prioMode=false;
   try{ localStorage.setItem('prioMode','0'); }catch(e){}
   switchTab('today');
-  await loadDay(target.doneDate);
+  /* 완료 라이브러리를 만들 때 이미 해당 연도/날짜를 서버에서 읽어 yearCache에 보관한다.
+     그 데이터를 우선 써서 과거 날짜 재조회 순간의 가짜 오프라인/빈 화면을 피한다. */
+  await loadDay(target.doneDate, {preferYearCache:true});
   /* renderSheet 직후 DOM이 만들어져 있지만 모바일 브라우저의 레이아웃 확정을 한 프레임 기다린다. */
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
     if(!scrollToDoneTask(target)) toast('완료일 일지는 열었지만 해당 업무 위치를 찾지 못했어요');
