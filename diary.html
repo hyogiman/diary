@@ -706,8 +706,28 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   padding:9px 12px;font-size:.82rem;font-weight:700;margin:0 auto 12px;max-width:900px}
 .ap-when{flex-wrap:wrap;gap:6px}
 .ap-due{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
-  padding:5px 8px;font-size:.84rem;color:var(--ink);font-family:inherit}
-.ap-whenhint{font-size:.76rem;color:var(--ink-soft);font-weight:700}
+  padding:7px 9px;font-size:.84rem;color:var(--ink);font-family:inherit}
+/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 Calendar에 들어갈 최종 결과 */
+.ap-schedule{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.9fr);gap:14px;
+  align-items:stretch;margin-bottom:10px}
+.ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
+.ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
+.ap-schedule-row .ap-title{white-space:nowrap}
+.ap-schedule-controls{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
+.ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 145px;min-width:120px}
+.ap-schedule-controls .ap-dur{flex:0 0 auto}
+.ap-schedule-clear{flex:none;padding-inline:10px}
+.ap-schedule-clear:disabled{opacity:.38;cursor:default}
+.ap-schedule-result{border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);
+  padding:11px 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.ap-schedule-result-label{font-size:.69rem;font-weight:800;color:var(--ink-soft);margin-bottom:4px;letter-spacing:.02em}
+.ap-whenhint{font-size:.98rem;color:var(--accent-deep);font-weight:900;line-height:1.35;overflow-wrap:anywhere}
+.ap-schedule-result-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:9px;
+  border-top:1px solid var(--rule)}
+.ap-schedule-alarm{display:inline-flex;align-items:center;gap:6px;min-width:0}
+.ap-schedule-alarm-label{font-size:.76rem;font-weight:800;color:var(--accent-deep);white-space:nowrap}
+.ap-schedule-result-tools .ap-alarm{min-width:110px}
+.ap-schedule-result-tools .ap-cal,.ap-schedule-result-tools .ap-caldone{margin-left:auto}
 .ap-cal.edit{background:var(--amber);border-color:var(--amber);color:#fff}
 .due-chip.view{cursor:default;opacity:.9}
 .ap-move{margin-left:auto;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
@@ -1395,6 +1415,10 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .task-meta .due-chip{min-width:46px;padding:5px 8px}
   .task-text{min-width:0}
   .attach-panel{margin-left:0}
+  .ap-schedule{grid-template-columns:1fr;gap:10px}
+  .ap-schedule-row{grid-template-columns:82px minmax(0,1fr)}
+  .ap-schedule-result{padding:10px 11px}
+  .ap-schedule-result-tools .ap-cal,.ap-schedule-result-tools .ap-caldone{margin-left:0}
   /* 상단: 제목+탭 한 줄, 아이콘 5개는 아래 줄에 고르게 */
   .topbar-in{gap:8px;row-gap:8px}
   .brand{font-size:1.05rem;padding:3px 4px}
@@ -1424,6 +1448,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .section-star .actions .mini-btn{padding:6px 10px;font-size:.76rem}
 }
 @media (max-width:400px){
+  .ap-schedule-row{grid-template-columns:1fr;gap:5px}
+  .ap-schedule-controls{gap:5px}
+  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 120px;min-width:100px}
+  .ap-schedule-result-tools{align-items:flex-start}
+  .ap-schedule-alarm{flex:1 1 100%}
   /* 업무 상단 버튼 셋 — 좁으면 글자를 줄여 한 줄에 담는다 */
   .actions .mini-btn{padding:6px 9px;font-size:.75rem}
   /* 아주 좁은 화면 — 글씨 크기는 그대로 두고 여백만 줄여 배지를 한 줄에 담는다 */
@@ -1773,7 +1802,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <label><input type="radio" name="bkFmt" value="png"> 이미지(PNG)</label>
     </div>
     <div class="bk-row"><label><input type="checkbox" id="bkIncAudio" checked> 녹음 원본 파일 포함 <span style="font-weight:400;color:var(--ink-soft)">(PDF에는 소리가 담기지 않아요)</span></label></div>
-    <div class="bk-row"><label><input type="checkbox" id="bkIncJson" checked> 데이터(JSON) 포함 <span style="font-weight:400;color:var(--ink-soft)">(나중에 복원 가능)</span></label></div>
+    <div class="bk-row"><label><input type="checkbox" id="bkIncJson" checked> 데이터(JSON) 포함 <span style="font-weight:400;color:var(--ink-soft)">(날짜별 기록 + 목표·보관함·장기메모·포스트잇 등 복원 가능)</span></label></div>
     <div class="bk-row warn"><label><input type="checkbox" id="bkDelete"> ⚠ 백업 완료 후 해당 월 데이터 삭제 (용량 확보)</label></div>
     <div id="bkProgWrap" class="hidden">
       <div id="bkProgText"></div>
@@ -3051,29 +3080,45 @@ function taskRow(t, ctx){
     const panel = document.createElement('div');
     panel.className = 'attach-panel';
     panel.innerHTML = `
-      <div class="ap-head ap-when">
-        <span class="ap-title">📅 언제</span>
-        <input class="ap-due" type="date" value="${t.due||''}" title="하는 날 — 비우면 보고 있는 날">
-        ${t.due? '<button class="mini-btn ap-dclr">✕ 날짜 지우기</button>':''}
-        <span class="ap-whenhint">${calWhenHint(t)}</span>
-        ${(() => { const st = calBtnState(t);
-          if(st === 'none') return '';
-          if(st === 'new')  return '<button class="mini-btn ap-cal">📅 캘린더 등록</button>';
-          if(st === 'edit') return '<button class="mini-btn ap-cal edit">🔄 캘린더 수정</button>';
-          return '<span class="mini-btn ap-caldone" title="캘린더와 같은 상태예요">✓ 캘린더 등록완료</span>';
-        })()}
-      </div>
-      <div class="ap-head" style="margin-bottom:8px">
-        <span class="ap-title">⏰ 실행 시간 <span style="font-weight:600;color:var(--ink-soft)">(오늘)</span></span>
-        <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.85rem">
-        <select class="ap-dur" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
-          ${DURS.map(([m,l])=>`<option value="${m}" ${t.dur===m?'selected':''}>${l}</option>`).join('')}
-        </select>
-        <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
-          ${[[-1,'알림 없음'],[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전']]
-            .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>🔔 ${l}</option>`).join('')}
-        </select>
-        <button class="mini-btn ap-tclr" ${t.time? '':'disabled'}>✕ 시간 지우기</button>
+      <div class="ap-schedule">
+        <div class="ap-schedule-edit">
+          <div class="ap-schedule-row">
+            <span class="ap-title">📅 날짜</span>
+            <div class="ap-schedule-controls">
+              <input class="ap-due" type="date" value="${t.due||''}" title="하는 날 — 비우면 보고 있는 날">
+              <button class="mini-btn ap-dclr ap-schedule-clear" ${t.due? '':'disabled'}>✕ 지우기</button>
+            </div>
+          </div>
+          <div class="ap-schedule-row">
+            <span class="ap-title">⏰ 실행 시간</span>
+            <div class="ap-schedule-controls">
+              <input type="time" class="ap-time" value="${t.time}" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:7px 9px;font-size:.85rem">
+              <select class="ap-dur" title="소요 시간" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:7px 9px;font-size:.8rem">
+                ${DURS.map(([m,l])=>`<option value="${m}" ${t.dur===m?'selected':''}>${l}</option>`).join('')}
+              </select>
+              <button class="mini-btn ap-tclr ap-schedule-clear" ${t.time? '':'disabled'}>✕ 지우기</button>
+            </div>
+          </div>
+        </div>
+        <div class="ap-schedule-result">
+          <div class="ap-schedule-result-label">일정 결과</div>
+          <div class="ap-whenhint">${calWhenHint(t)}</div>
+          <div class="ap-schedule-result-tools">
+            <label class="ap-schedule-alarm">
+              <span class="ap-schedule-alarm-label">🔔 알람</span>
+              <select class="ap-alarm" title="알림" style="border:1.5px solid var(--rule);border-radius:8px;background:var(--field);padding:6px 8px;font-size:.8rem">
+                ${[[-1,'알림 없음'],[0,'정시'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'하루 전']]
+                  .map(([m,l])=>`<option value="${m}" ${ (t.alarm===undefined? 10 : t.alarm)===m ?'selected':''}>${l}</option>`).join('')}
+              </select>
+            </label>
+            ${(() => { const st = calBtnState(t);
+              if(st === 'none') return '';
+              if(st === 'new')  return '<button class="mini-btn ap-cal">📅 캘린더 등록</button>';
+              if(st === 'edit') return '<button class="mini-btn ap-cal edit">🔄 캘린더 수정</button>';
+              return '<span class="mini-btn ap-caldone" title="캘린더와 같은 상태예요">✓ 캘린더 등록완료</span>';
+            })()}
+          </div>
+        </div>
       </div>
       ${ctx.priv
         ? `<div class="tg-row">
@@ -5045,6 +5090,35 @@ function audioExt(f){
   return m.includes('mp4')? '.m4a' : m.includes('webm')? '.webm' : m.includes('mpeg')? '.mp3' : '.audio';
 }
 
+/* 날짜에 묶이지 않는 사용자 기록도 월별 ZIP 안에 공통 백업으로 한 번 넣는다.
+   인증/설정/Calendar 비밀값은 의도적으로 제외한다. */
+const BK_GLOBAL_COLLECTIONS = [
+  ['inbox',    '보관함'],
+  ['priv',     '개인 용무함'],
+  ['goals',    '목표'],
+  ['bank',     '장기메모'],
+  ['stickies', '포스트잇'],
+  ['stickyPix','포스트잇 내부 사진'],
+  ['vacs',     '휴가'],
+  ['dayEvents','기념일·날짜 아이콘']
+];
+async function collectGlobalBackupData(){
+  const out = {};
+  for(const [path,label] of BK_GLOBAL_COLLECTIONS){
+    try{
+      const waitMs = path==='stickyPix' ? 15000 : 8000;
+      const snap = await withTimeout(db.ref(`diaries/${USER.uid}/${path}`).get(), waitMs);
+      out[path] = snap.exists() ? snap.val() : null;
+    }catch(e){
+      throw new Error(`${label} 백업 데이터를 읽지 못했습니다`);
+    }
+  }
+  return out;
+}
+function globalBackupLabels(collections){
+  return BK_GLOBAL_COLLECTIONS.filter(([k])=>Object.prototype.hasOwnProperty.call(collections||{},k)).map(([,label])=>label);
+}
+
 $('bkStart').onclick = async () => {
   if(bkRunning) return;
   const months = [...bkSel].sort();
@@ -5064,12 +5138,24 @@ $('bkStart').onclick = async () => {
   $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
   try{
     await flushSave();
+    /* flushSave()와 별도 타이머를 쓰는 포스트잇도 백업 직전에 확실히 저장한다. */
+    clearTimeout(stickyTimer);
+    if(stickyDirty) await saveStickies();
     await document.fonts.ready;
     const yd = await getYear(bkYear);
     const total = months.reduce((s,mm)=> s + (yd[mm]? Object.keys(yd[mm]).length : 0), 0);
     if(!total) throw new Error('선택한 월에 기록이 없습니다');
     const zip = new JSZip();
     let done = 0;
+
+    if(incJson){
+      bkProgress(1, '목표·보관함·장기메모·포스트잇 등 공통 데이터 읽는 중…');
+      const collections = await collectGlobalBackupData();
+      zip.file('공통데이터.json', JSON.stringify({
+        app:'inhyeok-diary', ver:2, kind:'global',
+        exportedAt:new Date().toISOString(), collections
+      }, null, 2));
+    }
 
     for(const mm of months){
       if(bkAbort) throw new Error('abort');
@@ -5155,7 +5241,43 @@ $('bkRestore').onclick = () => {
   pickFile('.json,application/json', async file => {
     try{
       const obj = JSON.parse(await file.text());
-      if(obj.app!=='inhyeok-diary' || !obj.days) throw new Error('이 앱의 백업 JSON이 아닙니다');
+      if(obj.app!=='inhyeok-diary') throw new Error('이 앱의 백업 JSON이 아닙니다');
+
+      /* ZIP 루트의 공통데이터.json — 날짜 비종속 기록 복원 */
+      if(obj.kind==='global' && obj.collections && typeof obj.collections==='object'){
+        const allowed = BK_GLOBAL_COLLECTIONS.map(([k])=>k);
+        const keys = allowed.filter(k=>Object.prototype.hasOwnProperty.call(obj.collections,k));
+        if(!keys.length) throw new Error('복원할 공통 데이터가 없습니다');
+        const labels = globalBackupLabels(obj.collections);
+        if(!(await askConfirm(
+          `백업에 들어 있는 ${labels.join(' · ')} 데이터를 현재 앱에 복원합니다.\n` +
+          `해당 항목의 현재 내용은 백업 시점 상태로 바뀝니다. 계속할까요?`,
+          {title:'📂 공통 데이터 복원', ok:'복원하기', danger:true}
+        ))) return;
+
+        const updates = {};
+        keys.forEach(k => updates[k] = obj.collections[k] == null ? null : obj.collections[k]);
+        await db.ref(`diaries/${USER.uid}`).update(updates);
+
+        /* 실시간 리스너가 저장 중 상태로 오인하지 않게 로컬 dirty 상태를 먼저 정리한다. */
+        inboxDirty = privDirty = goalDirty = bankDirty = stickyDirty = vacDirty = evtDirty = false;
+        stickyPix = {};
+        await loadInbox();
+        await loadPriv();
+        await loadGoals();
+        await loadBank();
+        await loadStickies();
+        await loadVacs();
+        await loadEvents();
+        renderAll();
+        if(typeof renderGoals==='function') renderGoals();
+        if(typeof renderBankList==='function') renderBankList();
+        if(!$('archiveView').classList.contains('hidden')) renderArchive();
+        toast(`공통 데이터 ${labels.length}종을 복원했어요`);
+        return;
+      }
+
+      if(!obj.days) throw new Error('이 앱의 날짜별 백업 JSON이 아닙니다');
       const {year, month, days} = obj;
       const dds = Object.keys(days);
       const exist = await db.ref(`diaries/${USER.uid}/${year}/${month}`).get();
@@ -6148,6 +6270,8 @@ function dedupeDelays(history){
   return out.sort((a,b)=>(a.date||'').localeCompare(b.date||''));
 }
 function collectDoneLibrary(yd){
+  /* 완료 라이브러리를 기록 탭 밖의 경로에서 먼저 열어도 월 필터가 null이 되지 않게 방어한다. */
+  if(arcDoneScope==='month' && !arcMonth) arcMonth = curDate.slice(5,7);
   const lines = new Map();
   Object.keys(yd||{}).sort().forEach(mm => {
     const month = yd[mm] || {};
