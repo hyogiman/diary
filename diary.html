@@ -2573,12 +2573,6 @@ async function loadDay(dateStr, opts={}){
   }
   if(seq !== dayLoadSeq) return;                  /* 그새 다른 날짜를 눌렀으면 이 결과는 버린다 */
   day = v ? normalize(v) : emptyDay();
-  /* 날짜별 Daily Log는 그 날짜 자체가 실행일이다.
-     예전 자료에 time만 있고 timeDay가 없으면 안전하게 해당 일지 날짜로 보완한다. */
-  let timeDayBackfilled = false;
-  (day.cats||[]).forEach(c => (c.tasks||[]).forEach(t => {
-    if(t.time && !t.timeDay){ t.timeDay = dateStr; timeDayBackfilled = true; }
-  }));
   dayOwner = dateStr;                             /* 이제부터 이 내용은 이 날짜의 것 */
   dayBase = v ? JSON.parse(JSON.stringify(v)) : null;   /* 되돌리기 기준 */
   curTs = (v && v.updatedAt) || 0;
@@ -2586,7 +2580,6 @@ async function loadDay(dateStr, opts={}){
   $('sheet').classList.remove('loading');
   renderDate(); renderSheet();
   attachDayListener(dateStr);
-  if(timeDayBackfilled) markDirty();              /* 보완한 timeDay를 서버에도 저장 */
 }
 function normTask(t){
   t = t || {};
@@ -3316,10 +3309,8 @@ function taskRow(t, ctx){
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
     qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
-      const v = e.target.value;
-      t.time = v;
-      t.timeDay = v ? (ctx.inbox ? todayStr() : curDate) : '';      /* 시간에는 반드시 실행일을 함께 기록 */
-      ctx.save(); ctx.rerender();
+      if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
+      t.time = e.target.value; ctx.save(); ctx.rerender();
       /* 캘린더로는 바로 보내지 않는다 — '📅 캘린더 등록/수정'을 눌러야 반영된다 */
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
@@ -3340,7 +3331,7 @@ function taskRow(t, ctx){
       }
       clearSchedulePending(t);
       t.time='';
-      t.timeDay='';
+      if(ctx.inbox) t.timeDay = '';
       ctx.save(); ctx.rerender();
       refreshScheduleDrawer();
       if(hadCalendarEvent) calendarUx('done', '삭제');
@@ -8301,7 +8292,7 @@ $('evSave').onclick = async () => {
     let linked = false, linkedWrites = [];
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === evEditing.id){
-        t.time = v; t.timeDay = curDate; t.dur = mins;
+        t.time = v; t.dur = mins;
         const pre = `[${c.name.trim()}] `;
         t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
         linked = true;
@@ -8348,7 +8339,7 @@ $('evDelete').onclick = async () => {
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === deleting.id){
-        t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; t.time = ''; t.timeDay = ''; linked = true;
+        t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; t.time = ''; linked = true;
       }
     }));
     (inbox||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.gcalSig=''; t.time=''; t.timeDay=''; linked=true; } });
