@@ -711,24 +711,24 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .ap-when{flex-wrap:wrap;gap:6px}
 .ap-due{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:7px 9px;font-size:.84rem;color:var(--ink);font-family:inherit}
-/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 최종 일정/알람/Calendar를 한 줄로 */
-.ap-schedule{display:grid;grid-template-columns:minmax(360px,.92fr) minmax(430px,1.08fr);gap:12px;
+/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 일정 요약 + 보조 설정 2줄 */
+.ap-schedule{display:grid;grid-template-columns:minmax(350px,.94fr) minmax(390px,1.06fr);gap:12px;
   align-items:stretch;margin-bottom:10px}
 .ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
 .ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
 .ap-schedule-row .ap-title{white-space:nowrap}
 .ap-schedule-controls{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:nowrap}
-.ap-schedule-controls .ap-due{flex:1 1 170px;min-width:130px;max-width:230px}
-.ap-schedule-controls .ap-time{flex:1 1 110px;min-width:96px;max-width:155px}
-.ap-schedule-controls .ap-dur{flex:0 0 92px;min-width:82px}
+.ap-schedule-controls .ap-due{flex:1 1 165px;min-width:125px;max-width:220px}
+.ap-schedule-controls .ap-time{flex:1 1 105px;min-width:92px;max-width:145px}
+.ap-schedule-controls .ap-dur{flex:0 0 90px;min-width:80px}
 .ap-schedule-clear{flex:none;padding-inline:9px}
 .ap-schedule-clear:disabled{opacity:.38;cursor:default}
 .ap-schedule-result{border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);
-  padding:10px 11px;display:flex;align-items:center;gap:10px;min-width:0}
-.ap-schedule-summary{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto}
+  padding:9px 11px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-width:0}
+.ap-schedule-summary{display:flex;align-items:center;gap:7px;min-width:0;width:100%}
 .ap-schedule-result-label{font-size:.72rem;font-weight:900;color:var(--ink-soft);letter-spacing:.02em;white-space:nowrap}
 .ap-whenhint{font-size:.91rem;color:var(--accent-deep);font-weight:900;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ap-schedule-result-tools{display:flex;align-items:center;gap:6px;flex:none;min-width:0;white-space:nowrap}
+.ap-schedule-result-tools{display:flex;align-items:center;gap:8px;width:100%;min-width:0;white-space:nowrap;flex-wrap:nowrap}
 .ap-schedule-alarm{display:inline-flex;align-items:center;gap:5px;min-width:0}
 .ap-schedule-alarm-label{font-size:.74rem;font-weight:800;color:var(--accent-deep);white-space:nowrap}
 .ap-schedule-result-tools .ap-alarm{width:103px;min-width:103px}
@@ -1424,8 +1424,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .ap-schedule-row{grid-template-columns:82px minmax(0,1fr)}
   .ap-schedule-controls{flex-wrap:wrap}
   .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{max-width:none}
-  .ap-schedule-result{padding:10px 11px;flex-wrap:wrap;row-gap:8px}
-  .ap-schedule-summary{flex:1 1 100%}
+  .ap-schedule-result{padding:9px 11px;gap:8px}
+  .ap-schedule-summary{width:100%}
   .ap-schedule-result-tools{width:100%;justify-content:flex-start;flex-wrap:wrap}
   /* 상단: 제목+탭 한 줄, 아이콘 5개는 아래 줄에 고르게 */
   .topbar-in{gap:8px;row-gap:8px}
