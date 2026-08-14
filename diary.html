@@ -717,12 +717,13 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .ap-schedule{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;
   align-items:stretch;margin-bottom:10px}
 .ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
-.ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
+.ap-schedule-row{display:grid;grid-template-columns:70px minmax(0,1fr);gap:6px;align-items:center;min-width:0}
 .ap-schedule-row .ap-title{white-space:nowrap}
-/* 날짜 행과 실행시간 행의 입력영역 총폭을 같게 맞춘다.
-   날짜 input 한 칸의 폭 = 실행시각 + 소요시간 두 칸의 합. 지우기 버튼은 같은 위치에 정렬된다. */
+/* 날짜/실행시간 라벨과 입력칸 사이의 빈 공간을 줄이고,
+   확보한 폭은 입력영역에 돌린다. 날짜 input 한 칸의 폭 = 실행시각 + 소요시간 두 칸의 합이며
+   두 행의 지우기 버튼은 같은 위치에 정렬된다. */
 .ap-schedule-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;
-  width:min(100%,390px);min-width:0}
+  width:min(100%,425px);min-width:0}
 .ap-schedule-row:nth-child(2) .ap-schedule-controls{grid-template-columns:minmax(0,1fr) 96px auto}
 .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{width:100%;min-width:0;max-width:none;box-sizing:border-box}
 .ap-schedule-controls .ap-dur{width:96px;min-width:0;box-sizing:border-box}
@@ -1426,7 +1427,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .task-text{min-width:0}
   .attach-panel{margin-left:0}
   .ap-schedule{grid-template-columns:1fr;gap:10px}
-  .ap-schedule-row{grid-template-columns:82px minmax(0,1fr)}
+  .ap-schedule-row{grid-template-columns:70px minmax(0,1fr);gap:6px}
   .ap-schedule-controls{width:100%}
   .ap-schedule-result{padding:9px 11px;gap:8px}
   .ap-schedule-summary{width:100%}
