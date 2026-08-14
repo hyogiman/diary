@@ -316,10 +316,12 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 .ov-del{font-size:1rem;color:var(--gray)}
 .ov-del:hover{background:#FBE7E2;color:var(--danger)}
 
-@media (max-width:980px){
+/* 좌우를 유지하기에 공간이 부족해지는 순간에는 일정 카드 전체를 다음 줄로 내린다. */
+@media (max-width:900px){
   .ap-schedule{grid-template-columns:1fr;gap:10px}
-  .ap-schedule-result{min-height:48px}
+  .ap-schedule-result{width:100%;min-height:48px}
 }
+
 @media (max-width:640px){
   .ov-card{gap:8px;padding:12px 11px;border-radius:12px}
   .ov-when{font-size:.82rem;padding:5px 9px}
@@ -711,17 +713,17 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .ap-when{flex-wrap:wrap;gap:6px}
 .ap-due{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:7px 9px;font-size:.84rem;color:var(--ink);font-family:inherit}
-/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 일정 요약 + 보조 설정 2줄 */
-.ap-schedule{display:grid;grid-template-columns:minmax(350px,.94fr) minmax(390px,1.06fr);gap:12px;
+/* 업무 상세의 일정 편집 — 왼쪽 입력 폭을 우선하고, 오른쪽은 2줄 일정 카드에 필요한 폭만 사용 */
+.ap-schedule{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;
   align-items:stretch;margin-bottom:10px}
 .ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
 .ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
 .ap-schedule-row .ap-title{white-space:nowrap}
-.ap-schedule-controls{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:nowrap}
-.ap-schedule-controls .ap-due{flex:1 1 165px;min-width:125px;max-width:220px}
-.ap-schedule-controls .ap-time{flex:1 1 105px;min-width:92px;max-width:145px}
-.ap-schedule-controls .ap-dur{flex:0 0 90px;min-width:80px}
-.ap-schedule-clear{flex:none;padding-inline:9px}
+.ap-schedule-controls{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:nowrap}
+.ap-schedule-controls .ap-due{flex:1 1 260px;min-width:170px;max-width:360px}
+.ap-schedule-controls .ap-time{flex:1 1 180px;min-width:130px;max-width:220px}
+.ap-schedule-controls .ap-dur{flex:0 0 96px;min-width:90px}
+.ap-schedule-clear{flex:none;padding-inline:10px}
 .ap-schedule-clear:disabled{opacity:.38;cursor:default}
 .ap-schedule-result{border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);
   padding:9px 11px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-width:0}
