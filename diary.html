@@ -316,6 +316,10 @@ body[data-theme="plum"] .cal-cell.holi.has{background:#5A3636}
 .ov-del{font-size:1rem;color:var(--gray)}
 .ov-del:hover{background:#FBE7E2;color:var(--danger)}
 
+@media (max-width:980px){
+  .ap-schedule{grid-template-columns:1fr;gap:10px}
+  .ap-schedule-result{min-height:48px}
+}
 @media (max-width:640px){
   .ov-card{gap:8px;padding:12px 11px;border-radius:12px}
   .ov-when{font-size:.82rem;padding:5px 9px}
@@ -707,27 +711,28 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .ap-when{flex-wrap:wrap;gap:6px}
 .ap-due{border:1.5px solid var(--rule);border-radius:8px;background:var(--field);
   padding:7px 9px;font-size:.84rem;color:var(--ink);font-family:inherit}
-/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 Calendar에 들어갈 최종 결과 */
-.ap-schedule{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(250px,.9fr);gap:14px;
+/* 업무 상세의 일정 편집 — 왼쪽은 입력, 오른쪽은 최종 일정/알람/Calendar를 한 줄로 */
+.ap-schedule{display:grid;grid-template-columns:minmax(360px,.92fr) minmax(430px,1.08fr);gap:12px;
   align-items:stretch;margin-bottom:10px}
 .ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
 .ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
 .ap-schedule-row .ap-title{white-space:nowrap}
-.ap-schedule-controls{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:wrap}
-.ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 145px;min-width:120px}
-.ap-schedule-controls .ap-dur{flex:0 0 auto}
-.ap-schedule-clear{flex:none;padding-inline:10px}
+.ap-schedule-controls{display:flex;align-items:center;gap:6px;min-width:0;flex-wrap:nowrap}
+.ap-schedule-controls .ap-due{flex:1 1 170px;min-width:130px;max-width:230px}
+.ap-schedule-controls .ap-time{flex:1 1 110px;min-width:96px;max-width:155px}
+.ap-schedule-controls .ap-dur{flex:0 0 92px;min-width:82px}
+.ap-schedule-clear{flex:none;padding-inline:9px}
 .ap-schedule-clear:disabled{opacity:.38;cursor:default}
 .ap-schedule-result{border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);
-  padding:11px 12px;display:flex;flex-direction:column;justify-content:center;min-width:0}
-.ap-schedule-result-label{font-size:.69rem;font-weight:800;color:var(--ink-soft);margin-bottom:4px;letter-spacing:.02em}
-.ap-whenhint{font-size:.98rem;color:var(--accent-deep);font-weight:900;line-height:1.35;overflow-wrap:anywhere}
-.ap-schedule-result-tools{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:9px;
-  border-top:1px solid var(--rule)}
-.ap-schedule-alarm{display:inline-flex;align-items:center;gap:6px;min-width:0}
-.ap-schedule-alarm-label{font-size:.76rem;font-weight:800;color:var(--accent-deep);white-space:nowrap}
-.ap-schedule-result-tools .ap-alarm{min-width:110px}
-.ap-schedule-result-tools .ap-cal,.ap-schedule-result-tools .ap-caldone{margin-left:auto}
+  padding:10px 11px;display:flex;align-items:center;gap:10px;min-width:0}
+.ap-schedule-summary{display:flex;align-items:center;gap:7px;min-width:0;flex:1 1 auto}
+.ap-schedule-result-label{font-size:.72rem;font-weight:900;color:var(--ink-soft);letter-spacing:.02em;white-space:nowrap}
+.ap-whenhint{font-size:.91rem;color:var(--accent-deep);font-weight:900;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ap-schedule-result-tools{display:flex;align-items:center;gap:6px;flex:none;min-width:0;white-space:nowrap}
+.ap-schedule-alarm{display:inline-flex;align-items:center;gap:5px;min-width:0}
+.ap-schedule-alarm-label{font-size:.74rem;font-weight:800;color:var(--accent-deep);white-space:nowrap}
+.ap-schedule-result-tools .ap-alarm{width:103px;min-width:103px}
+.ap-schedule-result-tools .ap-cal,.ap-schedule-result-tools .ap-caldone{margin-left:0;flex:none}
 .ap-cal.edit{background:var(--amber);border-color:var(--amber);color:#fff}
 .due-chip.view{cursor:default;opacity:.9}
 .ap-move{margin-left:auto;display:inline-flex;gap:5px;align-items:center;flex-wrap:wrap}
@@ -1417,8 +1422,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .attach-panel{margin-left:0}
   .ap-schedule{grid-template-columns:1fr;gap:10px}
   .ap-schedule-row{grid-template-columns:82px minmax(0,1fr)}
-  .ap-schedule-result{padding:10px 11px}
-  .ap-schedule-result-tools .ap-cal,.ap-schedule-result-tools .ap-caldone{margin-left:0}
+  .ap-schedule-controls{flex-wrap:wrap}
+  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{max-width:none}
+  .ap-schedule-result{padding:10px 11px;flex-wrap:wrap;row-gap:8px}
+  .ap-schedule-summary{flex:1 1 100%}
+  .ap-schedule-result-tools{width:100%;justify-content:flex-start;flex-wrap:wrap}
   /* 상단: 제목+탭 한 줄, 아이콘 5개는 아래 줄에 고르게 */
   .topbar-in{gap:8px;row-gap:8px}
   .brand{font-size:1.05rem;padding:3px 4px}
@@ -1450,9 +1458,9 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 @media (max-width:400px){
   .ap-schedule-row{grid-template-columns:1fr;gap:5px}
   .ap-schedule-controls{gap:5px}
-  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 120px;min-width:100px}
-  .ap-schedule-result-tools{align-items:flex-start}
-  .ap-schedule-alarm{flex:1 1 100%}
+  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 120px;min-width:100px;max-width:none}
+  .ap-schedule-result-tools{align-items:center}
+  .ap-schedule-alarm{flex:1 1 auto}
   /* 업무 상단 버튼 셋 — 좁으면 글자를 줄여 한 줄에 담는다 */
   .actions .mini-btn{padding:6px 9px;font-size:.75rem}
   /* 아주 좁은 화면 — 글씨 크기는 그대로 두고 여백만 줄여 배지를 한 줄에 담는다 */
@@ -3101,8 +3109,10 @@ function taskRow(t, ctx){
           </div>
         </div>
         <div class="ap-schedule-result">
-          <div class="ap-schedule-result-label">일정 결과</div>
-          <div class="ap-whenhint">${calWhenHint(t)}</div>
+          <div class="ap-schedule-summary">
+            <span class="ap-schedule-result-label">일정</span>
+            <span class="ap-whenhint">${calWhenHint(t)}</span>
+          </div>
           <div class="ap-schedule-result-tools">
             <label class="ap-schedule-alarm">
               <span class="ap-schedule-alarm-label">🔔 알람</span>
