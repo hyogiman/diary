@@ -2224,9 +2224,15 @@ function clearSchedulePending(tOrId){
   if(rec && rec.timer) clearTimeout(rec.timer);
   gcalPendingTasks.delete(key);
 }
-function clearAllSchedulePending(){
-  for(const rec of gcalPendingTasks.values()) if(rec && rec.timer) clearTimeout(rec.timer);
-  gcalPendingTasks.clear();
+function clearAllSchedulePending(opt={}){
+  const keepConfirmed = !!opt.keepConfirmed;
+  for(const [key, rec] of [...gcalPendingTasks.entries()]){
+    /* PATCH/POST가 성공한 일정은 Google의 읽기 응답이 같은 값을 확인할 때까지 유지한다.
+       events.list()/GET이 잠깐 stale이어도 사용자가 방금 성공시킨 변경을 옛 값으로 되돌리지 않는다. */
+    if(keepConfirmed && rec && rec.writeConfirmed) continue;
+    if(rec && rec.timer) clearTimeout(rec.timer);
+    gcalPendingTasks.delete(key);
+  }
   gcalPendingRecheckTimers.forEach(clearTimeout);
   gcalPendingRecheckTimers = [];
 }
@@ -2237,9 +2243,12 @@ function markSchedulePending(t, cat){
   invalidateScheduleLoads();
   const key = schedulePendingKey(t);
   clearSchedulePending(key);
-  const rec = {t, cat:cat||null, expiresAt:Date.now()+GCAL_PENDING_TTL, timer:null};
+  /* 요청 자체가 아직 끝나지 않은 구간만 30초 안전 만료를 둔다.
+     쓰기가 성공하면 confirmScheduleWrite()가 타이머를 없애고 서버 확인까지 유지한다. */
+  const rec = {t, cat:cat||null, writeConfirmed:false,
+    expiresAt:Date.now()+GCAL_PENDING_TTL, timer:null, confirmedAt:0};
   rec.timer = setTimeout(()=>{
-    if(gcalPendingTasks.get(key) === rec){
+    if(gcalPendingTasks.get(key) === rec && !rec.writeConfirmed){
       gcalPendingTasks.delete(key);
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     }
@@ -2248,10 +2257,38 @@ function markSchedulePending(t, cat){
   if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
   return true;
 }
+/* Calendar PATCH/POST 2xx가 돌아온 순간부터는 '방금 쓴 값'이 이 세션의 기준이다.
+   서버의 후속 GET이 같은 값으로 따라오면 reconcileSchedulePending()이 자연스럽게 제거한다.
+   페이지 새로고침 시 메모리 상태는 사라지므로 영구적인 로컬 진실을 만드는 구조도 아니다. */
+function confirmScheduleWrite(t, cat){
+  if(!t || !t.id || !t.time || !String(t.text||'').trim()) return false;
+  invalidateScheduleLoads();
+  const key = schedulePendingKey(t);
+  let rec = gcalPendingTasks.get(key);
+  if(!rec){
+    rec = {t, cat:cat||null, writeConfirmed:true,
+      expiresAt:Number.POSITIVE_INFINITY, timer:null, confirmedAt:Date.now()};
+    gcalPendingTasks.set(key, rec);
+  }else{
+    if(rec.timer) clearTimeout(rec.timer);
+    rec.timer = null;
+    rec.t = t;
+    rec.cat = cat || rec.cat || null;
+    rec.writeConfirmed = true;
+    rec.confirmedAt = Date.now();
+    rec.expiresAt = Number.POSITIVE_INFINITY;
+  }
+  if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
+  return true;
+}
 function activeSchedulePendings(){
   const now = Date.now(), out = [];
   for(const [key, rec] of [...gcalPendingTasks.entries()]){
-    if(!rec || !rec.t || rec.expiresAt <= now || !rec.t.time || !String(rec.t.text||'').trim()){
+    if(!rec || !rec.t || !rec.t.time || !String(rec.t.text||'').trim()){
+      clearSchedulePending(key); continue;
+    }
+    /* 성공한 write는 시간으로 만료시키지 않는다. 서버가 동일값을 확인할 때만 제거한다. */
+    if(!rec.writeConfirmed && rec.expiresAt <= now){
       clearSchedulePending(key); continue;
     }
     out.push(rec);
@@ -5679,6 +5716,7 @@ async function openCalendar(t, cat, ctxRerender){
     t.gcalCalendar = (j && j.calendar) || key;
     t.gcalSig = calSig(t);                      /* 지금 내용으로 올렸다는 표식 */
     markDirty();
+    if(pendingMarked) confirmScheduleWrite(t, cat);  /* 성공한 write는 서버 확인 전까지 절대 옛 시간으로 원복하지 않는다 */
     const al = (t.alarm===undefined? 10 : t.alarm);
     const alTxt = al<0? '알림 없음' : (al===0? '정시 알림' : (al>=60? (al/60)+'시간 전 알림' : al+'분 전 알림'));
     calendarUx('done', isUpdate ? '수정' : '등록');
@@ -5778,6 +5816,7 @@ async function syncTaskToCalendar(t, cat){
       method:'PATCH', body:JSON.stringify(calBody(t, cat))
     });
     t.gcalSig = calSig(t); markDirty();      /* 수정한 내용으로 표식 갱신 */
+    if(pendingMarked) confirmScheduleWrite(t, cat);  /* PATCH 성공값을 read-your-write shadow로 유지 */
     calendarUx('done', '수정');
     refreshScheduleDrawer();
     if(pendingMarked) schedulePendingRechecks();
@@ -7824,8 +7863,9 @@ let schedCache = null, schedStale = false;
 let schedLoadSeq = 0;
 function invalidateScheduleLoads(){ schedLoadSeq++; }
 $('schedRefresh').onclick = async () => {
-  /* 수동 새로고침은 낙관적 UI도 버리고 '지금 서버가 말하는 진실'만 다시 확인한다. */
-  clearAllSchedulePending();
+  /* 수동 새로고침도 성공한 write shadow는 버리지 않는다.
+     서버가 stale인 순간에 사용자가 방금 반영한 시간을 옛 값으로 되돌리는 것을 막는다. */
+  clearAllSchedulePending({keepConfirmed:true});
   if(USER){
     const ds = schedDate || curDate || todayStr();
     try{ await idbDel(`sched:${USER.uid}:${ds}`); }catch(e){}
@@ -8249,16 +8289,21 @@ $('evSave').onclick = async () => {
       body: JSON.stringify({summary:title, location:$('evLoc').value.trim(),
         start:{dateTime:st.toISOString(), timeZone:tz}, end:{dateTime:en.toISOString(), timeZone:tz}})
     });
-    let linked = false;
+    let linked = false, linkedWrites = [];
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === evEditing.id){
         t.time = v; t.dur = mins;
         const pre = `[${c.name.trim()}] `;
         t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
         linked = true;
+        linkedWrites.push({t, cat:c});
       }
     }));
-    if(linked){ markDirty(); renderCats(); }
+    if(linked){
+      markDirty(); renderCats();
+      linkedWrites.forEach(x => confirmScheduleWrite(x.t, x.cat));
+      schedulePendingRechecks();
+    }
     $('evModal').classList.add('hidden'); evEditing = null;
     toast(linked? '일정과 Daily Log에 함께 반영했어요' : '일정을 수정했어요');
     loadSchedule(true);
