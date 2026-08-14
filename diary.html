@@ -750,17 +750,55 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .tg-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
 .tg-row select{flex:1;min-width:140px;border:1.5px solid var(--rule);border-radius:8px;
   background:var(--field);padding:7px 9px;font-size:.84rem;color:var(--ink)}
-.goal-tag{font-size:.72rem;font-weight:800;color:#2E7D5B;background:#E6F3EC;border:1.5px solid #A8D6BE;
-  border-radius:999px;padding:4px 9px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-family:inherit;line-height:1.2;flex:none}
-.goal-tag:hover{background:#D6EBE0}
-body[data-theme="dark"] .goal-tag,
-body[data-theme="forest"] .goal-tag,
-body[data-theme="plum"] .goal-tag{background:#26433A;border-color:#3E6B58;color:#9FD9BE}
+/* 목표 연결 표식 — 목표명은 목록에서 반복하지 않고 체크박스 바로 뒤에 작은 마커만 둔다. */
+.goal-mark{width:25px;height:25px;flex:none;border-radius:8px;padding:0;display:flex;align-items:center;justify-content:center;
+  font-size:.82rem;line-height:1;background:color-mix(in srgb,var(--accent) 13%,var(--surface));
+  border:1.5px solid color-mix(in srgb,var(--accent) 42%,var(--rule));color:var(--accent-deep);transition:.15s}
+.goal-mark:hover{background:color-mix(in srgb,var(--accent) 22%,var(--surface));border-color:var(--accent)}
 .time-badge{font-size:.74rem;font-weight:800;color:var(--accent-deep);background:var(--paper-deep);
   border:1.5px solid var(--rule);border-radius:999px;padding:5px 10px;white-space:nowrap;
   font-family:inherit;line-height:1;transition:.15s}
 .time-badge:hover{border-color:var(--accent);background:var(--card)}
+/* Google Calendar + 시간표 연동 뱃지 — 고정 색상이 아니라 현재 페이지 테마의 accent/blue를 사용한다. */
+.time-badge.gcal-linked,.due-chip.gcal-linked{position:relative;isolation:isolate}
+.time-badge.gcal-linked{
+  color:#fff;
+  background:var(--accent-deep);
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--accent-deep) 76%,var(--blue)),
+    color-mix(in srgb,var(--blue) 68%,var(--accent)));
+  border-color:color-mix(in srgb,var(--accent) 48%,white);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 24%,transparent),
+             0 0 9px color-mix(in srgb,var(--accent) 42%,transparent);
+  text-shadow:0 1px 1px rgba(0,0,0,.2)
+}
+.time-badge.gcal-linked:hover{
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--accent) 82%,var(--blue)),
+    color-mix(in srgb,var(--blue) 78%,var(--accent)));
+  border-color:color-mix(in srgb,var(--accent) 30%,white)
+}
+.due-chip.gcal-linked:not(.over):not(.soon){
+  color:#fff;
+  background:var(--blue);
+  background:linear-gradient(135deg,
+    color-mix(in srgb,var(--blue) 78%,var(--accent-deep)),
+    color-mix(in srgb,var(--accent) 58%,var(--blue)));
+  border-color:color-mix(in srgb,var(--blue) 42%,white);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 22%,transparent),
+             0 0 8px color-mix(in srgb,var(--blue) 38%,transparent)
+}
+/* 마감 경고는 빨강/주황 의미를 우선하되, 테마색 glow와 G 마크로 연동 여부를 남긴다. */
+.due-chip.gcal-linked.over,.due-chip.gcal-linked.soon{
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent),
+             0 0 8px color-mix(in srgb,var(--accent) 40%,transparent)
+}
+.time-badge.gcal-linked::after,.due-chip.gcal-linked::after{
+  content:'G';position:absolute;right:-4px;top:-6px;width:13px;height:13px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--accent-deep);
+  border:1px solid var(--accent);font-size:7px;font-weight:950;line-height:1;
+  box-shadow:0 1px 4px rgba(0,0,0,.22);pointer-events:none
+}
 .mini-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
 .pr-cat{flex:none;width:116px;display:flex;align-items:center;gap:5px;color:#fff;
   border-radius:8px;padding:6px 9px;font-size:.76rem;font-weight:800;overflow:hidden}
@@ -1419,8 +1457,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .sheet-title{font-size:1.45rem}
   /* 배지 줄 — 좁은 화면에서도 한 줄에 들어가도록 여백을 조금씩 줄인다 */
   .task-meta{width:100%;justify-content:flex-end;padding-left:24px;gap:5px;row-gap:5px}
-  /* 목표 배지는 폭이 커서 한 줄을 통째로 쓴다 — 예전엔 왼쪽으로 삐져나가 잘렸음 */
-  .task-meta .goal-tag{order:-1;flex:1 1 100%;max-width:100%;text-align:left;padding:3px 9px}
+  .goal-mark{width:24px;height:24px;font-size:.78rem}
   .task-meta .time-badge{max-width:100%;padding:4px 8px}
   .task-meta .status-chip{min-width:50px;padding:5px 8px}
   .task-meta .due-chip{min-width:46px;padding:5px 8px}
@@ -1428,7 +1465,10 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .attach-panel{margin-left:0}
   .ap-schedule{grid-template-columns:1fr;gap:10px}
   .ap-schedule-row{grid-template-columns:70px minmax(0,1fr);gap:6px}
-  .ap-schedule-controls{width:100%}
+  .ap-schedule-controls{width:100%;min-width:0}
+  /* 모바일에서는 실행 시각과 소요시간이 서로 폭을 빼앗지 않도록 1:1로 배분한다. */
+  .ap-schedule-row:nth-child(2) .ap-schedule-controls{grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto}
+  .ap-schedule-controls .ap-time,.ap-schedule-controls .ap-dur{min-width:0;width:100%;max-width:none}
   .ap-schedule-result{padding:9px 11px;gap:8px}
   .ap-schedule-summary{width:100%}
   .ap-schedule-result-tools{width:100%;justify-content:flex-start;flex-wrap:wrap}
@@ -1463,8 +1503,17 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 @media (max-width:400px){
   .ap-schedule-row{grid-template-columns:1fr;gap:5px}
   .ap-schedule-controls{gap:5px}
-  .ap-schedule-row:nth-child(2) .ap-schedule-controls{grid-template-columns:minmax(0,1fr) 82px auto}
-  .ap-schedule-controls .ap-dur{width:82px}
+  /* 아주 좁은 모바일에서는 실행시간만 2줄로 전환한다.
+     1줄: 시각 1/2 + 소요시간 1/2 / 2줄: 지우기 버튼.
+     이렇게 해야 native time input의 '오전 10:15'가 폭 부족으로 사라지지 않는다. */
+  .ap-schedule-row:nth-child(2) .ap-schedule-controls{
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"time dur" "clear clear";
+    align-items:center
+  }
+  .ap-schedule-row:nth-child(2) .ap-time{grid-area:time;width:100%;min-width:0}
+  .ap-schedule-row:nth-child(2) .ap-dur{grid-area:dur;width:100%;min-width:0}
+  .ap-schedule-row:nth-child(2) .ap-tclr{grid-area:clear;justify-self:end}
   .ap-schedule-clear{min-width:68px;padding-inline:8px}
   .ap-schedule-result-tools{align-items:center}
   .ap-schedule-alarm{flex:1 1 auto}
@@ -2996,6 +3045,8 @@ function taskRow(t, ctx){
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
   const overdue = t.due && !t.done && t.due < todayStr();
   const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+  /* gcalId + 실행시간이면 Google Calendar에 등록되어 시간표에도 잡히는 일정 */
+  const gcalScheduled = !!(t.gcalId && t.time);
   const row = document.createElement('div');
   row.className = 'task' + (t.done? ' done':'');
   row.dataset.tid = t.id;
@@ -3003,14 +3054,14 @@ function taskRow(t, ctx){
   row.style.paddingLeft = '7px';
   row.innerHTML = `
     <button class="chk" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
+    ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
     <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="task-meta">
-      ${t.goal && goalNameOf(t.goal)? `<button class="goal-tag" title="주간 목표: ${esc(goalNameOf(t.goal))}">🎯 ${esc(goalNameOf(t.goal))}</button>`:''}
-      ${t.time? `<button class="time-badge" title="시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
-      <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
+      ${t.time? `<button class="time-badge ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
       <span class="due-wrap">
-        <span class="due-chip view ${overdue?'over':''}" title="${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : '📝 안에서 날짜를 정하세요'}">${dueLabel}</span>
+        <span class="due-chip view ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : '📝 안에서 날짜를 정하세요'}">${dueLabel}</span>
       </span>
+      <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       ${delayBtnHTML(t)}
       <div class="ctl">
@@ -3066,7 +3117,7 @@ function taskRow(t, ctx){
   row.querySelector('.note-btn').onclick = () => { t.open=!t.open; ctx.rerender(); };
   const tb = row.querySelector('.time-badge');
   if(tb) tb.onclick = () => { t.open=!t.open; ctx.rerender(); };
-  const gtag = row.querySelector('.goal-tag');
+  const gtag = row.querySelector('.goal-mark');
   if(gtag) gtag.onclick = () => { t.open=!t.open; ctx.rerender(); };
   const onBtn = row.querySelector('.on-prio');
   if(onBtn) onBtn.onclick = () => {
@@ -6169,23 +6220,25 @@ function renderPrio(){
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
     const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+    const gcalScheduled = !!(t.gcalId && t.time);
     const row = document.createElement('div'); row.className = 'task';
     row.dataset.tid = t.id;
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
       <span class="pr-rank">${i+1}</span>
       <button class="chk" style="border-color:${col}" title="완료 체크"></button>
+      ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
       <span class="pr-cat" style="background:${col}" title="${esc(label)}">
         <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
       </span>
       <input class="task-text" value="${esc(t.text)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div class="task-meta">
-        ${t.time? `<button class="time-badge" title="상세 열기">⏰ ${timeRange(t)}</button>`:''}
-        <button class="status-chip ${st.cls}">${st.label}</button>
+        ${t.time? `<button class="time-badge ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}상세 열기">⏰ ${timeRange(t)}</button>`:''}
         <span class="due-wrap">
-          <button class="due-chip ${overdue?'over':''}">${dueLabel}</button>
+          <button class="due-chip ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동':''}">${dueLabel}</button>
           <input type="date" value="${t.due}">
         </span>
+        <button class="status-chip ${st.cls}">${st.label}</button>
         ${delayBtnHTML(t)}
         <div class="ctl pr-ctl">
           ${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>' : '<span class="ctl-gap"></span>'}
@@ -6223,12 +6276,15 @@ function renderPrio(){
       }
     };
     row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
-    const ptb = row.querySelector('.time-badge');
-    if(ptb) ptb.onclick = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
+    const openPrioTaskDetail = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
       if(bx==='inbox') inboxOpen = true;
       if(bx==='priv') privOpen = true;
       t.open = true; renderAll();
       setTimeout(()=>{ const el=[...document.querySelectorAll('.task-text')].find(x=>x.value===t.text); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 60); };
+    const ptb = row.querySelector('.time-badge');
+    if(ptb) ptb.onclick = openPrioTaskDetail;
+    const pgm = row.querySelector('.goal-mark');
+    if(pgm) pgm.onclick = openPrioTaskDetail;
     const offBtn = row.querySelector('.off-prio');
     if(offBtn) offBtn.onclick = () => {
       t.offPrio = true; save();
