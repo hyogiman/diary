@@ -719,11 +719,14 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .ap-schedule-edit{display:flex;flex-direction:column;gap:9px;min-width:0}
 .ap-schedule-row{display:grid;grid-template-columns:86px minmax(0,1fr);gap:9px;align-items:center;min-width:0}
 .ap-schedule-row .ap-title{white-space:nowrap}
-.ap-schedule-controls{display:flex;align-items:center;gap:7px;min-width:0;flex-wrap:nowrap}
-.ap-schedule-controls .ap-due{flex:1 1 260px;min-width:170px;max-width:360px}
-.ap-schedule-controls .ap-time{flex:1 1 180px;min-width:130px;max-width:220px}
-.ap-schedule-controls .ap-dur{flex:0 0 96px;min-width:90px}
-.ap-schedule-clear{flex:none;padding-inline:10px}
+/* 날짜 행과 실행시간 행의 입력영역 총폭을 같게 맞춘다.
+   날짜 input 한 칸의 폭 = 실행시각 + 소요시간 두 칸의 합. 지우기 버튼은 같은 위치에 정렬된다. */
+.ap-schedule-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:7px;
+  width:min(100%,390px);min-width:0}
+.ap-schedule-row:nth-child(2) .ap-schedule-controls{grid-template-columns:minmax(0,1fr) 96px auto}
+.ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{width:100%;min-width:0;max-width:none;box-sizing:border-box}
+.ap-schedule-controls .ap-dur{width:96px;min-width:0;box-sizing:border-box}
+.ap-schedule-clear{min-width:72px;padding-inline:10px}
 .ap-schedule-clear:disabled{opacity:.38;cursor:default}
 .ap-schedule-result{border:1.5px solid var(--rule);border-radius:11px;background:var(--surface);
   padding:9px 11px;display:flex;flex-direction:column;align-items:stretch;justify-content:center;gap:8px;min-width:0}
@@ -1424,8 +1427,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .attach-panel{margin-left:0}
   .ap-schedule{grid-template-columns:1fr;gap:10px}
   .ap-schedule-row{grid-template-columns:82px minmax(0,1fr)}
-  .ap-schedule-controls{flex-wrap:wrap}
-  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{max-width:none}
+  .ap-schedule-controls{width:100%}
   .ap-schedule-result{padding:9px 11px;gap:8px}
   .ap-schedule-summary{width:100%}
   .ap-schedule-result-tools{width:100%;justify-content:flex-start;flex-wrap:wrap}
@@ -1460,7 +1462,9 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 @media (max-width:400px){
   .ap-schedule-row{grid-template-columns:1fr;gap:5px}
   .ap-schedule-controls{gap:5px}
-  .ap-schedule-controls .ap-due,.ap-schedule-controls .ap-time{flex:1 1 120px;min-width:100px;max-width:none}
+  .ap-schedule-row:nth-child(2) .ap-schedule-controls{grid-template-columns:minmax(0,1fr) 82px auto}
+  .ap-schedule-controls .ap-dur{width:82px}
+  .ap-schedule-clear{min-width:68px;padding-inline:8px}
   .ap-schedule-result-tools{align-items:center}
   .ap-schedule-alarm{flex:1 1 auto}
   /* 업무 상단 버튼 셋 — 좁으면 글자를 줄여 한 줄에 담는다 */
