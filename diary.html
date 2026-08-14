@@ -2232,6 +2232,9 @@ function clearAllSchedulePending(){
 }
 function markSchedulePending(t, cat){
   if(!t || !t.id || !t.time || !String(t.text||'').trim()) return false;
+  /* 시간/날짜 수정 직전에 이미 돌고 있던 시간표 GET은 이전 값일 수 있다.
+     이후 늦게 도착해 새 화면을 덮지 못하도록 즉시 무효화한다. */
+  invalidateScheduleLoads();
   const key = schedulePendingKey(t);
   clearSchedulePending(key);
   const rec = {t, cat:cat||null, expiresAt:Date.now()+GCAL_PENDING_TTL, timer:null};
@@ -3040,11 +3043,33 @@ function calBtnState(t){
   if(t.gcalSig !== calSig(t)) return 'edit';      /* 올린 뒤 날짜·시간이 바뀌었으면 수정 */
   return 'done';                                   /* 최신 상태 — 누를 것 없음 */
 }
+/* 목록 날짜 뱃지 — 명시 날짜가 없더라도 날짜별 일지의 업무라면 그 일지 날짜를 표시한다.
+   오늘 일지는 '오늘'로 표시해, 날짜 입력칸을 비운 '오늘 일정'도 의미가 바로 보이게 한다.
+   날짜 비종속 보관함/개인용무함은 실행일(timeDay)이 있을 때만 그 날짜를 fallback으로 쓴다. */
+function taskDateBadge(t, ctx={}){
+  const explicit = (t.due || '').trim();
+  let date = explicit;
+  let implicit = false;
+  if(!date){
+    if(ctx.inbox){
+      date = (t.timeDay || '').trim();
+    }else{
+      date = curDate;
+    }
+    implicit = !!date;
+  }
+  if(!date) return {date:'', label:'📅', implicit:true};
+  const label = date === todayStr()
+    ? '오늘'
+    : `${+date.slice(5,7)}/${+date.slice(8,10)}`;
+  return {date, label, implicit};
+}
 function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
   const overdue = t.due && !t.done && t.due < todayStr();
-  const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+  const dateBadge = taskDateBadge(t, ctx);
+  const dueLabel = dateBadge.label;
   /* gcalId + 실행시간이면 Google Calendar에 등록되어 시간표에도 잡히는 일정 */
   const gcalScheduled = !!(t.gcalId && t.time);
   const row = document.createElement('div');
@@ -3059,7 +3084,7 @@ function taskRow(t, ctx){
     <div class="task-meta">
       ${t.time? `<button class="time-badge ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
       <span class="due-wrap">
-        <span class="due-chip view ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : '📝 안에서 날짜를 정하세요'}">${dueLabel}</span>
+        <span class="due-chip view ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : (dateBadge.date ? dateBadge.date+' — 날짜 미입력, 현재 일정 날짜로 표시 중' : '📝 안에서 날짜를 정하세요')}">${dueLabel}</span>
       </span>
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
       <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
@@ -6219,7 +6244,8 @@ function renderPrio(){
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
     const overdue = t.due && t.due < todayStr();
-    const dueLabel = t.due ? `${+t.due.slice(5,7)}/${+t.due.slice(8,10)}` : '📅';
+    const dateBadge = taskDateBadge(t, {inbox:!!bx});
+    const dueLabel = dateBadge.label;
     const gcalScheduled = !!(t.gcalId && t.time);
     const row = document.createElement('div'); row.className = 'task';
     row.dataset.tid = t.id;
@@ -7794,6 +7820,9 @@ $('themeModal').addEventListener('click', e => { if(e.target.id==='themeModal') 
 /* ═══════════════ 📆 구글 캘린더 일정 (Firebase 서버 + 캐시 완충) ═══════════════ */
 let schedDate = '';
 let schedCache = null, schedStale = false;
+/* 시간표 조회 세대번호 — 여러 GET이 겹쳐도 가장 나중에 시작한 조회만 화면/캐시를 갱신한다. */
+let schedLoadSeq = 0;
+function invalidateScheduleLoads(){ schedLoadSeq++; }
 $('schedRefresh').onclick = async () => {
   /* 수동 새로고침은 낙관적 UI도 버리고 '지금 서버가 말하는 진실'만 다시 확인한다. */
   clearAllSchedulePending();
@@ -7972,10 +8001,15 @@ async function recoverMissingLinkedCalendarEvents(events){
 }
 
 async function loadSchedule(force){
+  /* 시간표 GET끼리 완료 순서가 뒤집혀도 예전 응답이 새 응답을 덮지 못하게 한다. */
+  const myLoadSeq = ++schedLoadSeq;
+  const stillLatest = () => myLoadSeq === schedLoadSeq;
+
   /* 사용자가 시간 변경 직후 ↻를 눌러도, 진행 중인 Calendar 쓰기보다 GET이 앞서지 않게 한다. */
   if(gcalMutationCount > 0){
     $('schedState').textContent = 'Google Calendar 반영 완료를 기다리는 중…';
     await waitForCalendarMutations();
+    if(!stillLatest()) return;
   }
   if(!schedDate) schedDate = curDate || todayStr();
   const d = new Date(schedDate+'T12:00:00');
@@ -7984,6 +8018,7 @@ async function loadSchedule(force){
   if(!force){
     try{
       const c = await idbGet(cacheKey);
+      if(!stillLatest()) return;
       if(c){
         /* 예전 버전이 저장해 둔 유령 일정도 캐시를 읽는 순간 제거한다. */
         const cleanCached = (c.events||[]).filter(e => !isCalendarTombstoned(e));
@@ -7991,10 +8026,12 @@ async function loadSchedule(force){
         renderSchedule(cleanCached, c.ts);
         if(cleanCached.length !== (c.events||[]).length){
           try{ await idbSet(cacheKey, {events:cleanCached, ts:c.ts||Date.now()}); }catch(e){}
+          if(!stillLatest()) return;
         }
       }
     }catch(e){}
   }
+  if(!stillLatest()) return;
   $('schedState').textContent = '일정을 불러오는 중…';
   try{
     /* 시간표에는 업무 캘린더만 보여준다.
@@ -8002,6 +8039,7 @@ async function loadSchedule(force){
        다시 합치고 싶으면 아래 SCHED_CALENDAR 를 'all' 로 바꾸면 된다. */
     const SCHED_CALENDAR = 'work';
     const j = await calendarApiFetch(`/api/events?date=${encodeURIComponent(schedDate)}&calendar=${SCHED_CALENDAR}`);
+    if(!stillLatest()) return;
     const events = Object.entries(j.calendars || {}).flatMap(([calendarKey, bucket]) =>
       ((bucket && bucket.events) || []).map(e => ({
         id:e.id, title:e.title||'(제목 없음)', loc:e.location||'',
@@ -8013,23 +8051,28 @@ async function loadSchedule(force){
     /* Diary 연결 일정은 event ID 직접 GET 결과를 최종 기준으로 사용한다.
        list의 오래된 사본/중복 사본은 제거하고 실제 Google event 하나만 남긴다. */
     const verifiedEvents = await recoverMissingLinkedCalendarEvents(events);
+    if(!stillLatest()) return;
 
     /* 중요: tombstone 일정은 화면에서만 숨기는 게 아니라 캐시에도 절대 다시 저장하지 않는다. */
     const cleanEvents = verifiedEvents.filter(e => !isCalendarTombstoned(e));
     /* 서버가 방금 수정한 제목/시간/소요시간까지 확인했을 때만 낙관적 표시를 종료한다. */
     reconcileSchedulePending(cleanEvents);
+    if(!stillLatest()) return;
     schedCache = cleanEvents;
     try{ await idbSet(cacheKey, {events:cleanEvents, ts:Date.now()}); }catch(e){}
+    if(!stillLatest()) return;
     renderSchedule(cleanEvents);
     $('schedState').textContent = '✓ Google Calendar 서버와 동기화됨 · Calendar 앱 표시는 잠시 늦을 수 있어요';
     clearTimeout($('schedState')._calUxTm);
     $('schedState')._calUxTm = setTimeout(()=>{
-      if($('schedState').textContent.startsWith('✓ Google Calendar 서버와 동기화됨')) $('schedState').textContent='';
+      if(stillLatest() && $('schedState').textContent.startsWith('✓ Google Calendar 서버와 동기화됨')) $('schedState').textContent='';
     }, 5000);
   }catch(e){
+    if(!stillLatest()) return;
     let cached = null;
     try{
       cached = await idbGet(cacheKey);
+      if(!stillLatest()) return;
       if(cached){
         const cleanCached = (cached.events||[]).filter(e => !isCalendarTombstoned(e));
         cached = Object.assign({}, cached, {events:cleanCached});
@@ -8037,11 +8080,13 @@ async function loadSchedule(force){
         renderSchedule(cleanCached, cached.ts);
       }
     }catch(e2){}
+    if(!stillLatest()) return;
     $('schedState').textContent = cached
       ? '⚠ 서버 연결이 잠시 불안정해 저장된 일정을 보여드려요'
       : '일정을 불러오지 못했어요 — 네트워크 상태를 확인해 주세요';
   }
 }
+
 function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
 const PXH = 220;                                   // 1시간 = 220px (15분 일정도 기존 30분 크기로)
 function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
