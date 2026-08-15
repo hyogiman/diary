@@ -1891,6 +1891,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <div class="set-grp">📝 기록</div>
         <button class="btn-line" id="setPinBtn">일기 비밀번호</button>
         <button class="btn-line" id="setCalBtn">캘린더 등록 대상</button>
+        <button class="btn-line" id="setLeaveBtn">장기 휴가·휴직 모드 : <b id="leaveModeState">끔</b></button>
         <button class="btn-line" id="setPrivPrintBtn">인쇄·보고에 개인 용무 포함 : <b id="privPrintState">끔</b></button>
       </div>
 
@@ -2477,6 +2478,65 @@ function authMsg(e){
     'auth/email-already-in-use':'이미 사용 중인 이메일입니다.','auth/network-request-failed':'네트워크 연결을 확인해 주세요.'};
   return m[e.code] || ('오류: ' + e.code);
 }
+/* ═══════════════ 🏖 장기 휴가·휴직 모드 ═══════════════
+   기간 중에는 시작일 이전의 업무를 '미완료 가져오기'에서 잠시 잠근다.
+   종료 다음 날 이후 첫 가져오기에서는 휴직 직전 마지막 업무일도 한 번 함께 복원한다. */
+let leaveMode = {start:'', end:'', restored:false};
+function normLeaveMode(v){
+  v = (v && typeof v === 'object') ? v : {};
+  const start = /^\d{4}-\d{2}-\d{2}$/.test(v.start||'') ? String(v.start) : '';
+  const end   = /^\d{4}-\d{2}-\d{2}$/.test(v.end||'')   ? String(v.end)   : '';
+  if(!start || !end || start > end) return {start:'', end:'', restored:false};
+  return {start, end, restored:!!v.restored};
+}
+function shortYmd(ds){
+  if(!ds) return '';
+  return `${+ds.slice(5,7)}/${+ds.slice(8,10)}`;
+}
+function renderLeaveModeState(){
+  const el = $('leaveModeState'); if(!el) return;
+  if(!leaveMode.start || !leaveMode.end){ el.textContent = '끔'; return; }
+  const today = todayStr();
+  if(leaveMode.restored && today > leaveMode.end){
+    el.textContent = `${shortYmd(leaveMode.start)}~${shortYmd(leaveMode.end)} · 복원완료`;
+  }else{
+    el.textContent = `${shortYmd(leaveMode.start)}~${shortYmd(leaveMode.end)}`;
+  }
+}
+async function loadLeaveMode(){
+  let v = null;
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}/settings/leaveMode`).get(), 5000);
+    v = snap.exists()? snap.val() : null;
+  }catch(e){
+    try{ v = JSON.parse(localStorage.getItem('leaveMode') || 'null'); }catch(e2){}
+  }
+  leaveMode = normLeaveMode(v);
+  renderLeaveModeState();
+}
+async function saveLeaveMode(v){
+  leaveMode = normLeaveMode(v);
+  renderLeaveModeState();
+  try{ localStorage.setItem('leaveMode', JSON.stringify(leaveMode)); }catch(e){}
+  try{
+    const ref = db.ref(`diaries/${USER.uid}/settings/leaveMode`);
+    if(leaveMode.start) await ref.set(leaveMode); else await ref.remove();
+  }catch(e){}
+}
+function leaveModeActiveOn(ds){
+  return !!(leaveMode.start && leaveMode.end && ds >= leaveMode.start && ds <= leaveMode.end);
+}
+function leaveModeNeedsRestore(ds){
+  return !!(leaveMode.start && leaveMode.end && !leaveMode.restored && ds > leaveMode.end);
+}
+async function markLeaveModeRestored(){
+  if(!leaveMode.start || !leaveMode.end || leaveMode.restored) return;
+  leaveMode = {...leaveMode, restored:true};
+  renderLeaveModeState();
+  try{ localStorage.setItem('leaveMode', JSON.stringify(leaveMode)); }catch(e){}
+  try{ await db.ref(`diaries/${USER.uid}/settings/leaveMode`).set(leaveMode); }catch(e){}
+}
+
 auth.onAuthStateChanged(async u => {
   USER = u;
   if(u){
@@ -2492,6 +2552,7 @@ auth.onAuthStateChanged(async u => {
     await loadEvents();
     await loadCustomIcon();
     await loadCalTarget();
+    await loadLeaveMode();
     await loadTheme();
     await loadHandFont();
     await loadPrivPrint();
@@ -3382,12 +3443,8 @@ $('fabCat').onclick = () => {
 };
 
 /* ───────── 미완료 가져오기 ───────── */
-$('carryBtn').onclick = async () => {
-  await flushSave();
-  const prev = await findPrevWorkDay(curDate);
-  if(!prev){ toast('이전에 작성한 기록이 없어요'); return; }
-
-  let moved = 0, skipped = 0, carriedNotes = 0;
+/* 한 업무일의 미완료를 오늘로 합친다. 여러 원본 날짜를 합쳐도 현재 목록에서 중복을 막는다. */
+function carryFromWorkDay(prev, stats){
   prev.data.cats.forEach(pc => {
     if(pc.priv) return;                                      // 개인용무만 제외 (기타업무는 포함)
     const undone = pc.tasks.filter(t => !t.done && t.text.trim());
@@ -3397,37 +3454,97 @@ $('carryBtn').onclick = async () => {
     if(!target){
       target = {id:uid8(), name:pc.name, color:pc.color||0, note:pc.note||'', files:[], tasks:[]};
       day.cats.push(target);
-      if(prevCatNote) carriedNotes++;
+      if(prevCatNote) stats.carriedNotes++;
     }else if(prevCatNote && !(target.note||'').trim()){
-      /* 오늘 이미 쓴 메모는 덮어쓰지 않고, 비어 있을 때만 전날 카테고리 메모를 이어받는다. */
+      /* 오늘 이미 쓴 메모는 덮어쓰지 않고, 비어 있을 때만 이전 카테고리 메모를 이어받는다. */
       target.note = pc.note||'';
-      carriedNotes++;
+      stats.carriedNotes++;
     }
     undone.forEach(t => {
-      if(target.tasks.some(x => x.text.trim() === t.text.trim())){ skipped++; return; }
+      if(target.tasks.some(x => x.text.trim() === t.text.trim())){ stats.skipped++; return; }
       target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id),
         time:'', timeDay:'', gcalId:'', gcalCalendar:'', gcalSig:''});   // 원본 계보만 유지, 지난 실행/캘린더 메타는 초기화
-      moved++;
+      stats.moved++;
     });
   });
-  if(moved || carriedNotes){
+}
+
+$('carryBtn').onclick = async () => {
+  await flushSave();
+
+  const inLeave = leaveModeActiveOn(curDate);
+  const needsRestore = leaveModeNeedsRestore(curDate);
+  const sources = [];
+  let restoreSource = null;
+
+  if(inLeave){
+    /* 휴가·휴직 기간에는 시작일 이전으로 절대 넘어가지 않는다.
+       시작일 당일에는 이전 날짜가 존재할 수 없으므로 아무것도 가져오지 않는다. */
+    const prev = await findPrevWorkDay(curDate, leaveMode.start);
+    if(!prev){
+      if(curDate === leaveMode.start){
+        toast(`🏖 장기 휴가·휴직 모드 첫날이에요 — ${shortYmd(leaveMode.start)} 이전 미완료 업무는 가져오지 않아요`);
+      }else{
+        toast(`🏖 이 휴가·휴직 기간에 이전 업무 기록이 아직 없어요 — ${shortYmd(leaveMode.start)} 이전 업무는 건너뛰었어요`);
+      }
+      return;
+    }
+    sources.push(prev);
+  }else{
+    const prev = await findPrevWorkDay(curDate);
+    if(prev) sources.push(prev);
+
+    if(needsRestore){
+      /* 복귀 후 첫 가져오기: 평소 직전 업무 + 휴직 시작 직전 마지막 업무를 한 번 합친다. */
+      restoreSource = await findPrevWorkDay(leaveMode.start);
+      if(restoreSource && !sources.some(x => x.date === restoreSource.date)) sources.push(restoreSource);
+    }
+
+    if(!sources.length){
+      if(needsRestore) await markLeaveModeRestored();
+      toast(needsRestore ? '복귀할 휴직 전 미완료 업무가 없어요' : '이전에 작성한 기록이 없어요');
+      return;
+    }
+  }
+
+  const stats = {moved:0, skipped:0, carriedNotes:0};
+  sources.forEach(prev => carryFromWorkDay(prev, stats));
+
+  /* 복귀 복원은 성공 여부와 상관없이 한 번만 시도한다. 같은 업무가 매일 중복 복원되지 않게 한다. */
+  if(needsRestore) await markLeaveModeRestored();
+
+  if(stats.moved || stats.carriedNotes){
     markDirty(); renderCats();
     const bits=[];
-    if(moved) bits.push(`미완료 업무 ${moved}건`);
-    if(carriedNotes) bits.push(`카테고리 메모 ${carriedNotes}건`);
-    toast(`${prev.label} 일지에서 ${bits.join(' · ')}을 가져왔어요` + (skipped? ` · 이미 있는 업무 ${skipped}건 제외`:''));
+    if(stats.moved) bits.push(`미완료 업무 ${stats.moved}건`);
+    if(stats.carriedNotes) bits.push(`카테고리 메모 ${stats.carriedNotes}건`);
+    if(needsRestore && restoreSource){
+      const recent = sources.find(x => x.date !== restoreSource.date);
+      const from = recent
+        ? `${recent.label} 일지 + 휴직 전 ${restoreSource.label} 일지`
+        : `휴직 전 ${restoreSource.label} 일지`;
+      toast(`🏢 복귀 첫 가져오기 — ${from}에서 ${bits.join(' · ')}을 가져왔어요` + (stats.skipped? ` · 이미 있는 업무 ${stats.skipped}건 제외`:''));
+    }else{
+      const prev = sources[0];
+      toast(`${prev.label} 일지에서 ${bits.join(' · ')}을 가져왔어요` + (stats.skipped? ` · 이미 있는 업무 ${stats.skipped}건 제외`:''));
+    }
   }else{
-    toast(skipped? `${prev.label} 일지의 미완료 업무는 이미 목록에 있어요`
-                 : `${prev.label} 일지에 남은 미완료 업무가 없어요`);
+    const prev = sources[0];
+    if(needsRestore && restoreSource){
+      toast(stats.skipped? '복귀할 미완료 업무는 이미 오늘 목록에 있어요' : '휴직 전 마지막 업무일에 남은 미완료 업무가 없어요');
+    }else{
+      toast(stats.skipped? `${prev.label} 일지의 미완료 업무는 이미 목록에 있어요`
+                         : `${prev.label} 일지에 남은 미완료 업무가 없어요`);
+    }
   }
 };
 
 /* 직전에 '업무를 적은' 일지 하나를 찾음.
-   개인 용무 완료나 메모만 있어 생긴 날은 건너뜀 */
+   minDate가 있으면 그 날짜보다 앞은 보지 않는다 — 장기 휴가·휴직 기간의 경계로 사용. */
 function hasRealWork(v){
   return v.cats.some(c => !c.priv && c.tasks.some(t => t.text.trim()));   // 개인용무만 제외
 }
-async function findPrevWorkDay(dateStr){
+async function findPrevWorkDay(dateStr, minDate=''){
   const y0 = +dateStr.slice(0,4);
   for(let k=0; k<10; k++){                                   // 최대 10년 역탐색
     const y = y0 - k; if(y < 2000) break;
@@ -3435,7 +3552,7 @@ async function findPrevWorkDay(dateStr){
     const days = [];
     for(const mm in yd) for(const dd in yd[mm]){
       const ds = `${y}-${mm}-${dd}`;
-      if(ds < dateStr) days.push(ds);
+      if(ds < dateStr && (!minDate || ds >= minDate)) days.push(ds);
     }
     days.sort((a,b) => b.localeCompare(a));                  // 최신순
     for(const ds of days){
@@ -6760,6 +6877,48 @@ $('setMoreBtn').onclick = () => {
 };
 $('setClose').onclick = () => $('settingsMenu').classList.add('hidden');
 $('settingsMenu').addEventListener('click', e => { if(e.target.id==='settingsMenu') $('settingsMenu').classList.add('hidden'); });
+
+$('setLeaveBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+
+  if(leaveMode.start && leaveMode.end){
+    const action = await askChoice({
+      title:'🏖 장기 휴가·휴직 모드',
+      desc:`현재 기간: ${leaveMode.start} ~ ${leaveMode.end}\n\n기간 중에는 시작일 이전 미완료 업무를 가져오지 않습니다. 종료 다음 날 이후 첫 «미완료 가져오기»에서 휴직 전 업무를 한 번 함께 복원합니다.`,
+      options:[
+        {value:'edit', label:'기간 변경', kind:'primary'},
+        {value:'off', label:'모드 해제', kind:'danger'},
+        {value:'cancel', label:'닫기', kind:'cancel'}
+      ]
+    });
+    if(action === 'off'){
+      await saveLeaveMode(null);
+      toast('장기 휴가·휴직 모드를 해제했어요');
+      return;
+    }
+    if(action !== 'edit') return;
+  }
+
+  const start = await askInput({
+    title:'🏖 휴가·휴직 시작일',
+    desc:'이 날짜부터 이전의 기존 업무는 «미완료 가져오기»에서 잠시 잠깁니다.',
+    type:'date', value:leaveMode.start || curDate
+  });
+  if(start === null) return;
+  if(!start){ toast('시작일을 입력해 주세요'); return; }
+
+  const end = await askInput({
+    title:'🏁 휴가·휴직 종료일',
+    desc:'종료일도 휴가·휴직 기간에 포함됩니다. 그 다음 날부터 복귀로 봅니다.',
+    type:'date', value:leaveMode.end || start
+  });
+  if(end === null) return;
+  if(!end){ toast('종료일을 입력해 주세요'); return; }
+  if(start > end){ toast('종료일은 시작일보다 빠를 수 없어요'); return; }
+
+  await saveLeaveMode({start, end, restored:false});
+  toast(`🏖 ${shortYmd(start)}~${shortYmd(end)} 장기 휴가·휴직 모드를 저장했어요`);
+};
 
 $('delTodayBtn').onclick = async () => {
   const d = new Date(curDate+'T12:00:00');
