@@ -179,6 +179,28 @@ input:focus,textarea:focus{outline-offset:0}
   100%{background:transparent;box-shadow:none}
 }
 .task-meta{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;min-width:0}
+/* 업무 목록 간소화 — 왼쪽: 퀵메모·상태·업무명·목표 / 오른쪽: 실행일정·기한·지연·삭제 */
+.task.task-simple{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:6px;flex-wrap:nowrap}
+.task.task-simple>.task-direct-done{display:none}
+.task-left{display:flex;align-items:center;gap:6px;min-width:0}
+.task-left .note-btn,.task-left .status-chip,.task-left .goal-mark{flex:none}
+.task-left .task-text{flex:1;min-width:80px;width:100%}
+.task-right{display:flex;align-items:center;justify-content:flex-end;gap:5px;min-width:0;flex:none;white-space:nowrap}
+.task-right .ctl{opacity:1;flex:none}
+.task-right .ctl .del{width:30px;height:30px}
+.task-right .time-badge{max-width:190px;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:640px){
+  .task.task-simple{grid-template-columns:minmax(0,1fr);row-gap:7px}
+  .task.task-simple .task-right{width:100%;justify-content:flex-end;flex-wrap:wrap;padding-left:0}
+  .task.task-simple .task-left{width:100%}
+}
+@media (max-width:400px){
+  .task.task-simple{column-gap:6px}
+  .task.task-simple .task-left{gap:4px}
+  .task.task-simple .task-right{gap:4px}
+  .task.task-simple .status-chip{min-width:44px;padding:5px 6px}
+  .task.task-simple .time-badge,.task.task-simple .due-chip{padding:4px 7px}
+}
 .status-chip{font-size:.74rem;font-weight:800;padding:5px 10px;border-radius:999px;border:1.5px solid;min-width:56px;text-align:center}
 .st-wait{color:var(--gray);border-color:#D8CBB6;background:#FBF6EA}
 .st-doing{color:var(--blue);border-color:#B9C4EE;background:#EEF1FC}
@@ -3162,8 +3184,9 @@ function taskDateBadge(t, ctx={}){
 function taskScheduleBadge(t, ctx={}){
   const d = taskDateBadge(t, ctx);
   const dateLabel = d.date ? d.label : '일정 미정';
-  const timeLabel = t.time ? ` · ⏰ ${timeRange(t)}` : '';
-  return { date:d.date, label:`📅 ${dateLabel}${timeLabel}`, implicit:d.implicit };
+  const timeLabel = t.time ? timeRange(t) : '';
+  const label = [dateLabel, timeLabel].filter(Boolean).join(' · ');
+  return { date:d.date, label, implicit:d.implicit };
 }
 function taskDeadlineBadge(t){
   const date = (t.deadline || '').trim();
@@ -3179,19 +3202,21 @@ function taskRow(t, ctx){
   /* 날짜-only/all-day 일정도 있으므로 gcalId 자체를 Calendar 등록 여부로 본다. */
   const gcalLinked = !!t.gcalId;
   const row = document.createElement('div');
-  row.className = 'task' + (t.done? ' done':'');
+  row.className = 'task task-simple' + (t.done? ' done':'');
   row.dataset.tid = t.id;
   row.style.borderLeft = `3px solid ${col}40`;
   row.style.paddingLeft = '7px';
   row.innerHTML = `
-    <button class="chk" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
-    ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
-    <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-    <div class="task-meta">
+    <button class="chk task-direct-done" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
+    <div class="task-left">
+      <button class="note-btn" title="상세 — 기한·실행 일정·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
+      <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
+      <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
+    </div>
+    <div class="task-right">
       <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 📝에서 수정">${scheduleBadge.label}</button>
       ${deadlineBadge.date ? `<span class="due-chip view ${deadlineBadge.over?'over':''}" title="기한 ${deadlineBadge.date} — 📝에서 수정">${deadlineBadge.label}</span>` : ''}
-      <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
-      <button class="note-btn" title="상세 — 기한·실행 일정·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       ${delayBtnHTML(t)}
       <div class="ctl">
         ${(ctx.inbox && prioMode)? (t.offPrio? '<button class="on-prio" title="우선순위로 올리기">↑</button>' : '<span class="ctl-gap"></span>') : ''}
@@ -4123,10 +4148,21 @@ function refreshDelayButtons(){
     const want = delayBtnHTML(hit.t);
     const cur  = row.querySelector('.delay-btn');
     if(!want){ if(cur) cur.remove(); return; }
-    if(!cur){                                    /* 새로 생겨야 하면 📝 뒤에 끼워 넣는다 */
-      const note = row.querySelector('.note-btn');
-      if(!note) return;
-      note.insertAdjacentHTML('afterend', want);
+    if(!cur){                                    /* 새로 생기면 오른쪽 그룹의 삭제 버튼 바로 앞에 넣는다 */
+      const right = row.querySelector('.task-right');
+      const ctl = right && right.querySelector('.ctl');
+      if(right){
+        if(ctl) ctl.insertAdjacentHTML('beforebegin', want);
+        else right.insertAdjacentHTML('beforeend', want);
+      }else{
+        /* 우선순위 보기처럼 구형 행 구조는 메타영역의 조작 버튼 앞에 넣는다. */
+        const meta = row.querySelector('.task-meta');
+        const metaCtl = meta && meta.querySelector('.ctl');
+        if(meta){
+          if(metaCtl) metaCtl.insertAdjacentHTML('beforebegin', want);
+          else meta.insertAdjacentHTML('beforeend', want);
+        }else return;
+      }
       bindDelayBtn(row, hit.t, hit.ctx);
       return;
     }
