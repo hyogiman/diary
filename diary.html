@@ -184,11 +184,16 @@ input:focus,textarea:focus{outline-offset:0}
 .task.task-simple>.task-direct-done{display:none}
 .task-left{display:flex;align-items:center;gap:6px;min-width:0}
 .task-left .note-btn,.task-left .status-chip,.task-left .goal-mark{flex:none}
-.task-left .task-text{flex:1;min-width:80px;width:100%}
+/* 업무명과 목표 뱃지는 한 묶음으로 둬서 🎯가 업무명 바로 뒤에 붙는다. */
+.task-name-group{display:flex;align-items:center;gap:4px;flex:1 1 auto;min-width:0}
+.task-name-group .task-text{field-sizing:content;flex:0 1 auto;width:auto;min-width:80px;max-width:100%;box-sizing:border-box}
 .task-right{display:flex;align-items:center;justify-content:flex-end;gap:5px;min-width:0;flex:none;white-space:nowrap}
 .task-right .ctl{opacity:1;flex:none}
 .task-right .ctl .del{width:30px;height:30px}
-.task-right .time-badge{max-width:190px;overflow:hidden;text-overflow:ellipsis}
+/* G 뱃지가 바깥으로 살짝 떠 있으므로 overflow로 잘라내지 않는다. */
+.task-right .time-badge{max-width:none;overflow:visible}
+/* 상세 패널/퀵메모는 좌우 2열 전체를 사용한다. */
+.task.task-simple>.attach-panel{grid-column:1/-1;width:100%;min-width:0;margin:4px 0 6px 0}
 @media (max-width:640px){
   .task.task-simple{grid-template-columns:minmax(0,1fr);row-gap:7px}
   .task.task-simple .task-right{width:100%;justify-content:flex-end;flex-wrap:wrap;padding-left:0}
@@ -2595,6 +2600,7 @@ $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden')
 let dayLoadSeq = 0, dayReady = false;
 let dayOwner = null;   /* 지금 메모리에 올라온 day 가 어느 날짜의 것인지 — 저장은 항상 이 날짜로 */
 async function loadDay(dateStr, opts={}){
+  cancelAllCompletionHolds();              /* 3초 미확정 완료는 날짜 이동 시 저장하지 않는다 */
   const seq = ++dayLoadSeq;                       /* 빠르게 여러 번 눌러도 마지막 것만 반영 */
   dayReady = false;
   $('sheet').classList.add('loading');
@@ -2974,11 +2980,11 @@ function renderCats(){
     el.innerHTML = `
       <div class="cat-head" style="border-bottom-color:${col}55">
         <button class="cat-dot" title="${cat.priv? '개인 용무 (인쇄 포함 여부는 설정에서)':'카테고리 색 바꾸기'}" style="background:${col}">${cat.priv? '<span style="font-size:.5rem">🏠</span>':''}</button>
+        <button class="cat-note-btn" title="이 카테고리 메모 — 지시사항·유의점">📜${(cat.note||'').trim()? '<span class="dot"></span>':''}${(cat.files||[]).length? `<span class="cnt">📎${cat.files.length}</span>`:''}</button>
         <input class="cat-name" style="color:${col}" value="${esc(cat.name)}" placeholder="${cat.priv? '개인 용무':'카테고리 (예: 핵심인재 교육)'}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <div class="ctl">
           <button title="위로">▲</button><button title="아래로">▼</button>
           ${isDoneBox(cat) ? '<span class="ctl-gap"></span>' : '<button title="업무 추가">＋</button>'}
-          <button class="cat-note-btn" title="이 카테고리 메모 — 지시사항·유의점">📜${(cat.note||'').trim()? '<span class="dot"></span>':''}${(cat.files||[]).length? `<span class="cnt">📎${cat.files.length}</span>`:''}</button>
           <button class="del" title="삭제">✕</button>
         </div>
       </div>
@@ -3111,7 +3117,7 @@ function delayBtnHTML(t){
   return `<button class="delay-btn${live? ' live':''}" title="지연사유 기록${c>1? ` · ${c}회`:''}">⏳${c>1? `<span class="cnt">${c}</span>`:''}</button>`;
 }
 
-/* 표시 순서: 완료는 아래, 실행 시간 있는 업무는 시간순으로 위 */
+/* 표시 순서: 완료 여부로는 위치를 바꾸지 않는다. 실행 시간이 있는 업무만 시간순으로 정렬한다. */
 /* 실행 시간 표기: 09:30~10:30 */
 function timeRange(t){
   if(!t.time) return '';
@@ -3123,14 +3129,54 @@ function timeRange(t){
 }
 function taskOrder(list){
   return list.map((t,ti)=>({t,ti})).sort((a,b)=>{
-    const ad = a.t.done?1:0, bd = b.t.done?1:0;
-    if(ad !== bd) return ad - bd;
     const at = a.t.time || '', bt = b.t.time || '';
     if(at && bt) return at.localeCompare(bt);
     if(at) return -1;
     if(bt) return 1;
     return a.ti - b.ti;
   });
+}
+
+/* ═══════════════ 완료 토글 3초 확정 ═══════════════
+   상태 토글은 '완료'를 지나 계속 순환할 수 있으므로, 완료에 들어온 순간의 시각을
+   메모리에 후보로 잡아 두고 3초 동안 그대로 머물렀을 때만 completedAt으로 확정한다.
+   3초 안에 다른 상태로 넘어가면 후보 시각은 버린다. */
+const COMPLETE_HOLD_MS = 3000;
+const completionHolds = new Map();
+function completionHoldOf(t){ return t && t.id ? (completionHolds.get(t.id) || null) : null; }
+function displayTaskStatus(t){ return completionHoldOf(t) ? 'done' : (t.status || 'wait'); }
+function cancelCompletionHold(t){
+  if(!t || !t.id) return null;
+  const rec = completionHolds.get(t.id) || null;
+  if(rec){ clearTimeout(rec.timer); completionHolds.delete(t.id); }
+  return rec;
+}
+function cancelAllCompletionHolds(){
+  completionHolds.forEach(rec => clearTimeout(rec.timer));
+  completionHolds.clear();
+}
+function armCompletionHold(t, {isAlive, rerender, finalize}){
+  if(!t || !t.id) return;
+  cancelCompletionHold(t);
+  const rec = {
+    task:t,
+    previousStatus:t.status || 'wait',
+    completedAt:Date.now(),              /* 완료에 처음 도달한 실제 순간 */
+    doneAt:curDate,
+    timer:null
+  };
+  rec.timer = setTimeout(async () => {
+    const live = completionHolds.get(t.id);
+    if(live !== rec) return;
+    completionHolds.delete(t.id);
+    if(isAlive && !isAlive()) return;
+    /* 대기 중 다른 경로에서 상태가 바뀌었으면 완료로 확정하지 않는다. */
+    if(t.done || (t.status || 'wait') !== rec.previousStatus) return;
+    try{ await finalize(rec); }
+    catch(e){ console.warn('Completion finalize failed', e); }
+  }, COMPLETE_HOLD_MS);
+  completionHolds.set(t.id, rec);
+  rerender();                              /* 데이터는 아직 안 바꾸고 화면만 '완료'로 보여 준다 */
 }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 
@@ -3185,7 +3231,8 @@ function taskScheduleBadge(t, ctx={}){
   const d = taskDateBadge(t, ctx);
   const dateLabel = d.date ? d.label : '일정 미정';
   const timeLabel = t.time ? timeRange(t) : '';
-  const label = [dateLabel, timeLabel].filter(Boolean).join(' · ');
+  /* 시계 이모지는 빼되 실행 '날짜' 의미를 보여 주는 달력 이모지는 유지한다. */
+  const label = `📅 ${[dateLabel, timeLabel].filter(Boolean).join(' · ')}`;
   return { date:d.date, label, implicit:d.implicit };
 }
 function taskDeadlineBadge(t){
@@ -3195,7 +3242,7 @@ function taskDeadlineBadge(t){
   return {date, label:`🚩 기한 ${label}`, over:!t.done && date < todayStr()};
 }
 function taskRow(t, ctx){
-  const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
+  const st = STATUS.find(s=>s.k===displayTaskStatus(t)) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
   const scheduleBadge = taskScheduleBadge(t, ctx);
   const deadlineBadge = taskDeadlineBadge(t);
@@ -3211,8 +3258,10 @@ function taskRow(t, ctx){
     <div class="task-left">
       <button class="note-btn" title="상세 — 기한·실행 일정·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
-      <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-      ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
+      <div class="task-name-group">
+        <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
+      </div>
     </div>
     <div class="task-right">
       <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 📝에서 수정">${scheduleBadge.label}</button>
@@ -3225,6 +3274,7 @@ function taskRow(t, ctx){
     </div>`;
   bindDelayBtn(row, t, ctx);
   row.querySelector('.chk').onclick = async () => {
+    cancelCompletionHold(t);
     if(ctx.priv && !t.done){ await completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
     if(ctx.inbox && !ctx.priv && !t.done){ await completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
     if(t.done && t.from && !ctx.inbox){ uncompleteBack(t, ctx); return; }         // 완료 해제 → 원래 함으로
@@ -3244,26 +3294,53 @@ function taskRow(t, ctx){
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
   row.querySelector('.status-chip').onclick = async () => {
-    const i = STATUS.findIndex(s=>s.k===t.status);
+    const shown = displayTaskStatus(t);
+    const i = STATUS.findIndex(s=>s.k===shown);
     const next = STATUS[(i+1)%STATUS.length].k;
-    if(ctx.priv && next==='done'){ await completePriv(t, ctx.idx); return; }
-    if(ctx.inbox && !ctx.priv && next==='done'){ await completeInbox(t, ctx.idx); return; }
-    const wasDone = t.done;
-    t.status = next;
-    t.done = t.status==='done';
-    if(wasDone !== t.done){
-      t.doneAt = t.done ? curDate : '';
-      t.completedAt = t.done ? Date.now() : 0;
+
+    /* hold → 완료: 데이터에 즉시 완료를 쓰지 않고 3초 확인부터 시작한다. */
+    if(next === 'done'){
+      armCompletionHold(t, {
+        isAlive: () => ctx.arr.includes(t),
+        rerender: ctx.rerender,
+        finalize: async rec => {
+          if(ctx.priv){ await completePriv(t, ctx.arr.indexOf(t), rec); return; }
+          if(ctx.inbox && !ctx.priv){ await completeInbox(t, ctx.arr.indexOf(t), rec); return; }
+          t.status = 'done';
+          t.done = true;
+          t.doneAt = rec.doneAt;
+          t.completedAt = rec.completedAt;
+          ctx.save(); ctx.rerender();
+          clearTimeout(saveTimer);
+          const diarySaved = await saveNow();
+          if(!diarySaved){
+            toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요');
+            return;
+          }
+          if(!ctx.inbox) await clearCarriedCopies(t, ctx.cat, rec.doneAt);
+          await reflectTaskCompletion(t, ctx.cat);
+        }
+      });
+      return;
     }
+
+    /* 완료 후보에서 3초 안에 다음 상태로 넘어오면 후보 시각만 폐기한다. */
+    const pending = cancelCompletionHold(t);
+    const wasDone = !!t.done;
+    t.status = next;
+    t.done = false;
+    t.doneAt = '';
+    t.completedAt = 0;
     ctx.save(); ctx.rerender();
-    if(wasDone !== t.done){
+
+    /* 이미 3초 확정이 끝난 완료를 다시 풀었을 때만 서버/Calendar에 해제를 반영한다. */
+    if(wasDone && !pending){
       clearTimeout(saveTimer);
-      const diarySaved = await saveNow();           /* 완료 진입/해제는 Diary 먼저 */
+      const diarySaved = await saveNow();
       if(!diarySaved){
         toast('Diary 서버 저장이 확인되지 않아 Calendar 상태 반영은 보류했어요');
         return;
       }
-      if(t.done && !ctx.inbox) await clearCarriedCopies(t, ctx.cat, curDate);
       await reflectTaskCompletion(t, ctx.cat);
     }
   };
@@ -3284,6 +3361,7 @@ function taskRow(t, ctx){
       ? '이 업무를 삭제할까요?\n캘린더에 등록된 일정도 먼저 삭제한 뒤 업무를 지웁니다.'
       : '이 업무를 삭제할까요?';
     if(t.text && !(await askConfirm(msg, {title:'🗑 업무 삭제', ok:'삭제', danger:true}))) return;
+    cancelCompletionHold(t);
     const hadCalendarEvent = !!t.gcalId;
     if(hadCalendarEvent){
       calendarUx('start', '삭제');
@@ -5691,12 +5769,15 @@ $('inboxAddBtn').onclick = () => {
   if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
 };
 /* 기타 업무 완료 → 보고 있는 날짜의 일지에 '기타 업무'로 박아넣음 */
-async function completeInbox(t, idx){
+async function completeInbox(t, idx, completionMeta=null){
+  cancelCompletionHold(t);
   /* 데이터 유실 방지: 완료본을 날짜 일지에 먼저 저장하고, 성공한 뒤 원본을 기타 업무함에서 뺀다. */
   let target = day.cats.find(c => !c.priv && c.name.trim()==='기타업무(완료)');
   const madeTarget = !target;
   if(!target){ target = {id:uid8(), name:'기타업무(완료)', color:4, note:'', files:[], tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done', doneAt:curDate, completedAt:Date.now(), from:'inbox'};
+  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done',
+    doneAt:(completionMeta&&completionMeta.doneAt)||curDate,
+    completedAt:(completionMeta&&+completionMeta.completedAt)||Date.now(), from:'inbox'};
   target.tasks.push(completed);
   markDirty();
   clearTimeout(saveTimer);
@@ -5744,6 +5825,7 @@ function catMoveOptions(curCid, ctx){
    목표·퀵메모·첨부·시간까지 그대로 따라가고, 시간이 잡혀 있으면 그 카테고리 위쪽에 놓는다. */
 async function moveTaskTo(t, ctx, dest){
   if(!dest){ toast('옮길 곳을 골라 주세요'); return; }
+  cancelCompletionHold(t);
   const moved = {...normTask(t), id:uid8(), from:''};
   let where = '';
   if(dest === '__inbox'){ inbox.push(moved); markInbox(); where = '기타 업무함'; }
@@ -5793,12 +5875,15 @@ function uncompleteBack(t, ctx){
 }
 
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
-async function completePriv(t, idx){
+async function completePriv(t, idx, completionMeta=null){
+  cancelCompletionHold(t);
   /* 개인 용무도 같은 원칙: 날짜 일지 완료본을 먼저 확정한 뒤 원본을 제거한다. */
   let target = day.cats.find(c => c.priv);
   const madeTarget = !target;
   if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, note:'', files:[], tasks:[]}; day.cats.push(target); }
-  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done', doneAt:curDate, completedAt:Date.now(), from:'priv'};
+  const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done',
+    doneAt:(completionMeta&&completionMeta.doneAt)||curDate,
+    completedAt:(completionMeta&&+completionMeta.completedAt)||Date.now(), from:'priv'};
   target.tasks.push(completed);
   markDirty();
   clearTimeout(saveTimer);
@@ -6468,7 +6553,7 @@ function renderPrio(){
     const label = c? (c.name.trim()||'무제') : (bx==='priv'? '개인용무' : '기타업무');
     const icon = c? (c.priv? '🏠' : '📁') : (bx==='priv'? '🏠' : '📥');
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
-    const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
+    const st = STATUS.find(x=>x.k===displayTaskStatus(t)) || STATUS[0];
     const scheduleBadge = taskScheduleBadge(t, {inbox:!!bx});
     const deadlineBadge = taskDeadlineBadge(t);
     const gcalLinked = !!t.gcalId;
@@ -6495,6 +6580,7 @@ function renderPrio(){
       </div>`;
     bindDelayBtn(row, t, {inbox:!!bx});
     row.querySelector('.chk').onclick = async () => {
+      cancelCompletionHold(t);
       if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t)); return; }
       if(bx==='priv'){ await completePriv(t, priv.indexOf(t)); return; }
       t.done = true; t.status = 'done'; t.doneAt = curDate; t.completedAt = Date.now(); markDirty(); renderCats();
@@ -6507,19 +6593,37 @@ function renderPrio(){
     };
     row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
     row.querySelector('.status-chip').onclick = async () => {
-      const k = STATUS.findIndex(x=>x.k===t.status);
+      const shown = displayTaskStatus(t);
+      const k = STATUS.findIndex(x=>x.k===shown);
       const next = STATUS[(k+1)%STATUS.length].k;
-      if(bx==='inbox' && next==='done'){ await completeInbox(t, inbox.indexOf(t)); return; }
-      if(bx==='priv' && next==='done'){ await completePriv(t, priv.indexOf(t)); return; }
-      const wasDone = t.done;
-      t.status = next; t.done = t.status==='done';
-      if(wasDone !== t.done){ t.doneAt = t.done ? curDate : ''; t.completedAt = t.done ? Date.now() : 0; }
-      save(); renderCats();
-      if(wasDone !== t.done){
+
+      if(next === 'done'){
+        armCompletionHold(t, {
+          isAlive: () => bx==='inbox' ? inbox.includes(t) : bx==='priv' ? priv.includes(t) : !!(c && c.tasks.includes(t)),
+          rerender: renderPrio,
+          finalize: async rec => {
+            if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t), rec); return; }
+            if(bx==='priv'){ await completePriv(t, priv.indexOf(t), rec); return; }
+            t.status = 'done'; t.done = true; t.doneAt = rec.doneAt; t.completedAt = rec.completedAt;
+            markDirty(); renderCats(); renderPrio();
+            clearTimeout(saveTimer);
+            const diarySaved = await saveNow();
+            if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
+            if(c) await clearCarriedCopies(t, c, rec.doneAt);
+            await reflectTaskCompletion(t, c);
+          }
+        });
+        return;
+      }
+
+      const pending = cancelCompletionHold(t);
+      const wasDone = !!t.done;
+      t.status = next; t.done = false; t.doneAt = ''; t.completedAt = 0;
+      save(); renderCats(); renderPrio();
+      if(wasDone && !pending){
         clearTimeout(saveTimer);
         const diarySaved = await saveNow();
         if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 상태 반영은 보류했어요'); return; }
-        if(t.done && c) await clearCarriedCopies(t, c, curDate);
         await reflectTaskCompletion(t, c);
       }
     };
