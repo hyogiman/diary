@@ -768,9 +768,8 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   border:1.5px solid var(--rule);border-radius:999px;padding:5px 10px;white-space:nowrap;
   font-family:inherit;line-height:1;transition:.15s}
 .time-badge:hover{border-color:var(--accent);background:var(--card)}
-/* Google Calendar + 시간표 연동 뱃지 — 고정 색상이 아니라 현재 페이지 테마의 accent/blue를 사용한다. */
-.time-badge.gcal-linked,.due-chip.gcal-linked{position:relative;isolation:isolate}
-.time-badge.gcal-linked{
+/* Google Calendar 등록 표시는 실행 일정 뱃지 하나에만 붙인다. */
+.time-badge.gcal-linked{position:relative;isolation:isolate;
   color:#fff;
   background:var(--accent-deep);
   background:linear-gradient(135deg,
@@ -787,22 +786,7 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
     color-mix(in srgb,var(--blue) 78%,var(--accent)));
   border-color:color-mix(in srgb,var(--accent) 30%,white)
 }
-.due-chip.gcal-linked:not(.over):not(.soon){
-  color:#fff;
-  background:var(--blue);
-  background:linear-gradient(135deg,
-    color-mix(in srgb,var(--blue) 78%,var(--accent-deep)),
-    color-mix(in srgb,var(--accent) 58%,var(--blue)));
-  border-color:color-mix(in srgb,var(--blue) 42%,white);
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--blue) 22%,transparent),
-             0 0 8px color-mix(in srgb,var(--blue) 38%,transparent)
-}
-/* 마감 경고는 빨강/주황 의미를 우선하되, 테마색 glow와 G 마크로 연동 여부를 남긴다. */
-.due-chip.gcal-linked.over,.due-chip.gcal-linked.soon{
-  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 28%,transparent),
-             0 0 8px color-mix(in srgb,var(--accent) 40%,transparent)
-}
-.time-badge.gcal-linked::after,.due-chip.gcal-linked::after{
+.time-badge.gcal-linked::after{
   content:'G';position:absolute;right:-4px;top:-6px;width:13px;height:13px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;background:var(--card);color:var(--accent-deep);
   border:1px solid var(--accent);font-size:7px;font-weight:950;line-height:1;
@@ -3112,14 +3096,27 @@ function taskDateBadge(t, ctx={}){
     : `${+date.slice(5,7)}/${+date.slice(8,10)}`;
   return {date, label, implicit};
 }
+/* 업무 목록의 뱃지는 '실행 일정(+시간)'과 '기한' 두 의미만 보여 준다.
+   Google Calendar 등록 표시는 실행 일정 뱃지에만 붙인다. */
+function taskScheduleBadge(t, ctx={}){
+  const d = taskDateBadge(t, ctx);
+  const dateLabel = d.date ? d.label : '일정 미정';
+  const timeLabel = t.time ? ` · ⏰ ${timeRange(t)}` : '';
+  return { date:d.date, label:`📅 ${dateLabel}${timeLabel}`, implicit:d.implicit };
+}
+function taskDeadlineBadge(t){
+  const date = (t.deadline || '').trim();
+  if(!date) return {date:'', label:'', over:false};
+  const label = date === todayStr() ? '오늘' : `${+date.slice(5,7)}/${+date.slice(8,10)}`;
+  return {date, label:`🚩 기한 ${label}`, over:!t.done && date < todayStr()};
+}
 function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===t.status) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
-  const overdue = t.due && !t.done && t.due < todayStr();
-  const dateBadge = taskDateBadge(t, ctx);
-  const dueLabel = dateBadge.label;
-  /* gcalId + 실행시간이면 Google Calendar에 등록되어 시간표에도 잡히는 일정 */
-  const gcalScheduled = !!(t.gcalId && t.time);
+  const scheduleBadge = taskScheduleBadge(t, ctx);
+  const deadlineBadge = taskDeadlineBadge(t);
+  /* 날짜-only/all-day 일정도 있으므로 gcalId 자체를 Calendar 등록 여부로 본다. */
+  const gcalLinked = !!t.gcalId;
   const row = document.createElement('div');
   row.className = 'task' + (t.done? ' done':'');
   row.dataset.tid = t.id;
@@ -3130,12 +3127,10 @@ function taskRow(t, ctx){
     ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
     <input class="task-text" value="${esc(t.text)}" placeholder="－ 할 일을 적어 주세요" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
     <div class="task-meta">
-      ${t.time? `<button class="time-badge ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}시간·퀵메모 열기">⏰ ${timeRange(t)}</button>`:''}
-      <span class="due-wrap">
-        <span class="due-chip view ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}${t.due? t.due+' — 날짜는 📝 안에서 고칩니다' : (dateBadge.date ? dateBadge.date+' — 날짜 미입력, 현재 일정 날짜로 표시 중' : '📝 안에서 날짜를 정하세요')}">${dueLabel}</span>
-      </span>
+      <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 📝에서 수정">${scheduleBadge.label}</button>
+      ${deadlineBadge.date ? `<span class="due-chip view ${deadlineBadge.over?'over':''}" title="기한 ${deadlineBadge.date} — 📝에서 수정">${deadlineBadge.label}</span>` : ''}
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
-      <button class="note-btn" title="상세 — 시간·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
+      <button class="note-btn" title="상세 — 기한·실행 일정·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       ${delayBtnHTML(t)}
       <div class="ctl">
         ${(ctx.inbox && prioMode)? (t.offPrio? '<button class="on-prio" title="우선순위로 올리기">↑</button>' : '<span class="ctl-gap"></span>') : ''}
@@ -3237,7 +3232,7 @@ function taskRow(t, ctx){
       <div class="ap-schedule">
         <div class="ap-schedule-edit">
           <div class="ap-schedule-row">
-            <span class="ap-title">📅 날짜</span>
+            <span class="ap-title">📅 실행 날짜</span>
             <div class="ap-schedule-controls">
               <input class="ap-due" type="date" value="${t.due||''}" title="하는 날 — 비우면 보고 있는 날">
               <button class="mini-btn ap-dclr ap-schedule-clear" ${t.due? '':'disabled'}>✕ 지우기</button>
@@ -3256,7 +3251,7 @@ function taskRow(t, ctx){
         </div>
         <div class="ap-schedule-result">
           <div class="ap-schedule-summary">
-            <span class="ap-schedule-result-label">일정</span>
+            <span class="ap-schedule-result-label">실행 일정</span>
             <span class="ap-whenhint">${calWhenHint(t)}</span>
           </div>
           <div class="ap-schedule-result-tools">
@@ -6321,10 +6316,9 @@ function renderPrio(){
     const icon = c? (c.priv? '🏠' : '📁') : (bx==='priv'? '🏠' : '📥');
     const save = c? markDirty : (bx==='priv'? markPriv : markInbox);
     const st = STATUS.find(x=>x.k===t.status) || STATUS[0];
-    const overdue = t.due && t.due < todayStr();
-    const dateBadge = taskDateBadge(t, {inbox:!!bx});
-    const dueLabel = dateBadge.label;
-    const gcalScheduled = !!(t.gcalId && t.time);
+    const scheduleBadge = taskScheduleBadge(t, {inbox:!!bx});
+    const deadlineBadge = taskDeadlineBadge(t);
+    const gcalLinked = !!t.gcalId;
     const row = document.createElement('div'); row.className = 'task';
     row.dataset.tid = t.id;
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
@@ -6337,11 +6331,8 @@ function renderPrio(){
       </span>
       <input class="task-text" value="${esc(t.text)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div class="task-meta">
-        ${t.time? `<button class="time-badge ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동 — ':''}상세 열기">⏰ ${timeRange(t)}</button>`:''}
-        <span class="due-wrap">
-          <button class="due-chip ${overdue?'over':''} ${gcalScheduled?'gcal-linked':''}" title="${gcalScheduled?'Google Calendar · 시간표 연동':''}">${dueLabel}</button>
-          <input type="date" value="${t.due}">
-        </span>
+        <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 상세 열기">${scheduleBadge.label}</button>
+        ${deadlineBadge.date ? `<button class="due-chip ${deadlineBadge.over?'over':''}" title="기한 ${deadlineBadge.date} — 상세 열기">${deadlineBadge.label}</button>` : ''}
         <button class="status-chip ${st.cls}">${st.label}</button>
         ${delayBtnHTML(t)}
         <div class="ctl pr-ctl">
@@ -6379,7 +6370,6 @@ function renderPrio(){
         await reflectTaskCompletion(t, c);
       }
     };
-    row.querySelector('.due-wrap input').addEventListener('change', e => { t.due = e.target.value; save(); renderCats(); });
     const openPrioTaskDetail = () => { prioMode = false; try{ localStorage.setItem('prioMode','0'); }catch(e){}
       if(bx==='inbox') inboxOpen = true;
       if(bx==='priv') privOpen = true;
@@ -6387,6 +6377,8 @@ function renderPrio(){
       setTimeout(()=>{ const el=[...document.querySelectorAll('.task-text')].find(x=>x.value===t.text); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }, 60); };
     const ptb = row.querySelector('.time-badge');
     if(ptb) ptb.onclick = openPrioTaskDetail;
+    const pdb = row.querySelector('.due-chip');
+    if(pdb) pdb.onclick = openPrioTaskDetail;
     const pgm = row.querySelector('.goal-mark');
     if(pgm) pgm.onclick = openPrioTaskDetail;
     const offBtn = row.querySelector('.off-prio');
