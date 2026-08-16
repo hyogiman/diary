@@ -3487,10 +3487,18 @@ function taskRow(t, ctx){
 
     const dueIn = panel.querySelector('.ap-due');
     if(dueIn) dueIn.addEventListener('change', e => {
-      t.due = e.target.value || ''; ctx.save(); ctx.rerender();   /* 캘린더는 버튼을 눌러야 */
+      t.due = e.target.value || '';
+      /* 날짜별 일지 업무: 시간이 이미 있으면 timeDay도 새 실행 날짜를 따라간다.
+         보관함/개인용무함은 기존의 '오늘 잡은 시간' 규칙을 유지한다. */
+      if(!ctx.inbox && t.time) t.timeDay = t.due || curDate;
+      ctx.save(); ctx.rerender();   /* 캘린더는 버튼을 눌러야 */
     });
     const dclr = panel.querySelector('.ap-dclr');
-    if(dclr) dclr.onclick = () => { t.due = ''; ctx.save(); ctx.rerender(); };
+    if(dclr) dclr.onclick = () => {
+      t.due = '';
+      if(!ctx.inbox && t.time) t.timeDay = curDate;
+      ctx.save(); ctx.rerender();
+    };
 
     /* 기타 업무함 → 오늘 일지의 카테고리로 옮기기 */
     const moveGo = panel.querySelector('.ap-movego');
@@ -3506,8 +3514,11 @@ function taskRow(t, ctx){
       const nb = row.querySelector('.note-btn'); nb.innerHTML = '📝' + (t.note.trim()? '<span class="dot"></span>':''); });
     qn.addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
     panel.querySelector('.ap-time').addEventListener('change', e => {
-      if(ctx.inbox) t.timeDay = e.target.value ? todayStr() : '';   /* 보관함 — 어느 날 잡은 시간인지 */
-      t.time = e.target.value; ctx.save(); ctx.rerender();
+      const nextTime = e.target.value || '';
+      t.time = nextTime;
+      if(ctx.inbox) t.timeDay = nextTime ? todayStr() : '';       /* 보관함 — 기존 규칙 유지 */
+      else t.timeDay = nextTime ? (t.due || curDate) : '';        /* 날짜별 일지 — 실행 날짜와 함께 저장 */
+      ctx.save(); ctx.rerender();
       /* 캘린더로는 바로 보내지 않는다 — '📅 캘린더 등록/수정'을 눌러야 반영된다 */
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
@@ -3528,7 +3539,7 @@ function taskRow(t, ctx){
       }
       clearSchedulePending(t);
       t.time='';
-      if(ctx.inbox) t.timeDay = '';
+      t.timeDay='';
       ctx.save(); ctx.rerender();
       refreshScheduleDrawer();
       if(hadCalendarEvent) calendarUx('done', '삭제');
@@ -8630,7 +8641,9 @@ $('evSave').onclick = async () => {
     let linked = false, linkedWrites = [];
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === evEditing.id){
-        t.time = v; t.dur = mins;
+        t.time = v;
+        t.timeDay = t.due || curDate;
+        t.dur = mins;
         const pre = `[${c.name.trim()}] `;
         t.text = title.startsWith(pre) ? title.slice(pre.length) : title;
         linked = true;
@@ -8677,7 +8690,7 @@ $('evDelete').onclick = async () => {
     let linked = false;
     day.cats.forEach(c => c.tasks.forEach(t => {
       if(t.gcalId && t.gcalId === deleting.id){
-        t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; t.time = ''; linked = true;
+        t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; t.time = ''; t.timeDay = ''; linked = true;
       }
     }));
     (inbox||[]).forEach(t => { if(t.gcalId === deleting.id){ t.gcalId=''; t.gcalCalendar=''; t.gcalSig=''; t.time=''; t.timeDay=''; linked=true; } });
