@@ -3222,7 +3222,10 @@ function taskDateBadge(t, ctx={}){
   if(!date) return {date:'', label:'📅', implicit:true};
   const label = date === todayStr()
     ? '오늘'
-    : `${+date.slice(5,7)}/${+date.slice(8,10)}`;
+    : (() => {
+        const d = new Date(date + 'T12:00:00');
+        return `${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`;
+      })();
   return {date, label, implicit};
 }
 /* 업무 목록의 뱃지는 '실행 일정(+시간)'과 '기한' 두 의미만 보여 준다.
@@ -3238,8 +3241,13 @@ function taskScheduleBadge(t, ctx={}){
 function taskDeadlineBadge(t){
   const date = (t.deadline || '').trim();
   if(!date) return {date:'', label:'', over:false};
-  const label = date === todayStr() ? '오늘' : `${+date.slice(5,7)}/${+date.slice(8,10)}`;
-  return {date, label:`🚩 기한 ${label}`, over:!t.done && date < todayStr()};
+  const label = date === todayStr()
+    ? '오늘'
+    : (() => {
+        const d = new Date(date + 'T12:00:00');
+        return `${d.getMonth()+1}/${d.getDate()}(${DOW[d.getDay()]})`;
+      })();
+  return {date, label:`🚩 ${label}까지`, over:!t.done && date < todayStr()};
 }
 function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===displayTaskStatus(t)) || STATUS[0];
