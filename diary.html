@@ -3204,8 +3204,8 @@ function calBtnState(t){
   if(t.gcalSig !== calSig(t)) return 'edit';      /* 올린 뒤 날짜·시간이 바뀌었으면 수정 */
   return 'done';                                   /* 최신 상태 — 누를 것 없음 */
 }
-/* 목록 날짜 뱃지 — 명시 날짜가 없더라도 날짜별 일지의 업무라면 그 일지 날짜를 표시한다.
-   오늘 일지는 '오늘'로 표시해, 날짜 입력칸을 비운 '오늘 일정'도 의미가 바로 보이게 한다.
+/* 목록 날짜 뱃지 — 명시 날짜가 없고 시간만 입력된 날짜별 일지 업무는 그 일지 날짜를 표시한다.
+   날짜와 시간을 모두 입력하지 않은 업무는 '미정'으로 표시한다.
    날짜 비종속 보관함/개인용무함은 실행일(timeDay)이 있을 때만 그 날짜를 fallback으로 쓴다. */
 function taskDateBadge(t, ctx={}){
   const explicit = (t.due || '').trim();
@@ -3214,7 +3214,7 @@ function taskDateBadge(t, ctx={}){
   if(!date){
     if(ctx.inbox){
       date = (t.timeDay || '').trim();
-    }else{
+    }else if((t.time||'').trim()){
       date = curDate;
     }
     implicit = !!date;
@@ -3232,7 +3232,7 @@ function taskDateBadge(t, ctx={}){
    Google Calendar 등록 표시는 실행 일정 뱃지에만 붙인다. */
 function taskScheduleBadge(t, ctx={}){
   const d = taskDateBadge(t, ctx);
-  const dateLabel = d.date ? d.label : '일정 미정';
+  const dateLabel = d.date ? d.label : '미정';
   const timeLabel = t.time ? timeRange(t) : '';
   /* 시계 이모지는 빼되 실행 '날짜' 의미를 보여 주는 달력 이모지는 유지한다. */
   const label = `📅 ${[dateLabel, timeLabel].filter(Boolean).join(' · ')}`;
