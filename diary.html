@@ -2317,6 +2317,7 @@ function readCalendarTombstones(){
 function calendarTombstoneId(id, calendarKey){ return `${calendarKey||'*'}:${id||''}`; }
 function markCalendarTombstone(id, calendarKey){
   if(!id) return;
+  if(typeof forgetCalendarWrite === 'function') forgetCalendarWrite(id);   /* 지운 일정은 그림자도 함께 버린다 */
   const rows = readCalendarTombstones();
   rows[calendarTombstoneId(id, calendarKey)] = Date.now();
   rows[calendarTombstoneId(id, '*')] = Date.now();
@@ -2425,6 +2426,58 @@ function taskStillLive(t){
     if((c.tasks||[]).includes(t)) return true;
   return false;
 }
+/* 같은 구글 일정을 가리키는, 지금 살아 있는 업무 찾기 */
+function findLiveTaskByGcalId(gid){
+  if(!gid) return null;
+  for(const c of ((typeof day !== 'undefined' && day && day.cats) || []))
+    for(const t of (c.tasks||[])) if(t.gcalId === gid) return {t, cat:c};
+  for(const t of ((typeof inbox !== 'undefined' && inbox) || [])) if(t.gcalId === gid) return {t, cat:null};
+  for(const t of ((typeof priv  !== 'undefined' && priv ) || [])) if(t.gcalId === gid) return {t, cat:null};
+  return null;
+}
+/* ── 쓰기 그림자(read-your-write) ─────────────────────────────
+   구글 캘린더의 목록 응답은 곧바로 최신이 되지 않는다. 방금 고친 시간이
+   반영됐다가 다음 조회에서 다시 옛 값으로 돌아오는 일도 있다.
+   그래서 내가 성공적으로 쓴 결과를 90초 동안 기억해 두고,
+   같은 일정이 목록에 나오면 내 사본으로 바꿔 그린다.
+   목록에 없는 일정을 새로 만들지는 않으므로, 지운 일정이 되살아나지 않는다. */
+const GCAL_SHADOW_TTL = 90 * 1000;
+const gcalWriteShadow = new Map();
+function rememberCalendarWrite(norm){
+  if(norm && norm.id) gcalWriteShadow.set(norm.id, {ev:norm, at:Date.now()});
+}
+function forgetCalendarWrite(id){ if(id) gcalWriteShadow.delete(id); }
+function applyCalendarWriteShadow(events){
+  const now = Date.now();
+  for(const [id, rec] of [...gcalWriteShadow])
+    if(now - rec.at > GCAL_SHADOW_TTL) gcalWriteShadow.delete(id);
+  if(!gcalWriteShadow.size) return events || [];
+  return (events || []).map(e => {
+    const rec = gcalWriteShadow.get(e.id);
+    return rec ? Object.assign({}, e, rec.ev) : e;
+  });
+}
+/* 방금 쓴 일정을 서랍 캐시에 즉시 끼워 넣는다 — 목록 GET 을 기다리지 않게 */
+function patchScheduleCache(evt, fallbackId){
+  const id = (evt && evt.id) || fallbackId;
+  if(!id || !evt || !evt.start) return;
+  const norm = {
+    id, title: evt.title || evt.summary || '',
+    loc: evt.location || evt.loc || '',
+    start: (evt.start && (evt.start.dateTime || evt.start.date)) || evt.start || '',
+    end:   (evt.end   && (evt.end.dateTime   || evt.end.date  )) || evt.end   || '',
+    allDay: !!evt.allDay || !!(evt.start && evt.start.date && !evt.start.dateTime),
+    link: evt.link || '',
+    calendarKey: evt.calendarKey || 'work',
+    calendarName: evt.calendarName || ''
+  };
+  if(!norm.start) return;
+  rememberCalendarWrite(norm);
+  const keep = (schedCache || []).filter(e => e.id !== id);
+  const sameDay = String(norm.start).slice(0,10) === schedDate;
+  schedCache = sameDay ? [...keep, Object.assign({}, (schedCache||[]).find(e=>e.id===id) || {}, norm)] : keep;
+  if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache);
+}
 function activeSchedulePendings(){
   const now = Date.now(), out = [];
   for(const [key, rec] of [...gcalPendingTasks.entries()]){
@@ -2440,8 +2493,15 @@ function activeSchedulePendings(){
     if(rec.writeConfirmed && rec.confirmedAt && now - rec.confirmedAt > 90000){
       clearSchedulePending(key); continue;
     }
-    /* 업무가 지워졌거나 다른 번호로 다시 만들어져 어디에도 없으면 서버만 믿는다 */
-    if(!taskStillLive(rec.t)){ clearSchedulePending(key); continue; }
+    /* 일지를 다시 불러오면 업무 객체가 통째로 새로 만들어져 예전 참조가 끊긴다.
+       그렇다고 표시를 버리면 방금 고친 시간이 옛 값으로 되돌아가 보인다.
+       같은 구글 일정을 가리키는 살아 있는 업무가 있으면 거기에 다시 묶어 준다. */
+    if(!taskStillLive(rec.t)){
+      const live = rec.t.gcalId ? findLiveTaskByGcalId(rec.t.gcalId) : null;
+      if(!live){ clearSchedulePending(key); continue; }
+      rec.t = live.t;
+      rec.cat = live.cat;
+    }
     out.push(rec);
   }
   /* 안전망 — 업무 번호가 새로 발급되는 경로(완료·되돌리기·카테고리 이동)에서
@@ -6457,6 +6517,9 @@ async function openCalendar(t, cat, ctxRerender){
       method: isUpdate ? 'PATCH' : 'POST',
       body: JSON.stringify(calBody(t, cat))
     });
+    /* 방금 쓴 결과를 서랍 캐시에 곧바로 반영한다.
+       예전에는 구글 '목록' GET 이 새 값을 줄 때까지 서랍이 옛 시간을 그대로 보여줬다. */
+    patchScheduleCache(j && j.event, t.gcalId);
     t.gcalId = (j.event && j.event.id) || t.gcalId;
     t.gcalCalendar = (j && j.calendar) || key;
     t.gcalSig = calSig(t);                      /* 지금 내용으로 올렸다는 표식 */
@@ -6557,9 +6620,10 @@ async function syncTaskToCalendar(t, cat){
   calendarUx('start', '수정');
   try{
     const key = t.gcalCalendar || 'all';
-    await calendarApiFetch(`/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`, {
+    const j2 = await calendarApiFetch(`/api/events/${encodeURIComponent(t.gcalId)}?calendar=${key}`, {
       method:'PATCH', body:JSON.stringify(calBody(t, cat))
     });
+    patchScheduleCache(j2 && j2.event, t.gcalId);   /* 서랍에 즉시 반영 */
     t.gcalSig = calSig(t); markDirty();      /* 수정한 내용으로 표식 갱신 */
     if(pendingMarked) confirmScheduleWrite(t, cat);  /* PATCH 성공값을 read-your-write shadow로 유지 */
     calendarUx('done', '수정');
@@ -9193,7 +9257,8 @@ function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padS
 const PXH = 220;                                   // 1시간 = 220px (15분 일정도 기존 30분 크기로)
 function minOf(d){ return d.getHours()*60 + d.getMinutes(); }
 function renderSchedule(events, cachedTs){
-  events = (events||[]).filter(e => !isCalendarTombstoned(e));
+  /* 지운 일정은 먼저 걸러내고(그림자가 되살리지 못하게), 그 다음 내가 쓴 값을 덧씌운다 */
+  events = applyCalendarWriteShadow((events||[]).filter(e => !isCalendarTombstoned(e)));
   const wrap = $('schedWrap'), body = $('tlBody'), allday = $('tlAllday');
   const oldWarn = wrap.querySelector('.sched-stale');
   if(oldWarn) oldWarn.remove();
