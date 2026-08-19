@@ -3546,6 +3546,15 @@ function taskRow(t, ctx){
     /* 완료 후보에서 3초 안에 다음 상태로 넘어오면 후보 시각만 폐기한다. */
     const pending = cancelCompletionHold(t);
     const wasDone = !!t.done;
+
+    /* 완료 → 다른 상태로 풀 때, 자동 완료 칸에 담긴 업무는 원래 함으로 되돌린다.
+       체크박스(.chk)에만 있던 처리라 이 토글로 풀면 완료 칸에 그대로 남아 있었다. */
+    const backBox = wasDone && !ctx.inbox ? (t.from || autoDoneBoxOf(ctx.cat)) : '';
+    if(backBox){
+      uncompleteBack(t, ctx, backBox, next);
+      return;
+    }
+
     t.status = next;
     t.done = false;
     t.doneAt = '';
@@ -6279,14 +6288,16 @@ async function moveTaskTo(t, ctx, dest){
 
 /* 완료를 풀면 원래 있던 함으로 되돌려 보낸다.
    예전에는 완료 목록에 미완료로 남아 어느 쪽에도 속하지 않는 상태가 됐다. */
-function uncompleteBack(t, ctx, forced){
+function uncompleteBack(t, ctx, forced, nextStatus){
   const origin = forced || t.from || autoDoneBoxOf(ctx.cat) || 'inbox';
   const back = origin === 'priv' ? priv : inbox;
-  const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', completedAt:0, from:'',
+  const st = (nextStatus && nextStatus !== 'done') ? nextStatus : 'wait';   /* 고른 상태 그대로 되돌아간다 */
+  const restored = {...normTask(t), id:uid8(), done:false, status:st, doneAt:'', completedAt:0, from:'',
     gcalId:'', gcalCalendar:'', gcalSig:''};               /* 완료 일정의 연결 메타는 따라가지 않는다 */
   back.push(restored);
   const i = ctx.arr.indexOf(t);
   if(i >= 0) ctx.arr.splice(i, 1);
+  clearSchedulePending(t);                                /* 사라지는 업무의 시간표 임시 표시도 함께 버린다 */
   if(ctx.cat && !ctx.cat.tasks.length){                   /* 빈 완료 카테고리는 치운다 */
     const ci = day.cats.indexOf(ctx.cat);
     if(ci >= 0) day.cats.splice(ci, 1);
