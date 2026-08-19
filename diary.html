@@ -462,6 +462,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #fabStamp:active{transform:scale(.94)}
 /* 창 위로 올라갈 때 — 업무 버튼은 비켜 주고 시각 버튼이 그 자리로 */
 body.stamp-up #fabCat{opacity:0;pointer-events:none;transform:scale(.9)}
+/* 일기 페이지에서는 아래 도구 띠가 있으므로 🕒 버튼을 그 위로 올린다 */
+body.diary-page #fabStamp{bottom:calc(76px + env(safe-area-inset-bottom))}
 #fabStamp .fi{font-size:1.05rem;line-height:1}
 #fabStamp .fl{font-family:'Jua',sans-serif;font-size:.92rem;line-height:1;padding-bottom:1px}
 /* 말풍선 */
@@ -4078,6 +4080,8 @@ function switchTab(mode){
     $('dvTools').classList.add('hidden');
     if(!arcDiary) armLock();
   }
+  document.body.classList.remove('diary-page');
+  $('fabStamp').classList.remove('hidden');   /* 🕒 는 어느 탭에서나 쓰는 버튼 — 늘 되살린다 */
   const today = (mode === true || mode === 'today');
   const goal  = (mode === 'goal');
   const arch  = (mode === false || mode === 'archive');
@@ -7602,7 +7606,9 @@ function openDiaryPage(back){
   day.diary = normDiary(day.diary);
   ['todayView','goalView','archiveView'].forEach(id => $(id).classList.add('hidden'));
   $('dateNav').classList.add('hidden');
-  ['fabCat','fabGoal','fabStamp','schedOpen'].forEach(id => { const e=$(id); if(e) e.classList.add('hidden'); });
+  ['fabCat','fabGoal','schedOpen'].forEach(id => { const e=$(id); if(e) e.classList.add('hidden'); });
+  $('fabStamp').classList.remove('hidden');      /* 🕒 시각 찍기는 일기에서도 쓴다 — 절대 숨기지 않는다 */
+  document.body.classList.add('diary-page');     /* 아래 도구 띠에 가리지 않게 버튼을 올린다 */
   $('diaryView').classList.remove('hidden');
   $('dvTools').classList.remove('hidden');
   applyTheme();
@@ -7619,6 +7625,8 @@ async function closeDiaryPage(){
   await flushSave();
   $('diaryView').classList.add('hidden');
   $('dvTools').classList.add('hidden');
+  document.body.classList.remove('diary-page');
+  $('fabStamp').classList.remove('hidden');
   if(typeof refreshStampBtn === 'function') releaseStamp();
   switchTab(dvBack);
   if(arcDiary){ disarmLock(); refreshArchive(); }   /* 일기 목록으로 복귀 — 잠금 타이머 미가동 */
@@ -8313,6 +8321,8 @@ function hideDiaryPage(){
   dvOpen = false;
   $('diaryView').classList.add('hidden');
   $('dvTools').classList.add('hidden');
+  document.body.classList.remove('diary-page');
+  $('fabStamp').classList.remove('hidden');
   saveNow();
   switchTab(dvBack === 'archive' ? 'archive' : 'today');
 }
