@@ -3555,6 +3555,41 @@ function taskDeadlineBadge(t){
       })();
   return {date, label:`🚩 ${label}까지`, over:!t.done && date < todayStr()};
 }
+/* 열려 있는 상세 박스를 닫지 않고, 날짜·시간에 딸린 표시만 그 자리에서 고쳐 준다.
+   예전에는 날짜 한 번 고를 때마다 목록 전체를 다시 그려서(ctx.rerender)
+   박스가 닫히고 순서까지 바뀌어, 내용을 쓰다 말고 당황하게 됐다. */
+function refreshTaskMeta(row, t, ctx){
+  if(!row) return;
+  const sb = taskScheduleBadge(t, ctx);
+  const badge = row.querySelector('.time-badge');
+  if(badge){
+    badge.textContent = sb.label;
+    badge.classList.toggle('gcal-linked', !!t.gcalId);
+  }
+  const panel = row.querySelector('.attach-panel');
+  if(!panel) return;
+  const hint = panel.querySelector('.ap-whenhint');
+  if(hint) hint.textContent = calWhenHint(t);
+  const dclr = panel.querySelector('.ap-dclr'); if(dclr) dclr.disabled = !t.due;
+  const tclr = panel.querySelector('.ap-tclr'); if(tclr) tclr.disabled = !t.time;
+
+  /* 캘린더 버튼은 상태에 따라 모양이 달라진다 — 그 자리만 갈아 끼운다 */
+  const tools = panel.querySelector('.ap-schedule-result-tools');
+  if(tools){
+    const old = tools.querySelector('.ap-cal, .ap-caldone');
+    const st = calBtnState(t);
+    const html = st === 'none' ? ''
+      : st === 'new'  ? '<button class="mini-btn ap-cal">📅 캘린더 등록</button>'
+      : st === 'edit' ? '<button class="mini-btn ap-cal edit">🔄 캘린더 수정</button>'
+      : '<span class="mini-btn ap-caldone" title="캘린더와 같은 상태예요">✓ 캘린더 등록완료</span>';
+    if(old) old.remove();
+    if(html){
+      tools.insertAdjacentHTML('beforeend', html);
+      const nb = tools.querySelector('.ap-cal');
+      if(nb) nb.onclick = () => openCalendar(t, ctx.cat, ctx.rerender);
+    }
+  }
+}
 function taskRow(t, ctx){
   const st = STATUS.find(s=>s.k===displayTaskStatus(t)) || STATUS[0];
   const col = ctx.cat ? catColor(ctx.cat) : '#B08A5A';
@@ -3808,13 +3843,15 @@ function taskRow(t, ctx){
       t.due = e.target.value || '';
       /* 시간이 이미 있으면 실행일도 새 날짜를 따라간다 — 보관함·개인용무함도 마찬가지다 */
       if(t.time) t.timeDay = t.due || (ctx.inbox ? todayStr() : curDate);
-      ctx.save(); ctx.rerender();   /* 캘린더는 버튼을 눌러야 */
+      ctx.save(); refreshTaskMeta(row, t, ctx);      /* 박스를 닫지 않는다 */
+      if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
     const dclr = panel.querySelector('.ap-dclr');
     if(dclr) dclr.onclick = () => {
       t.due = '';
       if(t.time) t.timeDay = ctx.inbox ? todayStr() : curDate;
-      ctx.save(); ctx.rerender();
+      ctx.save(); refreshTaskMeta(row, t, ctx);
+      if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     };
 
     /* 기타 업무함 → 오늘 일지의 카테고리로 옮기기 */
@@ -3839,12 +3876,12 @@ function taskRow(t, ctx){
          앞날로 잡아 둔 용무가 다음 날 clearStaleTimes 에 지워지고 캘린더 연결까지 끊겼다. */
       if(ctx.inbox) t.timeDay = nextTime ? (t.due || todayStr()) : '';
       else t.timeDay = nextTime ? (t.due || curDate) : '';
-      ctx.save(); ctx.rerender();
+      ctx.save(); refreshTaskMeta(row, t, ctx);      /* 박스를 닫지 않는다 */
       /* 캘린더로는 바로 보내지 않는다 — '📅 캘린더 등록/수정'을 눌러야 반영된다 */
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
     panel.querySelector('.ap-dur').addEventListener('change', e => {
-      t.dur = +e.target.value; ctx.save(); ctx.rerender();
+      t.dur = +e.target.value; ctx.save(); refreshTaskMeta(row, t, ctx);
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
     });
     panel.querySelector('.ap-alarm').addEventListener('change', e => {
@@ -3861,7 +3898,7 @@ function taskRow(t, ctx){
       clearSchedulePending(t);
       t.time='';
       t.timeDay='';
-      ctx.save(); ctx.rerender();
+      ctx.save(); refreshTaskMeta(row, t, ctx);
       refreshScheduleDrawer();
       if(hadCalendarEvent) calendarUx('done', '삭제');
       else toast('✓ Diary에서 실행 시간을 지웠어요');
@@ -3983,6 +4020,7 @@ $('carryBtn').onclick = async () => {
   if(needsRestore) await markLeaveModeRestored();
 
   if(stats.moved || stats.carriedNotes){
+    applyPrioRule();            /* 가져온 직후 한 번만 규칙대로 줄을 세운다 (그 뒤 조정은 그대로 유지) */
     markDirty(); renderCats();
     const bits=[];
     if(stats.moved) bits.push(`미완료 업무 ${stats.moved}건`);
@@ -4700,6 +4738,9 @@ function renderDelayModal(){
     $('delayAskWrap').classList.toggle('hidden', !has);
     if(has) $('delayAsk').textContent = reasonAsk(cur.reasonCode);
     $('delayDetail').value = cur.reasonDetail || '';
+    /* 적어 둔 내용이 있으면 창을 열 때부터 그 길이만큼 펼쳐 둔다.
+       예전에는 한 글자 고쳐야(input) 비로소 늘어나 전체가 안 보였다. */
+    if(has) requestAnimationFrame(() => grow($('delayDetail'), 64));
     /* 실제 업무시간 */
     $('delayStart').value = cur.actualStart || '';
     [...$('delayDur').children].forEach(b => b.classList.toggle('on', +b.dataset.m === +cur.actualDuration));
@@ -4783,6 +4824,8 @@ $('delayDetail').addEventListener('input', e => {
   ensureDelayRec().reasonDetail = e.target.value;
   grow(e.target, 64); queueDelaySave();
 });
+$('delayDetail').addEventListener('focus', e => grow(e.target, 64));
+$('delayDetail').addEventListener('click', e => grow(e.target, 64));
 $('delayStart').addEventListener('change', e => {
   if(!delayCtx) return;
   ensureDelayRec().actualStart = e.target.value || '';
@@ -7102,20 +7145,57 @@ $('prioBtn').onclick = () => {
   try{ localStorage.setItem('prioMode', prioMode?'1':'0'); }catch(e){}
   renderCats(); renderInbox(); renderPriv();
 };
+/* ── 우선순위 자동 정렬 규칙 ──────────────────────────────────
+   1순위  날짜가 지난 일 (급한 것부터: 오래 지난 순 → 시간 이른 순)
+   2순위  오늘 · 날짜+시간이 모두 있는 것 (시간 이른 순)
+   3순위  날짜만 있는 것 (날짜 이른 순)
+   4순위  '미정' — 일반 업무 → 기타업무 → 개인용무 순
+   이 규칙은 «미완료 가져오기»에서 한 번 적용되고, 그 뒤로는 손수 조정한 순서를 지킨다. */
+function prioRuleRank(x){
+  const t = x.t;
+  const today = todayStr();
+  const date = (t.due || '').trim() || (x.box ? (t.timeDay||'').trim() : (t.time ? curDate : ''));
+  if(!date){
+    const boxTier = x.box === 'priv' ? 2 : x.box === 'inbox' ? 1 : 0;   /* 일반 → 기타 → 개인 */
+    return {tier:4, a:boxTier, b:'', c:''};
+  }
+  if(date < today) return {tier:1, a:0, b:date, c:t.time || '00:00'};   /* 지난 일 — 오래된 것부터 */
+  if(date === today && t.time) return {tier:2, a:0, b:date, c:t.time};  /* 오늘 · 시간까지 정해진 것 */
+  return {tier:3, a:0, b:date, c:t.time || '99:99'};                    /* 날짜만 (오늘 포함) */
+}
+function prioRuleCompare(x, y){
+  const A = prioRuleRank(x), B = prioRuleRank(y);
+  if(A.tier !== B.tier) return A.tier - B.tier;
+  if(A.a !== B.a) return A.a - B.a;
+  if(A.b !== B.b) return A.b < B.b ? -1 : 1;
+  if(A.c !== B.c) return A.c < B.c ? -1 : 1;
+  return 0;
+}
+/* 규칙대로 우선순위 순서를 새로 매긴다 (가져오기 직후에만 호출) */
+function applyPrioRule(){
+  const all = [];
+  day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
+  inbox.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'inbox'}); });
+  priv.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'priv'}); });
+  all.sort(prioRuleCompare);
+  day.prioOrder = all.map(x => x.t.id);
+  return all.length;
+}
 function prioItems(){
   const all = [];
   day.cats.forEach(c => c.tasks.forEach(t => { if(!t.done && t.text.trim()) all.push({c,t}); }));
   inbox.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'inbox'}); });
   priv.forEach(t => { if(!t.done && !t.offPrio && t.text.trim()) all.push({c:null, t, box:'priv'}); });
-  all.sort((a,b) => {
-    if(a.t.time && b.t.time && a.t.time !== b.t.time) return a.t.time.localeCompare(b.t.time);
-    if(a.t.time && !b.t.time) return -1;
-    if(!a.t.time && b.t.time) return 1;
-    const ia = day.prioOrder.indexOf(a.t.id), ib = day.prioOrder.indexOf(b.t.id);
-    return (ia<0? 9999:ia) - (ib<0? 9999:ib);
-  });
-  day.prioOrder = all.map(x=>x.t.id);      // 순서 동기화(정리)
-  return all;
+  /* 저장해 둔 순서를 그대로 따른다 — ▲▼로 손수 옮긴 결과가 유지되어야 하므로
+     여기서는 다시 정렬하지 않는다. 아직 순서에 없는(새로 생긴) 업무만 규칙으로 자리를 잡아
+     맨 뒤에 붙인다. 규칙 자체는 '미완료 가져오기'에서 한 번 적용된다. */
+  const known = all.filter(x => day.prioOrder.indexOf(x.t.id) >= 0);
+  const fresh = all.filter(x => day.prioOrder.indexOf(x.t.id) < 0);
+  known.sort((a,b) => day.prioOrder.indexOf(a.t.id) - day.prioOrder.indexOf(b.t.id));
+  fresh.sort(prioRuleCompare);
+  const out = [...known, ...fresh];
+  day.prioOrder = out.map(x=>x.t.id);      // 순서 동기화(정리)
+  return out;
 }
 function renderPrio(){
   const box = $('prioList'); box.innerHTML = '';
