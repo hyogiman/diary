@@ -3404,6 +3404,20 @@ function cancelAllCompletionHolds(){
   completionHolds.forEach(rec => clearTimeout(rec.timer));
   completionHolds.clear();
 }
+/* 완료 후보 3초 동안 실시간 구독이 같은 업무 객체를 갈아끼우지 않게 하고,
+   확정 시에는 오래된 객체 참조가 아니라 현재 살아 있는 task id를 다시 찾는다. */
+function liveBoxTask(kind, id){
+  if(!id) return null;
+  const arr = kind === 'priv' ? (priv||[]) : (inbox||[]);
+  return arr.find(x => x && x.id === id) || null;
+}
+function boxHasCompletionHold(kind){
+  const arr = kind === 'priv' ? (priv||[]) : (inbox||[]);
+  if(!arr.length || !completionHolds.size) return false;
+  const ids = new Set(arr.map(x => x && x.id).filter(Boolean));
+  for(const id of completionHolds.keys()) if(ids.has(id)) return true;
+  return false;
+}
 function armCompletionHold(t, {isAlive, rerender, finalize}){
   if(!t || !t.id) return;
   cancelCompletionHold(t);
@@ -3561,12 +3575,18 @@ function taskRow(t, ctx){
 
     /* hold → 완료: 데이터에 즉시 완료를 쓰지 않고 3초 확인부터 시작한다. */
     if(next === 'done'){
+      const boxKind = ctx.priv ? 'priv' : (ctx.inbox ? 'inbox' : '');
+      const holdTaskId = t.id;
       armCompletionHold(t, {
-        isAlive: () => ctx.arr.includes(t),
+        isAlive: () => boxKind ? !!liveBoxTask(boxKind, holdTaskId) : ctx.arr.includes(t),
         rerender: ctx.rerender,
         finalize: async rec => {
-          if(ctx.priv){ await completePriv(t, ctx.arr.indexOf(t), rec); return; }
-          if(ctx.inbox && !ctx.priv){ await completeInbox(t, ctx.arr.indexOf(t), rec); return; }
+          if(boxKind){
+            const liveTask = liveBoxTask(boxKind, holdTaskId);
+            if(!liveTask || liveTask.done || (liveTask.status || 'wait') !== rec.previousStatus) return;
+            if(boxKind === 'priv'){ await completePriv(liveTask, priv.indexOf(liveTask), rec); return; }
+            await completeInbox(liveTask, inbox.indexOf(liveTask), rec); return;
+          }
           t.status = 'done';
           t.done = true;
           t.doneAt = rec.doneAt;
@@ -6354,7 +6374,7 @@ function uncompleteBack(t, ctx, forced, nextStatus){
 async function completePriv(t, idx, completionMeta=null){
   cancelCompletionHold(t);
   /* 개인 용무도 같은 원칙: 날짜 일지 완료본을 먼저 확정한 뒤 원본을 제거한다. */
-  let target = day.cats.find(c => c.priv);
+  let target = day.cats.find(c => c.priv && (c.name||'').trim()==='개인용무(완료)');
   const madeTarget = !target;
   if(!target){ target = {id:uid8(), name:'개인용무(완료)', color:3, priv:true, note:'', files:[], tasks:[]}; day.cats.push(target); }
   const completed = {...normTask(t), id:uid8(), origin:(t.origin||t.id), done:true, status:'done',
@@ -7112,12 +7132,18 @@ function renderPrio(){
       const next = STATUS[(k+1)%STATUS.length].k;
 
       if(next === 'done'){
+        const boxKind = bx==='priv' ? 'priv' : (bx==='inbox' ? 'inbox' : '');
+        const holdTaskId = t.id;
         armCompletionHold(t, {
-          isAlive: () => bx==='inbox' ? inbox.includes(t) : bx==='priv' ? priv.includes(t) : !!(c && c.tasks.includes(t)),
+          isAlive: () => boxKind ? !!liveBoxTask(boxKind, holdTaskId) : !!(c && c.tasks.includes(t)),
           rerender: renderPrio,
           finalize: async rec => {
-            if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t), rec); return; }
-            if(bx==='priv'){ await completePriv(t, priv.indexOf(t), rec); return; }
+            if(boxKind){
+              const liveTask = liveBoxTask(boxKind, holdTaskId);
+              if(!liveTask || liveTask.done || (liveTask.status || 'wait') !== rec.previousStatus) return;
+              if(boxKind === 'priv'){ await completePriv(liveTask, priv.indexOf(liveTask), rec); return; }
+              await completeInbox(liveTask, inbox.indexOf(liveTask), rec); return;
+            }
             t.status = 'done'; t.done = true; t.doneAt = rec.doneAt; t.completedAt = rec.completedAt;
             markDirty(); renderCats(); renderPrio();
             clearTimeout(saveTimer);
@@ -8806,7 +8832,7 @@ $('saveState').onclick = async () => {
 function attachBoxListeners(){
   if(!inboxCb){
     inboxCb = snap => {
-      if(inboxDirty || isEditing()) return;               // 작성 중이면 건너뜀
+      if(inboxDirty || isEditing() || boxHasCompletionHold('inbox')) return; // 작성·완료확정 중이면 건너뜀
       const v = snap.exists()? snap.val() : [];
       const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
       if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(inbox.map(t=>({...t,open:0})))) return;
@@ -8860,7 +8886,7 @@ function attachBoxListeners(){
   }
   if(!privCb){
     privCb = snap => {
-      if(privDirty || isEditing()) return;
+      if(privDirty || isEditing() || boxHasCompletionHold('priv')) return;   // 작성·완료확정 중이면 건너뜀
       const v = snap.exists()? snap.val() : [];
       const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
       if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(priv.map(t=>({...t,open:0})))) return;
