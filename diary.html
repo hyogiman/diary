@@ -2317,6 +2317,7 @@ function readCalendarTombstones(){
 function calendarTombstoneId(id, calendarKey){ return `${calendarKey||'*'}:${id||''}`; }
 function markCalendarTombstone(id, calendarKey){
   if(!id) return;
+  if(typeof cancelCalendarSync === 'function') cancelCalendarSync(id);   /* 지운 일정에는 보내지 않는다 */
   if(typeof forgetCalendarWrite === 'function') forgetCalendarWrite(id);   /* 지운 일정은 그림자도 함께 버린다 */
   const rows = readCalendarTombstones();
   rows[calendarTombstoneId(id, calendarKey)] = Date.now();
@@ -2682,10 +2683,49 @@ function calendarUx(stage, action='반영'){
 /* 완료 상태 변경 공통 규칙
    - Diary 시간표는 즉시 흐리게/복원한다.
    - Google Calendar에는 새 일정을 만들지 않고, 이미 연결된 일정의 제목(✔)만 PATCH한다. */
+/* ── Google Calendar 쓰기 모아 보내기 ─────────────────────────
+   완료를 눌렀다 바로 푸는 식으로 상태를 빠르게 오가면, 그때마다 PATCH 를 보내면
+   요청끼리 순서가 뒤집혀 구글에 엉뚱한 상태가 남을 수 있다.
+   그래서 '기록은 즉시 저장하되, 구글 쓰기만 3초 모아서 마지막 상태 한 번'만 보낸다.
+   예전에는 이 3초 동안 데이터까지 안 쓰는 바람에, 중간에 목록이 다시 그려지면
+   완료 자체가 소리 없이 사라졌다. 두 가지는 분리되어야 한다. */
+const CAL_SYNC_DEBOUNCE_MS = 3000;
+const calSyncQueue = new Map();          /* gcalId → {timer, cat} */
+
+function cancelCalendarSync(gcalId){
+  const rec = gcalId && calSyncQueue.get(gcalId);
+  if(rec){ clearTimeout(rec.timer); calSyncQueue.delete(gcalId); }
+}
+async function runCalendarSync(gcalId, fallbackTask, fallbackCat){
+  cancelCalendarSync(gcalId);
+  /* 보내는 시점에 살아 있는 업무를 다시 찾는다 — 완료되면 새 번호의 복사본으로 옮겨가므로
+     예전 객체를 그대로 쓰면 이미 지난 상태를 보내게 된다. */
+  const live = findLiveTaskByGcalId(gcalId);
+  const task = live ? live.t : fallbackTask;
+  const cat  = live ? live.cat : fallbackCat;
+  if(!task || !task.gcalId) return true;
+  try{ return await syncTaskToCalendar(task, cat); }
+  catch(e){ console.warn('Calendar sync failed', e); return false; }
+}
+/* 3초 안에 또 바뀌면 앞의 예약은 버리고 마지막 상태만 보낸다 */
+function queueCalendarSync(t, cat){
+  if(!t || !t.gcalId) return;
+  const gid = t.gcalId;
+  cancelCalendarSync(gid);
+  const timer = setTimeout(() => runCalendarSync(gid, t, cat), CAL_SYNC_DEBOUNCE_MS);
+  calSyncQueue.set(gid, {timer, task:t, cat:cat||null});
+}
+/* 날짜를 옮기거나 앱을 닫을 때는 기다리지 않고 지금 보낸다 */
+async function flushCalendarSyncs(){
+  const rows = [...calSyncQueue.entries()];
+  if(!rows.length) return;
+  await Promise.all(rows.map(([gid, rec]) => runCalendarSync(gid, rec.task, rec.cat)));
+}
+
 async function reflectTaskCompletion(t, cat){
   setTimeout(refreshDelayButtons, 0);
   if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache || []);
-  if(t && t.gcalId) return await syncTaskToCalendar(t, cat);
+  queueCalendarSync(t, cat);          /* 기록은 이미 저장됐고, 구글에는 3초 뒤 마지막 상태만 */
   return true;
 }
 
@@ -3083,6 +3123,7 @@ async function saveNow(){
   }
 }
 async function flushSave(){
+  flushCalendarSyncs();                  /* 예약해 둔 구글 쓰기도 함께 (기다리지 않고 시작) */
   /* 독립 저장 대상을 추가하면 반드시 이 공통 flush에도 포함한다.
      날짜 이동·검색·내보내기·백업·로그아웃 전에 미저장 내용이 빠지지 않게 한다. */
   clearTimeout(saveTimer);  await saveNow();
@@ -3098,7 +3139,7 @@ async function flushSave(){
   clearTimeout(stickyTimer);
   if(stickyDirty) await saveStickies();
 }
-window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } });
+window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } flushCalendarSyncs(); });
 
 /* ───────── 시트 렌더 ───────── */
 function renderSheet(){
@@ -3573,35 +3614,22 @@ function taskRow(t, ctx){
     const i = STATUS.findIndex(s=>s.k===shown);
     const next = STATUS[(i+1)%STATUS.length].k;
 
-    /* hold → 완료: 데이터에 즉시 완료를 쓰지 않고 3초 확인부터 시작한다. */
+    /* → 완료: 그 자리에서 확정한다.
+       예전에는 3초 동안 데이터를 건드리지 않고 화면만 '완료'로 보여 주다가
+       그 사이 목록을 다시 그리거나 날짜가 바뀌면 소리 없이 '보류'로 되돌아갔다.
+       기록을 잃지 않는 쪽이 훨씬 중요하므로 즉시 쓰고, 잘못 눌렀으면 한 번 더 눌러 되돌린다. */
     if(next === 'done'){
-      const boxKind = ctx.priv ? 'priv' : (ctx.inbox ? 'inbox' : '');
-      const holdTaskId = t.id;
-      armCompletionHold(t, {
-        isAlive: () => boxKind ? !!liveBoxTask(boxKind, holdTaskId) : ctx.arr.includes(t),
-        rerender: ctx.rerender,
-        finalize: async rec => {
-          if(boxKind){
-            const liveTask = liveBoxTask(boxKind, holdTaskId);
-            if(!liveTask || liveTask.done || (liveTask.status || 'wait') !== rec.previousStatus) return;
-            if(boxKind === 'priv'){ await completePriv(liveTask, priv.indexOf(liveTask), rec); return; }
-            await completeInbox(liveTask, inbox.indexOf(liveTask), rec); return;
-          }
-          t.status = 'done';
-          t.done = true;
-          t.doneAt = rec.doneAt;
-          t.completedAt = rec.completedAt;
-          ctx.save(); ctx.rerender();
-          clearTimeout(saveTimer);
-          const diarySaved = await saveNow();
-          if(!diarySaved){
-            toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요');
-            return;
-          }
-          if(!ctx.inbox) await clearCarriedCopies(t, ctx.cat, rec.doneAt);
-          await reflectTaskCompletion(t, ctx.cat);
-        }
-      });
+      cancelCompletionHold(t);
+      const meta = {doneAt:curDate, completedAt:Date.now()};
+      if(ctx.priv){ await completePriv(t, ctx.arr.indexOf(t), meta); return; }
+      if(ctx.inbox){ await completeInbox(t, ctx.arr.indexOf(t), meta); return; }
+      t.status = 'done'; t.done = true; t.doneAt = meta.doneAt; t.completedAt = meta.completedAt;
+      ctx.save(); ctx.rerender();
+      clearTimeout(saveTimer);
+      const diarySaved = await saveNow();
+      if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
+      await clearCarriedCopies(t, ctx.cat, meta.doneAt);
+      await reflectTaskCompletion(t, ctx.cat);
       return;
     }
 
@@ -6354,8 +6382,10 @@ function uncompleteBack(t, ctx, forced, nextStatus){
   const origin = forced || t.from || autoDoneBoxOf(ctx.cat) || 'inbox';
   const back = origin === 'priv' ? priv : inbox;
   const st = (nextStatus && nextStatus !== 'done') ? nextStatus : 'wait';   /* 고른 상태 그대로 되돌아간다 */
-  const restored = {...normTask(t), id:uid8(), done:false, status:st, doneAt:'', completedAt:0, from:'',
-    gcalId:'', gcalCalendar:'', gcalSig:''};               /* 완료 일정의 연결 메타는 따라가지 않는다 */
+  /* 캘린더 연결은 그대로 물려받는다.
+     예전에는 여기서 gcalId 를 지워, 완료를 풀어도 구글에는 '✔' 붙은 일정이
+     주인 없이 남았다. 연결을 유지하고 아래에서 ✔ 를 떼는 쪽이 맞다. */
+  const restored = {...normTask(t), id:uid8(), done:false, status:st, doneAt:'', completedAt:0, from:''};
   back.push(restored);
 
   /* 완료 취소 대상은 객체 참조가 바뀌었어도 id로 한 번 더 찾아 확실히 제거한다. */
@@ -6364,6 +6394,8 @@ function uncompleteBack(t, ctx, forced, nextStatus){
   if(i >= 0) ctx.arr.splice(i, 1);
 
   clearSchedulePending(t);
+  cancelCalendarSync(t.gcalId);            /* 완료본으로 예약해 둔 쓰기는 버리고 */
+  queueCalendarSync(restored, null);       /* 되돌린 상태(✔ 없음)로 다시 예약한다 */
 
   /* 자동 완료 카테고리는 보이는 실제 업무가 하나도 없으면 카테고리 자체를 없앤다.
      예전 데이터에서 남은 빈 task 한 건 때문에 '(완료)' 빈 껍데기가 계속 남는 것도 여기서 정리한다. */
@@ -7143,28 +7175,18 @@ function renderPrio(){
       const k = STATUS.findIndex(x=>x.k===shown);
       const next = STATUS[(k+1)%STATUS.length].k;
 
-      if(next === 'done'){
-        const boxKind = bx==='priv' ? 'priv' : (bx==='inbox' ? 'inbox' : '');
-        const holdTaskId = t.id;
-        armCompletionHold(t, {
-          isAlive: () => boxKind ? !!liveBoxTask(boxKind, holdTaskId) : !!(c && c.tasks.includes(t)),
-          rerender: renderPrio,
-          finalize: async rec => {
-            if(boxKind){
-              const liveTask = liveBoxTask(boxKind, holdTaskId);
-              if(!liveTask || liveTask.done || (liveTask.status || 'wait') !== rec.previousStatus) return;
-              if(boxKind === 'priv'){ await completePriv(liveTask, priv.indexOf(liveTask), rec); return; }
-              await completeInbox(liveTask, inbox.indexOf(liveTask), rec); return;
-            }
-            t.status = 'done'; t.done = true; t.doneAt = rec.doneAt; t.completedAt = rec.completedAt;
-            markDirty(); renderCats(); renderPrio();
-            clearTimeout(saveTimer);
-            const diarySaved = await saveNow();
-            if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
-            if(c) await clearCarriedCopies(t, c, rec.doneAt);
-            await reflectTaskCompletion(t, c);
-          }
-        });
+      if(next === 'done'){                     /* 목록 탭과 같은 규칙 — 그 자리에서 확정 */
+        cancelCompletionHold(t);
+        const meta = {doneAt:curDate, completedAt:Date.now()};
+        if(bx==='priv'){  await completePriv(t, priv.indexOf(t), meta);  return; }
+        if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t), meta); return; }
+        t.status = 'done'; t.done = true; t.doneAt = meta.doneAt; t.completedAt = meta.completedAt;
+        markDirty(); renderCats(); renderPrio();
+        clearTimeout(saveTimer);
+        const diarySaved = await saveNow();
+        if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
+        if(c) await clearCarriedCopies(t, c, meta.doneAt);
+        await reflectTaskCompletion(t, c);
         return;
       }
 
@@ -9030,7 +9052,9 @@ function diaryScheduleRows(){
       kind:'task',
       ref:t,
       cat:cat||null,
-      title:String(t.text||'').trim(),
+      /* 완료한 일은 ✔ 를 앞에 붙여 한눈에 구분되게 한다.
+         묶음 이름은 아래 줄에 따로 나오므로 [카테고리] 표식은 붙이지 않는다. */
+      title:(t.done ? '✔ ' : '') + String(t.text||'').trim(),
       done:!!t.done,
       color:cat ? catColor(cat) : (isPriv ? PRIV_COLOR : '#B08A5A'),
       catName:cat ? String(cat.name||'').trim() : (isPriv ? '개인용무' : '기타업무'),
