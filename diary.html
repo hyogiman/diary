@@ -6357,13 +6357,25 @@ function uncompleteBack(t, ctx, forced, nextStatus){
   const restored = {...normTask(t), id:uid8(), done:false, status:st, doneAt:'', completedAt:0, from:'',
     gcalId:'', gcalCalendar:'', gcalSig:''};               /* 완료 일정의 연결 메타는 따라가지 않는다 */
   back.push(restored);
-  const i = ctx.arr.indexOf(t);
+
+  /* 완료 취소 대상은 객체 참조가 바뀌었어도 id로 한 번 더 찾아 확실히 제거한다. */
+  let i = ctx.arr.indexOf(t);
+  if(i < 0 && t && t.id) i = ctx.arr.findIndex(x => x && x.id === t.id);
   if(i >= 0) ctx.arr.splice(i, 1);
-  clearSchedulePending(t);                                /* 사라지는 업무의 시간표 임시 표시도 함께 버린다 */
-  if(ctx.cat && !ctx.cat.tasks.length){                   /* 빈 완료 카테고리는 치운다 */
-    const ci = day.cats.indexOf(ctx.cat);
-    if(ci >= 0) day.cats.splice(ci, 1);
+
+  clearSchedulePending(t);
+
+  /* 자동 완료 카테고리는 보이는 실제 업무가 하나도 없으면 카테고리 자체를 없앤다.
+     예전 데이터에서 남은 빈 task 한 건 때문에 '(완료)' 빈 껍데기가 계속 남는 것도 여기서 정리한다. */
+  if(ctx.cat && autoDoneBoxOf(ctx.cat)){
+    ctx.cat.tasks = (ctx.cat.tasks || []).filter(x => (x && String(x.text||'').trim()));
+    if(!ctx.cat.tasks.length){
+      let ci = day.cats.indexOf(ctx.cat);
+      if(ci < 0 && ctx.cat.id) ci = day.cats.findIndex(c => c && c.id === ctx.cat.id);
+      if(ci >= 0) day.cats.splice(ci, 1);
+    }
   }
+
   markDirty();
   if(origin === 'priv') markPriv(); else markInbox();
   renderAll();
