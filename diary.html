@@ -864,6 +864,76 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
   border:1.5px solid var(--rule);border-radius:10px;background:var(--field)}
 .btn-primary.pin-go{width:auto;padding:10px 20px;margin:0;font-size:.95rem}
 #arcLockBtn{border-color:#E4B3AA;color:var(--danger)}
+/* ───────── 📖 일기 전체 페이지 ─────────
+   모달이 아니라 한 페이지다. 스크롤 주체가 다시 window 가 되므로
+   fitHeight() 의 스크롤 보정이 제대로 걸리고, 가운데 정렬이 없어
+   글이 길어져도 화면이 위로 밀려 올라가지 않는다. */
+#diaryView{max-width:900px;margin:0 auto;padding:0 14px 120px}
+#dvNav{display:flex;align-items:center;justify-content:center;gap:8px;margin:14px auto 0;padding:0 4px}
+#dvNav .dn-side{flex:1 1 0;min-width:0;display:flex;gap:8px;align-items:center}
+#dvNav .dn-left{justify-content:flex-end}
+#dvNav .dn-right{justify-content:flex-start}
+.dv-chip{background:var(--card);border:1.5px solid var(--rule);border-radius:14px;padding:9px 20px;
+  text-align:center;flex:none;max-width:62vw}
+.dv-chip .ymd{font-family:'Jua';font-weight:400;font-size:1.12rem;color:var(--accent-deep);white-space:nowrap}
+.dv-chip .wx{font-size:.78rem;font-weight:700;color:var(--ink-soft);margin-top:2px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+#dvState{max-width:900px;margin:6px auto 0;padding:0 6px;font-size:.75rem;color:var(--ink-soft);text-align:right;height:1em}
+
+.dv-paper{background:var(--paper);border:1.5px solid var(--rule);border-radius:16px;
+  box-shadow:var(--shadow);padding:18px 16px 22px;margin-top:10px}
+.dv-paper .mc-box{margin-bottom:12px}
+.dv-paper .dn-box{margin-bottom:14px}
+.dv-sep{height:0;border-top:2px dashed var(--rule);margin:14px 2px 12px}
+
+/* 본문 — 글칸과 사진이 번갈아 쌓인다 */
+#dvBody{display:flex;flex-direction:column}
+#dvBody textarea{width:100%;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);
+  line-height:32px;font-family:var(--hand);font-size:calc(1.35rem * var(--hand-size));
+  resize:none;overflow:hidden;color:var(--ink);padding:0;display:block}
+#dvBody textarea:focus{outline:none;background:repeating-linear-gradient(rgba(255,224,138,.13),rgba(255,224,138,.13) 31px,var(--rule) 31px,var(--rule) 32px)}
+.dv-img{position:relative;margin:10px 0 12px;border-radius:12px;overflow:hidden;
+  border:1.5px solid var(--rule);background:var(--card);line-height:0}
+.dv-img img{width:100%;height:auto;display:block;cursor:zoom-in}
+.dv-img .dv-x{position:absolute;top:7px;right:7px;width:30px;height:30px;border-radius:50%;
+  background:rgba(40,25,10,.62);color:#fff;font-size:.9rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.dv-img .dv-cap{position:absolute;left:0;right:0;bottom:0;padding:14px 10px 6px;color:#fff;
+  font-size:.72rem;font-weight:700;line-height:1.3;
+  background:linear-gradient(transparent,rgba(30,18,6,.55));pointer-events:none}
+.dv-up{margin:10px 0;padding:14px;border:1.5px dashed var(--rule);border-radius:12px;
+  text-align:center;font-size:.85rem;font-weight:700;color:var(--accent-deep);background:var(--card)}
+
+/* 아래 고정 도구 띠 */
+#dvTools{position:fixed;left:0;right:0;bottom:0;z-index:60;
+  background:rgba(251,242,225,.94);backdrop-filter:blur(8px);border-top:1.5px solid var(--rule);
+  padding:9px 14px calc(9px + env(safe-area-inset-bottom));
+  display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+#dvTools .mini-btn{font-size:.88rem;padding:9px 14px}
+#dvTools .dv-main{background:var(--accent);border-color:var(--accent);color:#fff}
+.dv-hint{max-width:900px;margin:12px auto 0;font-size:.74rem;color:var(--ink-soft);text-align:center;line-height:1.6}
+@media(max-width:520px){
+  .dv-paper{padding:14px 11px 18px;border-radius:14px}
+  .dv-chip{padding:8px 14px}
+  #dvTools .mini-btn{padding:9px 11px;font-size:.83rem}
+}
+/* 사진 칸의 높이를 CSS 로 못박는다.
+   높이를 그림이 정하게 두면, 아직 안 받아진 그림은 높이 0 이라
+   쪽 나눔이 틀어지고(한 장에 너무 많이 담김) 사진이 빈칸으로 찍힌다. */
+.db-pic{margin:10px 0;text-align:center;height:300px;line-height:0}
+.db-pic img{height:300px;width:auto;max-width:88%;object-fit:contain;
+  border-radius:8px;border:1px solid #E7D3B4;background:#F4E8D2}
+
+/* 내보내기 진행 표시 */
+.dex-prog{font-size:.9rem;font-weight:800;color:var(--ink);text-align:center;margin:14px 0 4px}
+.dex-sub{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.6;min-height:2.4em}
+.dex-bar{height:12px;border-radius:999px;background:var(--paper-deep);overflow:hidden;margin:12px 0 4px;
+  border:1px solid var(--rule)}
+.dex-bar > i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--accent-deep));
+  transition:width .25s}
+.dex-pct{font-size:.75rem;font-weight:800;color:var(--accent-deep);text-align:right}
+.dex-warn{background:#FDF0E4;border:1.5px solid #F0C9A0;border-radius:10px;padding:10px 12px;
+  font-size:.8rem;line-height:1.6;color:var(--ink);margin:10px 0 2px}
 .diary-card{background:var(--card);border:1.5px solid var(--rule);border-left:5px solid var(--accent);
   border-radius:14px;padding:14px 16px;cursor:pointer;transition:.15s}
 .diary-card:hover{box-shadow:var(--shadow)}
@@ -1737,8 +1807,67 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="evt-hint" id="evtHint">날짜 숫자를 누르면 그날 일지로 · 칸의 빈 곳을 누르면 이벤트 입력</div>
     <div class="day-list" id="dayList"></div>
   </div>
+
+  <div id="diaryView" class="hidden">
+    <div id="dvNav">
+      <div class="dn-side dn-left">
+        <button class="date-arrow" id="dvPrev" title="이전 날">◀</button>
+      </div>
+      <div class="dv-chip">
+        <div class="ymd" id="dvYmd">—</div>
+        <div class="wx" id="dvWx"></div>
+      </div>
+      <div class="dn-side dn-right">
+        <button class="date-arrow" id="dvNext" title="다음 날">▶</button>
+        <button class="today-btn" id="dvToday">오늘</button>
+      </div>
+    </div>
+    <div id="dvState"></div>
+    <div class="dv-paper">
+      <div class="mc-box">
+        <div class="mc-row">
+          <span class="mc-lb">오늘 기분</span>
+          <div class="mc-pick" id="moodPick"></div>
+          <button class="mc-clr" id="moodClr" type="button" title="지우기">✕</button>
+        </div>
+        <div class="mc-row">
+          <span class="mc-lb">컨디션</span>
+          <div class="mc-pick mc-bar" id="condPick"></div>
+          <button class="mc-clr" id="condClr" type="button" title="지우기">✕</button>
+        </div>
+      </div>
+      <div class="dn-box">
+        <button class="dn-head" id="dnoteHead" type="button">
+          <span class="dn-fold" id="dnoteFold">＋</span>
+          <b>🌱 어제와 다른 오늘</b>
+          <span class="dn-sub" id="dnoteSub"></span>
+        </button>
+        <div id="dnoteWrap" class="hidden">
+          <textarea id="dnoteText" placeholder="오늘의 굵직한 사건과 내 상태 — 나중에 이 날을 떠올릴 실마리"></textarea>
+        </div>
+      </div>
+      <div class="dv-sep"></div>
+      <div id="dvBody"></div>
+    </div>
+    <div class="dv-hint">이 일기는 A4 업무 출력·보고용 텍스트에 들어가지 않아요.<br>🖨 내보내기의 «📖 일기장으로 내보내기»로만 따로 나옵니다.</div>
+  </div>
+  <div id="dvTools" class="hidden">
+    <button class="mini-btn dv-main" id="dvPhoto">🖼 사진 넣기</button>
+    <button class="mini-btn" id="dvLock" title="지금 바로 잠그기">🔒 잠그기</button>
+    <button class="mini-btn" id="dvClose">✕ 닫기</button>
+  </div>
 </div>
 
+<div id="dexProgModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.55);z-index:196;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:420px">
+    <h3 id="dexProgTitle">📖 일기장을 만드는 중</h3>
+    <div class="dex-prog" id="dexProgNow">준비하는 중…</div>
+    <div class="dex-bar"><i id="dexProgBar"></i></div>
+    <div class="dex-pct" id="dexProgPct">0%</div>
+    <div class="dex-sub" id="dexProgSub">잠시만 기다려 주세요</div>
+    <div class="bk-btns"><button class="btn-line" id="dexProgCancel">중단하기</button></div>
+  </div>
+</div>
 <div id="lightbox" class="hidden"><img id="lightboxImg" alt=""></div>
 <div id="exportMenu" class="hidden">
   <div class="export-card">
@@ -1840,6 +1969,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button type="button" class="mini-btn on" data-w="day">📔 이 날짜</button>
       <button type="button" class="mini-btn" data-w="goals">🎯 목표</button>
       <button type="button" class="mini-btn" data-w="bank">📌 장기메모</button>
+      <button type="button" class="mini-btn" data-w="stickies">💡 포스트잇</button>
     </div>
     <div class="undo-nav">
       <button class="date-arrow" id="undoPrev">◀</button>
@@ -1865,6 +1995,11 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="mini-btn" data-s="all">전체</button>
     </div>
     <div id="dexHint" class="dex-hint"></div>
+    <label style="display:flex;align-items:center;justify-content:center;gap:7px;font-size:.82rem;
+      font-weight:700;color:var(--ink-soft);margin:2px 0 10px">
+      <input type="checkbox" id="dexPix" checked> 🖼 사진도 함께 담기
+      <span style="font-weight:400">(장수가 늘고 느려져요)</span>
+    </label>
     <div class="set-list">
       <button class="btn-primary" id="dexPdf">📄 PDF로 저장</button>
       <button class="btn-line" id="dexPng">🖼 이미지(PNG)로 저장</button>
@@ -1962,33 +2097,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       </div>
       <div class="login-msg" id="diaryMsg" style="text-align:center"></div>
     </div>
-    <div id="diaryBody" class="hidden">
-      <div class="mc-box">
-        <div class="mc-row">
-          <span class="mc-lb">오늘 기분</span>
-          <div class="mc-pick" id="moodPick"></div>
-          <button class="mc-clr" id="moodClr" type="button" title="지우기">✕</button>
-        </div>
-        <div class="mc-row">
-          <span class="mc-lb">컨디션</span>
-          <div class="mc-pick mc-bar" id="condPick"></div>
-          <button class="mc-clr" id="condClr" type="button" title="지우기">✕</button>
-        </div>
-      </div>
-      <div class="dn-box">
-        <button class="dn-head" id="dnoteHead" type="button">
-          <span class="dn-fold" id="dnoteFold">＋</span>
-          <b>🌱 어제와 다른 오늘</b>
-          <span class="dn-sub" id="dnoteSub"></span>
-        </button>
-        <div id="dnoteWrap" class="hidden">
-          <textarea id="dnoteText" placeholder="오늘의 굵직한 사건과 내 상태 — 나중에 이 날을 떠올릴 실마리"></textarea>
-        </div>
-      </div>
-      <textarea id="diaryText" placeholder="오늘 하루, 나에게만 남기는 이야기"
-        style="width:100%;min-height:280px;border:none;background:repeating-linear-gradient(transparent,transparent 31px,var(--rule) 31px,var(--rule) 32px);line-height:32px;font-family:var(--hand);font-size:calc(1.35rem * var(--hand-size));resize:vertical;color:var(--ink)"></textarea>
-      <div style="font-size:.72rem;color:var(--ink-soft);margin-top:8px">이 일기는 A4 출력·보고용 텍스트에는 포함되지 않아요. (백업 JSON에는 포함)</div>
-    </div>
+    <div id="diaryBody" class="hidden"></div>
     <button class="btn-line" id="diaryClose" style="margin-top:14px;border-style:dashed">닫기</button>
   </div>
 </div>
@@ -2426,7 +2535,49 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:'', dnote:'', mood:0, cond:0, prioOrder:[], wx:null }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:[], dnote:'', mood:0, cond:0, prioOrder:[], wx:null }; }
+/* ── 일기 본문: 글·사진이 번갈아 쌓이는 블록 ───────────────────────────
+   예전 일기는 문자열 하나였다. 포스트잇이 s.text → blocks 로 옮겨간 것과 똑같이
+   읽을 때 문자열을 자동으로 글 블록 하나로 승격시킨다. 예전 기록은 그대로 열린다.
+   사진은 본문에 담지 않고 주소(url)나 번호(ref)만 두어 일지 노드를 가볍게 유지한다. */
+function diaryBlocks(v){
+  if(typeof v === 'string') return v ? [{t:'text', v}] : [];
+  const arr = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+  return arr.map(b => {
+    if(!b || typeof b !== 'object') return null;
+    if(b.t === 'img' && b.ref) return {t:'img', id:b.id||uid8(), ref:true, name:b.name||''};
+    if(b.t === 'img' && b.url) return {t:'img', id:b.id||uid8(), url:b.url, path:b.path||'', name:b.name||''};
+    return {t:'text', v: typeof b.v === 'string' ? b.v : ''};
+  }).filter(Boolean);
+}
+const diaryTextOf = v => diaryBlocks(v).filter(b => b.t === 'text').map(b => b.v).join('\n').trim();
+const diaryImgsOf = v => diaryBlocks(v).filter(b => b.t === 'img');
+const diaryHas    = v => !!(diaryTextOf(v) || diaryImgsOf(v).length);
+/* 화면에서 편집할 모양 — 맨 앞과 맨 뒤는 늘 글칸이라 사진 앞뒤에 이어 쓸 수 있다 */
+function normDiary(v){
+  const bl = diaryBlocks(v);
+  if(!bl.length) return [{t:'text', v:''}];
+  if(bl[0].t !== 'text') bl.unshift({t:'text', v:''});
+  if(bl[bl.length-1].t !== 'text') bl.push({t:'text', v:''});
+  return bl;
+}
+/* 저장할 모양 — 내용이 전혀 없으면 빈 배열로 눌러 준다.
+   ★ 이걸 빠뜨리면 normDiary 가 남긴 빈 글칸 하나 때문에 isDayEmpty 가 영영 false 가 되어
+     아무것도 안 쓴 날이 서버에서 지워지지 않고 달력에 계속 남는다 (dnote 사고와 같은 계열). */
+function packDiary(v){
+  const bl = diaryBlocks(v);
+  if(!diaryHas(bl)) return [];
+  const out = [];
+  bl.forEach(b => {
+    if(b.t === 'img'){ out.push(b); return; }
+    const prev = out[out.length-1];
+    if(prev && prev.t === 'text') prev.v += (prev.v && b.v ? '\n' : '') + b.v;   /* 빈 글칸은 앞에 합친다 */
+    else out.push({t:'text', v:b.v});
+  });
+  while(out.length && out[0].t === 'text' && !out[0].v.trim()) out.shift();
+  while(out.length && out[out.length-1].t === 'text' && !out[out.length-1].v.trim()) out.pop();
+  return out;
+}
 /* '아무것도 안 쓴 날'인지 판정 — emptyDay()의 항목을 그대로 훑는다.
    예전엔 항목 이름을 손으로 나열하다 새 항목(어제와 다른 오늘)을 빠뜨려,
    그것만 적은 날이 빈 날로 취급돼 서버에서 지워지는 사고가 있었다.
@@ -2593,8 +2744,10 @@ auth.onAuthStateChanged(async u => {
   }
 });
 $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden'); await flushSave();
-  clearTimeout(stickyTimer); if(stickyDirty) await saveStickies();
-  detachAll(); stickies = []; stickyPix = {}; renderStickies(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+  /* 포스트잇 저장은 flushSave() 안에서 이미 끝난다. 목록을 비우기 전에 저장을 먼저 잠가
+     빈 상태가 서버를 덮는 일이 없게 한다. */
+  stickiesLoaded = false; clearTimeout(stickyRetryTimer); stickyRetryTimer = null;
+  detachAll(); stickies = []; stickyPix = {}; diaryPix = {}; renderStickies(); hideDiaryPage(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 let dayLoadSeq = 0, dayReady = false;
@@ -2707,7 +2860,7 @@ const validDelays = t => (t.delayHistory||[]).filter(r => r.reasonCode);
 const delayOf = (t, ds) => (t.delayHistory||[]).find(r => r.date === ds) || null;
 function normalize(v){
   return {
-    note: v.note||'', memo: v.memo||'', diary: v.diary||'', dnote: v.dnote||'', wx: v.wx||null,
+    note: v.note||'', memo: v.memo||'', diary: normDiary(v.diary), dnote: v.dnote||'', wx: v.wx||null,
     mood: +v.mood||0, cond: +v.cond||0,
     prioOrder: Array.isArray(v.prioOrder)? v.prioOrder : [],
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
@@ -2838,6 +2991,7 @@ async function saveNow(){
   dirty = false;
   const ds = dayOwner;                        /* 화면이 다른 날짜로 옮겨가도 내용은 제 날짜에 저장 */
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
+  clean.diary = packDiary(clean.diary);       /* 빈 글칸만 남은 일기는 [] 로 — isDayEmpty 가 제대로 걸리게 */
   if(!clean.cats.length) clean.prioOrder = [];
   const isEmpty = isDayEmpty(clean);
   if(!isEmpty) clean.updatedAt = Date.now();
@@ -3918,6 +4072,12 @@ $('tabToday').onclick = () => switchTab('today');
 $('tabArchive').onclick = () => switchTab('archive');
 function switchTab(mode){
   if(typeof releaseStamp === 'function') releaseStamp();   /* 탭을 옮기면 시각 찍기 대상을 놓는다 */
+  if(dvOpen){                                              /* 일기 페이지를 보고 있었다면 먼저 접는다 */
+    dvOpen = false;
+    $('diaryView').classList.add('hidden');
+    $('dvTools').classList.add('hidden');
+    if(!arcDiary) armLock();
+  }
   const today = (mode === true || mode === 'today');
   const goal  = (mode === 'goal');
   const arch  = (mode === false || mode === 'archive');
@@ -4011,7 +4171,7 @@ async function renderArchive(){
     if(vac)  lines.push(`<span class="cal-line cal-vac">🏖 ${esc(vac)}</span>`);
     if(arcDiary && has){
       const dv = normalize(md[dd]);
-      if(dv.diary.trim())      lines.push('<span class="cal-line">📖 일기</span>');
+      if(diaryHas(dv.diary))   lines.push('<span class="cal-line">📖 일기</span>');
       else if(dv.dnote.trim()) lines.push('<span class="cal-line">🌱 오늘 메모</span>');
     }
     cell.innerHTML = `<button class="cal-d" title="${ds} 일지 열기">${d}</button>` + lines.slice(0,2).join('')
@@ -4065,7 +4225,7 @@ async function renderArchive(){
   if(arcDiary && diaryUnlocked){
     const dks = keys.filter(dd => {
       const v = normalize(md[dd]);
-      return (v.diary||'').trim() || (v.dnote||'').trim() || v.mood || v.cond;
+      return diaryHas(v.diary) || (v.dnote||'').trim() || v.mood || v.cond;
     });
     if(!dks.length){
       list.innerHTML = `<div class="empty-note">${+arcMonth}월에는 쓴 일기가 없어요.<br>달력의 날짜를 누르면 그날 일기를 펼칩니다.</div>`;
@@ -4078,14 +4238,16 @@ async function renderArchive(){
     dks.forEach(dd => {
       const v  = normalize(md[dd]);
       const dt = new Date(`${arcYear}-${arcMonth}-${dd}T12:00:00`);
-      const dn = (v.dnote||'').trim(), dy = (v.diary||'').trim();
+      const dn = (v.dnote||'').trim(), dy = diaryTextOf(v.diary);
+      const nPix = diaryImgsOf(v.diary).length;
       const mc = mcLabel(v);
       const card = document.createElement('div'); card.className = 'dg-card';
       card.innerHTML = `
         <div class="dg-date"><div class="d">${+dd}</div><div class="w">${DOW[dt.getDay()]}요일</div></div>
         <div class="dg-body">
           ${mc ? `<div class="dg-mc">${esc(mc)}</div>` : ''}
-          ${dy ? `<div class="dg-txt">${esc(dy)}</div>` : (dn ? '<div class="dg-tag">어제와 다른 오늘</div>' : '')}
+          ${dy ? `<div class="dg-txt">${esc(dy)}</div>` : (nPix ? `<div class="dg-tag">🖼 사진 ${nPix}장</div>` : (dn ? '<div class="dg-tag">어제와 다른 오늘</div>' : ''))}
+          ${dy && nPix ? `<div class="dg-tag">🖼 사진 ${nPix}장</div>` : ''}
           ${dn ? `<div class="dg-dn">🌱 ${esc(dn)}</div>` : ''}
         </div>`;
       card.onclick = () => openDiaryOn(`${arcYear}-${arcMonth}-${dd}`);
@@ -4967,9 +5129,10 @@ const STAMP_OK = ['qnote',        /* 업무 퀵메모 */
                   'bn-body',      /* 회의록 본문 */
                   'be-body'];     /* 장기메모 본문 */
 const STAMP_ID = ['memoText',     /* 회의 및 기타 메모 */
-                  'diaryText',    /* 일기 */
                   'dnoteText',    /* 어제와 다른 오늘 */
                   'delayDetail']; /* 지연사유 상세 */
+/* 일기 본문은 글칸이 여러 개(사진 사이사이)라 부모로 판별한다 */
+const stampInDiary = el => !!(el && el.tagName === 'TEXTAREA' && el.closest && el.closest('#dvBody'));
 let stampTarget = null;                                        /* 지금 찍을 글칸 */
 let stampReleased = false;                                     /* 글칸 밖을 눌러 대상을 놓았는지 */
 
@@ -4977,6 +5140,7 @@ function stampable(el){
   if(!el || el.tagName !== 'TEXTAREA' || el.disabled || el.readOnly) return false;
   if(!document.contains(el)) return false;
   if(STAMP_ID.includes(el.id)) return true;
+  if(stampInDiary(el)) return true;                            /* 일기 본문 (글칸이 여러 개) */
   if(el.closest('#stickyLayer .sticky')) return true;          /* 포스트잇 */
   return STAMP_OK.some(c => el.classList.contains(c));
 }
@@ -5139,7 +5303,7 @@ $('undoModal').addEventListener('click', e => { if(e.target.id==='undoModal') $(
 $('undoPrev').onclick = () => { if(!UNDO_SPECIAL[undoDate]){ undoDate = shiftDate(undoDate, -1); renderUndoList(); } };
 $('undoNext').onclick = () => { if(!UNDO_SPECIAL[undoDate]){ undoDate = shiftDate(undoDate, +1); renderUndoList(); } };
 /* 날짜 말고 통째로 보관되는 것들 */
-const UNDO_SPECIAL = { goals:'🎯 목표', bank:'📌 장기메모' };
+const UNDO_SPECIAL = { goals:'🎯 목표', bank:'📌 장기메모', stickies:'💡 포스트잇' };
 $('undoWhat').onclick = e => {
   const b = e.target.closest('button'); if(!b) return;
   undoDate = b.dataset.w === 'day' ? curDate : b.dataset.w;
@@ -5159,6 +5323,11 @@ function undoSummary(d, kind){
     const arr = Array.isArray(d) ? d : Object.values(d||{});
     const first = (arr[0] && (arr[0].title||arr[0].body||'').trim()) || '';
     return arr.length ? `메모 <b>${arr.length}</b>건${first? ` · “${esc(first.slice(0,16))}”`:''}` : '메모 없음';
+  }
+  if(kind === 'stickies'){
+    const arr = (Array.isArray(d) ? d : Object.values(d||{})).map(normSticky);
+    const first = (arr.map(stickyText).find(Boolean) || '').replace(/\s+/g,' ').trim();
+    return arr.length ? `포스트잇 <b>${arr.length}</b>장${first? ` · “${esc(first.slice(0,16))}”`:''}` : '포스트잇 없음';
   }
   const z = daySize(d);
   const bits = [];
@@ -5215,13 +5384,14 @@ async function restoreUndo(ds, ts, rec){
   /* 목표·장기메모는 날짜가 아니라 통째로 되돌린다 */
   if(UNDO_SPECIAL[ds]){
     try{
-      const path = ds === 'goals' ? 'goals' : 'bank';
+      const path = ds;      /* UNDO_SPECIAL 의 열쇠가 곧 저장 노드 이름이다 (goals · bank · stickies) */
       const cur = await withTimeout(db.ref(`diaries/${USER.uid}/${path}`).get(), 6000);
       if(cur.exists()) await pushUndo(ds, cur.val(), '되돌리기 직전');
       await db.ref(`diaries/${USER.uid}/${path}`).set(rec.data);
       const now = Date.now();
       await db.ref(`diaries/${USER.uid}/${path}Ts`).set(now);
       if(ds === 'goals'){ goalsTsSeen = now; await loadGoals(); renderGoals(); if(typeof peekOpen!=='undefined' && peekOpen) renderPeek(); }
+      else if(ds === 'stickies'){ stickiesTsSeen = now; stickyPix = {}; await loadStickies(); }
       else { bankTsSeen = now; await loadBank(); renderBankList(); }
       $('undoModal').classList.add('hidden');
       toast(`${UNDO_SPECIAL[ds]}를 ${when} 상태로 되돌렸어요`);
@@ -5256,9 +5426,9 @@ function dexYM(){
 async function collectDiary(scope){
   const out = [];
   const push = (y, mm, dd, v) => {
-    const dy = (v.diary||'').trim(), dn = (v.dnote||'').trim();
-    if(dy || dn || v.mood || v.cond)
-      out.push({ds:`${y}-${mm}-${dd}`, diary:dy, dnote:dn, wx:v.wx||null, mood:+v.mood||0, cond:+v.cond||0});
+    const bl = packDiary(v.diary), dn = (v.dnote||'').trim();
+    if(bl.length || dn || v.mood || v.cond)
+      out.push({ds:`${y}-${mm}-${dd}`, diary:bl, dnote:dn, wx:v.wx||null, mood:+v.mood||0, cond:+v.cond||0});
   };
   const eatYear = async y => {
     const yd = await getYear(y);
@@ -5286,17 +5456,31 @@ async function collectDiary(scope){
   return out.sort((a,b) => a.ds.localeCompare(b.ds));
 }
 
-/* 일기 본문을 줄 단위 조각으로 — 길면 다음 장으로 자연스럽게 넘어가도록 */
+/* 일기 본문을 줄 단위 조각으로 — 길면 다음 장으로 자연스럽게 넘어가도록.
+   사진은 한 덩어리(조각 하나)로 다루어 장이 넘어갈 때 잘리지 않게 한다. */
+let dexWithPix = true;                                   /* 내보내기 창에서 고른 값 */
 function diaryLines(e){
   const out = [];
-  if(e.diary){
-    e.diary.split('\n').forEach(line => {
+  const bl = diaryBlocks(e.diary);
+  bl.forEach(b => {
+    if(b.t === 'img'){
+      if(!dexWithPix) return;
+      const src = b.ref ? (diaryPix[b.id] || '') : (b.url || '');
+      if(!src) return;
+      const w = document.createElement('div');
+      w.className = 'db-pic';
+      w.innerHTML = `<img src="${esc(src)}" alt="${esc(b.name||'사진')}">`;
+      out.push(w);
+      return;
+    }
+    (b.v || '').split('\n').forEach(line => {
       const p = document.createElement('div');
       p.className = 'db-line';
       p.textContent = line || ' ';                   /* 빈 줄도 한 줄로 */
       out.push(p);
     });
-  }else if(!e.dnote){
+  });
+  if(!out.length && !e.dnote){
     const p = document.createElement('div'); p.className='db-empty'; p.textContent='(내용 없음)';
     out.push(p);
   }
@@ -5305,7 +5489,7 @@ function diaryLines(e){
 
 /* 하루에 한 장 — 내용이 많으면 그 날짜 안에서만 장이 넘어간다.
    맨 위에 날짜와 날씨, 가운데 일기, 맨 아래에 '어제와 다른 오늘'. */
-function buildDiaryPages(entries, rangeLabel){
+function buildDiaryPages(entries, rangeLabel, opt){
   const stage = $('exportStage');
   stage.innerHTML = '';
   const pages = [];
@@ -5382,8 +5566,9 @@ function buildDiaryPages(entries, rangeLabel){
       }
     }
   });
-  /* 쪽번호는 전체 기준으로 매긴다 */
-  pages.forEach((p, i) => { p.querySelector('.db-foot').textContent = `— ${i+1} / ${pages.length} —`; });
+  /* 쪽번호 — 묶음으로 부를 때는 전체 장수를 알 수 없으므로 내보내기 쪽에서 매긴다 */
+  if(!(opt && opt.noNumber))
+    pages.forEach((p, i) => { p.querySelector('.db-foot').textContent = `— ${i+1} / ${pages.length} —`; });
   return pages;
 }
 
@@ -5396,62 +5581,188 @@ function canvasesToPdfBlob(list){
   return pdf.output('blob');
 }
 
+/* ═══════════════ 📖 일기장 내보내기 — 묶음 처리 ═══════════════
+   예전에는 모든 장을 한꺼번에 만들고 캔버스를 배열에 전부 쌓았다.
+   A4 한 장을 scale 2 로 뜨면 1588×2246px = 13.6MB 라서, 1년치 365장이면
+   캔버스만 4.8GB 다. 모바일 브라우저의 캔버스 한도(보통 256MB~1GB)를 훌쩍 넘겨
+   느린 게 아니라 도중에 죽는다. 사진까지 얹으면 그림 디코딩으로 1.6GB 가 더 붙는다.
+
+   그래서 며칠씩 묶어 처리하고, 한 장을 뜨는 즉시 JPEG 글자로 바꿔
+   캔버스를 반납한다. 같은 순간 살아 있는 캔버스는 언제나 한 장뿐이다. */
+const DEX_CHUNK = 6;                     /* 한 번에 다룰 날짜 수 */
+let dexCancel = false, dexBusy = false;
+
+function dexProgOpen(title){
+  dexCancel = false;
+  $('dexProgTitle').textContent = title || '📖 일기장을 만드는 중';
+  $('dexProgNow').textContent = '준비하는 중…';
+  $('dexProgSub').textContent = '잠시만 기다려 주세요';
+  $('dexProgBar').style.width = '0%';
+  $('dexProgPct').textContent = '0%';
+  $('dexProgCancel').disabled = false;
+  $('dexProgCancel').textContent = '중단하기';
+  $('dexProgModal').classList.remove('hidden');
+}
+function dexProgClose(){ $('dexProgModal').classList.add('hidden'); }
+function dexHms(ms){
+  const s = Math.max(0, Math.round(ms/1000));
+  return s < 60 ? `${s}초` : `${Math.floor(s/60)}분 ${String(s%60).padStart(2,'0')}초`;
+}
+/* 진행률 + 실제로 잰 남은 시간. 첫 두 장은 예열이라 평균에서 뺀다. */
+function dexProgStep(done, total, t0, nowLabel){
+  const pct = total ? Math.round(done/total*100) : 0;
+  $('dexProgBar').style.width = pct + '%';
+  $('dexProgPct').textContent = pct + '%';
+  $('dexProgNow').textContent = `${done} / ${total}장` + (nowLabel ? `  ·  ${nowLabel}` : '');
+  if(done >= 3){
+    const per  = (Date.now() - t0) / done;
+    const left = per * (total - done);
+    $('dexProgSub').textContent =
+      `한 장에 ${(per/1000).toFixed(1)}초  ·  지난 시간 ${dexHms(Date.now()-t0)}\n남은 시간 약 ${dexHms(left)}`;
+  }else{
+    $('dexProgSub').textContent = '속도를 재는 중…';
+  }
+}
+$('dexProgCancel').onclick = () => {
+  dexCancel = true;
+  $('dexProgCancel').disabled = true;
+  $('dexProgCancel').textContent = '중단하는 중…';
+};
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
+/* 이 묶음의 사진만 실제로 받아 둔다 — html2canvas 가 뜨기 전에 그림이 준비돼 있어야
+   빈칸으로 찍히지 않는다. 높이는 CSS 로 고정돼 있어 쪽 나눔에는 영향이 없다. */
+async function dexDecodeStage(){
+  const imgs = [...$('exportStage').querySelectorAll('.db-pic img')];
+  await Promise.all(imgs.map(im => {
+    if(im.complete && im.naturalWidth) return Promise.resolve();
+    return new Promise(res => {
+      let done = false;
+      const fin = () => { if(!done){ done = true; res(); } };
+      im.addEventListener('load', fin, {once:true});
+      im.addEventListener('error', fin, {once:true});
+      setTimeout(fin, 4000);                      /* 한 장이 막혀도 전체가 멈추지 않게 */
+    });
+  }));
+}
+/* 장수가 많으면 화질을 조금 낮춘다 — 안 그러면 PDF 자체가 수백 MB 가 된다 */
+function dexQuality(n){ return n <= 60 ? .92 : n <= 200 ? .86 : .80; }
+
+function shotsToPdfBlob(list){
+  const pdf = new jspdf.jsPDF({unit:'mm', format:'a4'});
+  list.forEach((s, i) => {
+    if(i) pdf.addPage();
+    pdf.addImage(s.d, 'JPEG', 0, 0, 210, Math.min(297, 210 * s.r));
+  });
+  return pdf.output('blob');
+}
+
 /* 실제 내보내기 */
 async function runDiaryExport(scope, kind){
+  if(dexBusy){ toast('이미 만드는 중이에요'); return; }
   $('diaryExpMenu').classList.add('hidden');
+  dexWithPix = !!($('dexPix') && $('dexPix').checked);
   if(!diaryUnlocked){                                  /* 잠긴 상태면 비밀번호부터 */
     const ok = await askPin('📖 일기장 내보내기');
     if(!ok) return;
     $('diaryModal').classList.add('hidden');
   }
   disarmLock();
-  toast('일기장을 만드는 중…');
+  dexBusy = true;
+  dexProgOpen();
   await flushSave();
+  const t0 = Date.now();
   try{
     await document.fonts.ready;
     const entries = await collectDiary(scope);
     const {y:dy, m:dm} = dexYM();
     if(!entries.length){
+      dexProgClose();
       toast(scope==='day'   ? `${curDate.replace(/-/g,'.')} 에 쓴 일기가 없어요`
           : scope==='month' ? `${dy}년 ${+dm}월에 쓴 일기가 없어요`
           : scope==='year'  ? `${dy}년에 쓴 일기가 없어요`
           :                   '아직 쓴 일기가 없어요');
-      armLock(); return;
+      dexBusy = false; armLock(); return;
+    }
+    const nPix = dexWithPix ? entries.reduce((a,e)=> a + diaryImgsOf(e.diary).length, 0) : 0;
+    /* 아주 큰 범위는 미리 알려 주고 고르게 한다 — 도중에 죽는 것보다 낫다 */
+    if(entries.length > 120){
+      dexProgClose();
+      const go = await askConfirm(
+        `일기 ${entries.length}편${nPix? ` · 사진 ${nPix}장`:''}을 한 파일로 만듭니다.\n` +
+        `기기에 따라 여러 분이 걸리고, 오래된 폰에서는 도중에 멈출 수 있어요.\n\n` +
+        `«이 달» 단위로 나눠 받으면 훨씬 빠르고 안전합니다.`,
+        {title:'📖 범위가 큽니다', ok:'그래도 진행', danger:true});
+      if(!go){ dexBusy = false; armLock(); return; }
+      dexProgOpen();
     }
     const label = scope==='day'   ? curDate.replace(/-/g,'.')
                 : scope==='month' ? `${dy}. ${+dm}.`
                 : scope==='year'  ? `${dy}년`
                 :                   `${entries[0].ds.slice(0,4)}~${entries[entries.length-1].ds.slice(0,4)}`;
-    /* 파일 이름은 날짜를 알아보기 쉽게 (예: 일기장_2026-08) */
     const stamp = scope==='day'   ? curDate
                 : scope==='month' ? `${dy}-${dm}`
                 : scope==='year'  ? `${dy}년`
                 :                   `${entries[0].ds.slice(0,4)}-${entries[entries.length-1].ds.slice(0,4)}`;
-    const pages = buildDiaryPages(entries, label);
+
+    /* 하루가 여러 장이 될 수 있어 총 장수는 미리 알 수 없다.
+       날짜 수로 어림잡아 진행률을 보여 주고, 실제 장수가 넘으면 그때 늘린다. */
+    let est = Math.max(entries.length, 1);
+    const q = dexQuality(est);
     const shots = [];
-    for(let i = 0; i < pages.length; i++){
-      toast(`일기장을 만드는 중… ${i+1}/${pages.length}장`);
-      shots.push(await html2canvas(pages[i], {scale:2, backgroundColor:'#FDF6E6', useCORS:true}));
+    let page = 0;
+
+    for(let i = 0; i < entries.length; i += DEX_CHUNK){
+      if(dexCancel) throw new Error('__cancel__');
+      const part = entries.slice(i, i + DEX_CHUNK);
+      if(dexWithPix) await loadDiaryPix(part.flatMap(e => diaryBlocks(e.diary)));
+      const pages = buildDiaryPages(part, label, {noNumber:true});
+      if(dexWithPix) await dexDecodeStage();
+
+      for(const pg of pages){
+        if(dexCancel) throw new Error('__cancel__');
+        page++;
+        if(page > est) est = page;
+        const d = new Date(part[0].ds+'T12:00:00');
+        dexProgStep(page - 1, est, t0, `${d.getMonth()+1}월 ${d.getDate()}일`);
+        await nextFrame();                       /* 화면이 멈춰 보이지 않게 한 틈 준다 */
+        pg.querySelector('.db-foot').textContent = `— ${page} —`;
+        const cv = await html2canvas(pg, {scale:2, backgroundColor:'#FDF6E6', useCORS:true});
+        shots.push({ d: cv.toDataURL('image/jpeg', q), r: cv.height / cv.width });
+        cv.width = 0; cv.height = 0;             /* ★ 뜬 즉시 캔버스를 반납한다 */
+      }
+      $('exportStage').innerHTML = '';           /* 이 묶음의 DOM·사진도 함께 반납 */
+      await nextFrame();
     }
-    $('exportStage').innerHTML = '';
+
+    dexProgStep(page, page, t0, '');
+    $('dexProgNow').textContent = '파일로 묶는 중…';
+    $('dexProgSub').textContent = `${page}장  ·  걸린 시간 ${dexHms(Date.now()-t0)}`;
+    await nextFrame();
+
     const fname = `일기장_${stamp}`;
     if(kind === 'png'){
       for(let i = 0; i < shots.length; i++){
         const a = document.createElement('a');
-        a.href = shots[i].toDataURL('image/png');
-        a.download = shots.length>1 ? `${fname}_${i+1}.png` : `${fname}.png`;
+        a.href = shots[i].d;
+        a.download = shots.length>1 ? `${fname}_${i+1}.jpg` : `${fname}.jpg`;
         a.click();
         if(i < shots.length-1) await new Promise(r => setTimeout(r, 350));   // 연속 내려받기 차단 방지
       }
+      dexProgClose();
       toast(`이미지 ${shots.length}장을 저장했어요`);
     }else{
-      downloadBlob(canvasesToPdfBlob(shots), fname+'.pdf');
-      toast(`일기 ${entries.length}편 · ${shots.length}장을 저장했어요`);
+      downloadBlob(shotsToPdfBlob(shots), fname+'.pdf');
+      dexProgClose();
+      toast(`일기 ${entries.length}편 · ${page}장 (${dexHms(Date.now()-t0)})`);
     }
   }catch(e){
     $('exportStage').innerHTML = '';
-    toast('일기장 내보내기에 실패했어요: ' + (e.message||''));
+    dexProgClose();
+    if(String(e && e.message) === '__cancel__') toast('일기장 만들기를 중단했어요');
+    else toast('일기장 내보내기에 실패했어요: ' + (e.message||''));
   }
+  dexBusy = false;
   armLock();
 }
 
@@ -5546,6 +5857,7 @@ const BK_GLOBAL_COLLECTIONS = [
   ['bank',     '장기메모'],
   ['stickies', '포스트잇'],
   ['stickyPix','포스트잇 내부 사진'],
+  ['diaryPix', '일기 내부 사진'],
   ['vacs',     '휴가'],
   ['dayEvents','기념일·날짜 아이콘']
 ];
@@ -5584,10 +5896,7 @@ $('bkStart').onclick = async () => {
   bkRunning = true; bkAbort = false; bkMissed = 0;
   $('bkStart').disabled = true; $('bkCancel').textContent = '중단';
   try{
-    await flushSave();
-    /* flushSave()와 별도 타이머를 쓰는 포스트잇도 백업 직전에 확실히 저장한다. */
-    clearTimeout(stickyTimer);
-    if(stickyDirty) await saveStickies();
+    await flushSave();          /* 포스트잇을 포함한 모든 미저장 내용이 여기서 한 번에 확정된다 */
     await document.fonts.ready;
     const yd = await getYear(bkYear);
     const total = months.reduce((s,mm)=> s + (yd[mm]? Object.keys(yd[mm]).length : 0), 0);
@@ -5708,7 +6017,9 @@ $('bkRestore').onclick = () => {
 
         /* 실시간 리스너가 저장 중 상태로 오인하지 않게 로컬 dirty 상태를 먼저 정리한다. */
         inboxDirty = privDirty = goalDirty = bankDirty = stickyDirty = vacDirty = evtDirty = false;
-        stickyPix = {};
+        stickyPix = {}; diaryPix = {};
+        stickiesLoaded = false;            /* 바로 아래 loadStickies() 가 성공해야 다시 저장이 열린다 */
+        clearTimeout(stickyRetryTimer); stickyRetryTimer = null;
         await loadInbox();
         await loadPriv();
         await loadGoals();
@@ -6234,8 +6545,9 @@ async function doSearch(q){
       if(diaryUnlocked){                                  /* 일기는 잠금을 푼 상태에서만 함께 찾는다 */
         if((v.dnote||'').toLowerCase().includes(ql))
           lines.push({k:'어제와 다른 오늘', h:hl(snippet(v.dnote,q),q), tg:{field:'dnote'}});
-        if((v.diary||'').toLowerCase().includes(ql))
-          lines.push({k:'일기', h:hl(snippet(v.diary,q),q), tg:{field:'diary'}});
+        const dyTx = diaryTextOf(v.diary);
+        if(dyTx.toLowerCase().includes(ql))
+          lines.push({k:'일기', h:hl(snippet(dyTx,q),q), tg:{field:'diary'}});
       }
       if(lines.length) out.push({mm, dd, lines});
     }
@@ -6301,14 +6613,17 @@ async function jumpToHit(dateStr, tg, q){
   /* 일기 안(일기·어제와 다른 오늘)은 잠금을 푼 상태에서 일기창을 열어 보여준다 */
   if(tg.field === 'diary' || tg.field === 'dnote'){
     if(!diaryUnlocked){ toast('일기 비밀번호를 풀면 그 자리로 이동해요'); return; }
-    const d = new Date(curDate+'T12:00:00');
-    showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
+    openDiaryPage();
     if(tg.field === 'dnote'){
       dnoteOpen = true; renderDnote();
       await new Promise(r => setTimeout(r, 80));
       flashHit($('dnoteText'), q);
     }else{
-      flashHit($('diaryText'), q);
+      await new Promise(r => setTimeout(r, 80));
+      /* 본문 글칸이 여러 개일 수 있으니 찾는 낱말이 있는 칸으로 */
+      const tas = [...document.querySelectorAll('#dvBody textarea')];
+      const hit = tas.find(t => t.value.toLowerCase().includes(q.toLowerCase())) || tas[0];
+      if(hit) flashHit(hit, q);
     }
     return;
   }
@@ -7217,7 +7532,8 @@ $('diaryBtn').onclick = async () => {
       const ok = await askPin(label);
       if(!ok) return;
     }
-    showDiaryBody(label);
+    $('diaryModal').classList.add('hidden');
+    openDiaryPage('today');
   }catch(e){
     console.error('Diary open failed', e);
     toast('일기를 열지 못했어요 — 연결 상태를 확인한 뒤 다시 눌러 주세요');
@@ -7267,19 +7583,238 @@ function mcLabel(d){
   return out.join('   ·   ');
 }
 
-function showDiaryBody(label){
+/* ═══════════════ 📖 일기 — 전체 페이지 ═══════════════
+   예전에는 모달이었다. 모달은 .bk-card 가 스크롤 주체라서, 글칸이 커질 때마다
+   fitHeight() 가 되돌리는 window 스크롤과 실제로 튀는 카드 스크롤이 서로 달랐고,
+   align-items:center 때문에 글이 길어질수록 내용이 위로 밀려 올라갔다.
+   한 페이지로 두면 스크롤 주체가 다시 window 라 두 문제가 함께 사라진다. */
+let dvOpen = false;                 /* 일기 페이지를 보고 있는가 */
+let dvBack = 'today';               /* 닫으면 돌아갈 곳 */
+let dvCaret = null;                 /* {bi, pos} — 사진을 끼워 넣을 자리 */
+let diaryPix = {};                  /* Storage를 못 쓸 때 따로 보관한 사진 (id → 그림자료) */
+
+function isDiaryEditorOpen(){ return dvOpen; }
+
+function openDiaryPage(back){
   disarmLock();
-  $('diaryTitle').textContent = label;
-  $('diaryLock').classList.add('hidden');
-  $('diaryBody').classList.remove('hidden');
-  const ta = $('diaryText');
-  ta.value = day.diary;
-  fitHeight(ta, 280);
+  dvBack = back || (($('archiveView').classList.contains('hidden')) ? 'today' : 'archive');
+  dvOpen = true;
+  day.diary = normDiary(day.diary);
+  ['todayView','goalView','archiveView'].forEach(id => $(id).classList.add('hidden'));
+  $('dateNav').classList.add('hidden');
+  ['fabCat','fabGoal','fabStamp','schedOpen'].forEach(id => { const e=$(id); if(e) e.classList.add('hidden'); });
+  $('diaryView').classList.remove('hidden');
+  $('dvTools').classList.remove('hidden');
+  applyTheme();
+  renderDiaryHead();
   renderMC();
   renderDnote(true);
-  $('diaryModal').classList.remove('hidden');
-  ta.focus();
+  renderDiaryBody({bi:0, pos:null});
+  window.scrollTo(0, 0);
+  loadDiaryPix(day.diary).then(n => { if(n) renderDiaryBody(); });
 }
+async function closeDiaryPage(){
+  if(!dvOpen) return;
+  dvOpen = false;
+  await flushSave();
+  $('diaryView').classList.add('hidden');
+  $('dvTools').classList.add('hidden');
+  if(typeof refreshStampBtn === 'function') releaseStamp();
+  switchTab(dvBack);
+  if(arcDiary){ disarmLock(); refreshArchive(); }   /* 일기 목록으로 복귀 — 잠금 타이머 미가동 */
+  else armLock();                                   /* 일기 화면을 완전히 벗어남 → 자동 잠금 예약 */
+}
+/* 머리글 — 날짜·요일·그날 날씨 */
+function renderDiaryHead(){
+  const d = new Date(curDate+'T12:00:00');
+  $('dvYmd').textContent = `${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()} (${DOW[d.getDay()]})`;
+  const wl = wxLabel(day.wx, true);
+  $('dvWx').textContent = wl || '';
+  $('dvWx').classList.toggle('hidden', !wl);
+  $('dvToday').classList.toggle('hidden', curDate === todayStr());
+}
+/* 이전날·다음날 — 일기 페이지에 머문 채로 날짜만 옮긴다 */
+async function dvGo(ds){
+  if(!dvOpen) return;
+  await loadDay(ds);
+  day.diary = normDiary(day.diary);
+  renderDiaryHead();
+  renderMC();
+  renderDnote(true);
+  renderDiaryBody();
+  window.scrollTo(0, 0);
+  loadDiaryPix(day.diary).then(n => { if(n) renderDiaryBody(); });
+}
+$('dvPrev').onclick  = () => dvGo(shiftDate(curDate, -1));
+$('dvNext').onclick  = () => dvGo(shiftDate(curDate, +1));
+$('dvToday').onclick = () => dvGo(todayStr());
+$('dvClose').onclick = () => closeDiaryPage();
+$('dvLock').onclick  = async () => { await closeDiaryPage(); lockDiaryNow(); };
+
+/* ── 본문 블록 편집 ──────────────────────────────────────
+   포스트잇과 같은 구조: 글칸과 사진이 번갈아 쌓이고, 사진 앞뒤로 이어 쓸 수 있다. */
+function renderDiaryBody(focus){
+  const box = $('dvBody');
+  if(!box) return;
+  box.innerHTML = '';
+  const bl = day.diary;
+  bl.forEach((b, i) => {
+    if(b.t === 'text'){
+      const ta = document.createElement('textarea');
+      ta.rows = 1;
+      ta.dataset.bi = i;
+      ta.spellcheck = false;
+      ta.setAttribute('autocomplete','off'); ta.setAttribute('autocorrect','off'); ta.setAttribute('autocapitalize','off');
+      if(bl.length === 1) ta.placeholder = '오늘 하루, 나에게만 남기는 이야기';
+      ta.value = b.v;
+      const mark = e => { dvCaret = {bi:i, pos:e.target.selectionStart}; };
+      ta.addEventListener('input', e => {
+        b.v = e.target.value; mark(e); markDirty();
+        fitHeight(e.target, bl.length === 1 ? 320 : 32);
+      });
+      ta.addEventListener('focus', mark);
+      ta.addEventListener('keyup', mark);
+      ta.addEventListener('click', mark);
+      box.appendChild(ta);
+      fitHeight(ta, bl.length === 1 ? 320 : 32);
+    }else{
+      const wrap = document.createElement('div');
+      wrap.className = 'dv-img';
+      wrap.innerHTML = `<img alt="${esc(b.name||'사진')}" loading="lazy">
+        <button class="dv-x" type="button" title="사진 빼기">✕</button>
+        ${b.name ? `<div class="dv-cap">${esc(b.name)}</div>` : ''}`;
+      const im  = wrap.querySelector('img');
+      const src = b.ref ? (diaryPix[b.id] || '') : b.url;
+      if(src) im.src = src; else im.alt = '사진을 불러오는 중…';
+      im.onclick = () => { const u = b.ref ? diaryPix[b.id] : b.url; if(!u) return;
+        $('lightboxImg').src = u; $('lightbox').classList.remove('hidden'); };
+      wrap.querySelector('.dv-x').onclick = async ev => {
+        ev.stopPropagation();
+        if(!(await askConfirm('이 사진을 일기에서 뺄까요?', {title:'🖼 사진 빼기', ok:'빼기', danger:true}))) return;
+        const idx = day.diary.indexOf(b);
+        if(idx < 0) return;
+        day.diary.splice(idx, 1);
+        /* 앞뒤 글 블록을 다시 하나로 합친다 */
+        const prev = day.diary[idx-1], next = day.diary[idx];
+        if(prev && next && prev.t === 'text' && next.t === 'text'){
+          prev.v = prev.v + (prev.v && next.v ? '\n' : '') + next.v;
+          day.diary.splice(idx, 1);
+        }
+        day.diary = normDiary(day.diary);
+        markDirty(); renderDiaryBody();
+        dropDiaryPix(b);
+        toast('사진을 뺐어요');
+      };
+      box.appendChild(wrap);
+    }
+  });
+  if(focus){
+    const ta = box.querySelector(`textarea[data-bi="${focus.bi}"]`);
+    if(ta){ const p = focus.pos == null ? ta.value.length : Math.min(focus.pos, ta.value.length);
+      ta.focus({preventScroll:true}); ta.setSelectionRange(p, p); }
+  }
+}
+/* 커서가 있던 글 블록을 둘로 나누고 그 사이에 사진을 끼운다 */
+function insertDiaryImage(imgBlock){
+  const bl = day.diary;
+  let bi = bl.length - 1, pos = null;
+  if(dvCaret && bl[dvCaret.bi] && bl[dvCaret.bi].t === 'text'){ bi = dvCaret.bi; pos = dvCaret.pos; }
+  while(bi >= 0 && bl[bi].t !== 'text') bi--;
+  if(bi < 0){ bl.push({t:'text', v:''}); bi = bl.length - 1; }
+  const cur   = bl[bi].v || '';
+  const cut   = (pos == null || pos > cur.length) ? cur.length : pos;
+  const head  = cur.slice(0, cut), tail = cur.slice(cut);
+  bl[bi].v = head;
+  bl.splice(bi+1, 0, imgBlock, {t:'text', v:tail});
+  day.diary = normDiary(bl);
+  markDirty();
+  const back = day.diary.indexOf(imgBlock) + 1;
+  renderDiaryBody({bi:back, pos:0});
+}
+/* 사진 넣기 — 줄여서 Storage에 올리고 주소만 본문에 둔다.
+   막히면 사진을 따로 diaryPix 노드에 보관한다. 일지 본문 노드에는 절대 담지 않는다 —
+   담으면 타자 한 번마다 saveNow()가 그 사진까지 통째로 깊은 복사·전송하게 된다. */
+$('dvPhoto').onclick = () => {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = () => { if(inp.files && inp.files[0]) addDiaryImage(inp.files[0]); };
+  inp.click();
+};
+function addDiaryImage(file){
+  const box = $('dvBody');
+  const ui  = document.createElement('div');
+  ui.className = 'dv-up'; ui.textContent = '🖼 사진을 넣는 중…';
+  box.appendChild(ui);
+  const img = new Image(), objUrl = URL.createObjectURL(file);
+  img.onerror = () => { ui.remove(); URL.revokeObjectURL(objUrl); toast('이미지를 읽지 못했어요'); };
+  img.onload = () => {
+    URL.revokeObjectURL(objUrl);
+    const shrink = max => {
+      const sc = Math.min(1, max / Math.max(img.width, img.height));
+      const cv = document.createElement('canvas');
+      cv.width = Math.round(img.width * sc); cv.height = Math.round(img.height * sc);
+      cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+      return cv;
+    };
+    const id   = uid8();
+    const name = file.name || '사진';
+    const safe = name.replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+    shrink(1280).toBlob(async blob => {
+      if(!blob){ ui.remove(); toast('사진을 준비하지 못했어요'); return; }
+      const path = `docs/${USER.uid}/diary/${id}_${safe}.jpg`;      /* 규칙이 열어 둔 docs/ 아래 */
+      try{
+        const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
+        task.on('state_changed', sn => {
+          ui.textContent = `🖼 사진을 넣는 중… ${Math.round(sn.bytesTransferred/sn.totalBytes*100)}%`;
+        });
+        await task;
+        const url = await task.snapshot.ref.getDownloadURL();
+        ui.remove();
+        insertDiaryImage({t:'img', id, url, path, name});
+        toast('사진을 넣었어요');
+      }catch(e){
+        ui.textContent = '🖼 다른 방법으로 넣는 중…';
+        try{
+          const data = shrink(820).toDataURL('image/jpeg', .72);
+          await withTimeout(db.ref(`diaries/${USER.uid}/diaryPix/${id}`).set(data), 15000);
+          diaryPix[id] = data;
+          ui.remove();
+          insertDiaryImage({t:'img', id, ref:true, name});
+          if(String(e && (e.code||e.message)).includes('unauthorized'))
+            toast('사진을 따로 보관했어요 — 설정의 «저장소 연결 확인»을 눌러 주세요');
+          else toast('사진을 넣었어요');
+        }catch(e2){
+          ui.remove();
+          toast('사진을 넣지 못했어요: ' + (e2.code || e2.message || e.code || e.message || ''));
+        }
+      }
+    }, 'image/jpeg', .82);
+  };
+  img.src = objUrl;
+}
+/* 따로 보관한 사진 채우기 — 실제로 쓰이는 것만, 아직 못 받은 것만 */
+async function loadDiaryPix(blocksOrList){
+  const need = diaryBlocks(blocksOrList).filter(b => b.t==='img' && b.ref && !diaryPix[b.id]).map(b => b.id);
+  if(!need.length) return 0;
+  await Promise.all([...new Set(need)].map(async id => {
+    try{
+      const snap = await withTimeout(db.ref(`diaries/${USER.uid}/diaryPix/${id}`).get(), 8000);
+      if(snap.exists()) diaryPix[id] = snap.val();
+    }catch(e){}
+  }));
+  return need.length;
+}
+/* 사진 원본 정리 — Storage에 있으면 Storage에서, 따로 보관했으면 그 노드를 지운다 */
+async function dropDiaryPix(b){
+  if(!b) return;
+  if(b.ref){
+    delete diaryPix[b.id];
+    try{ await db.ref(`diaries/${USER.uid}/diaryPix/${b.id}`).remove(); }catch(e){}
+  }else if(b.path){
+    try{ await storage.ref(b.path).delete(); }catch(e){}
+  }
+}
+
 /* '어제와 다른 오늘' — 일기와 별개로 그날의 사건·상태를 남기는 칸 */
 let dnoteOpen = false;
 try{ dnoteOpen = localStorage.getItem('dnoteOpen') === '1'; }catch(e){}
@@ -7306,9 +7841,7 @@ $('dnoteText').addEventListener('input', e => { day.dnote = e.target.value; mark
 $('dnoteText').addEventListener('focus', e => grow(e.target, 96));
 $('diaryOpenBtn').onclick = () => { if(pinResolver) pinResolver(); };
 $('diaryPinIn').addEventListener('keydown', e => { if(e.key==='Enter' && pinResolver) pinResolver(); });
-$('diaryText').addEventListener('input', e => { day.diary = e.target.value; markDirty(); grow(e.target, 280); });
-$('diaryText').addEventListener('focus', e => grow(e.target, 280));
-$('diaryText').addEventListener('click', e => grow(e.target, 280));
+
 $('diaryClose').onclick = async () => {
   ++diaryPinGateSeq;                               /* PIN 조회 중 닫아도 늦은 응답이 창을 되살리지 않게 */
   await flushSave();
@@ -7770,8 +8303,18 @@ function lockDiaryNow(){
   diaryUnlocked = false; arcDiary = false;
   $('arcLockBtn').classList.add('hidden');
   $('diaryModal').classList.add('hidden');
+  hideDiaryPage();                                       /* 잠그면 페이지도 반드시 접는다 */
   refreshArchive();
   toast('🔒 일기를 잠갔어요');
+}
+/* 저장은 이미 끝난 상태에서 화면만 접는다 (자동 잠금·강제 잠금용) */
+function hideDiaryPage(){
+  if(!dvOpen) return;
+  dvOpen = false;
+  $('diaryView').classList.add('hidden');
+  $('dvTools').classList.add('hidden');
+  saveNow();
+  switchTab(dvBack === 'archive' ? 'archive' : 'today');
 }
 $('arcLockBtn').onclick = lockDiaryNow;
 document.addEventListener('visibilitychange', () => {   // 앱을 백그라운드로 보낼 때도 잠금 예약(단, 작성 중 제외)
@@ -7866,9 +8409,8 @@ $('arcDiaryBtn').onclick = async () => {
 };
 /* 특정 날짜의 일기를 바로 열기 (모아보기에서 진입) */
 async function openDiaryOn(ds){
-  await loadDay(ds);                                     // 탭은 그대로 — 닫으면 일기 목록으로 복귀
-  const d = new Date(ds+'T12:00:00');
-  showDiaryBody(`📖 ${d.getFullYear()}.${d.getMonth()+1}.${d.getDate()}(${DOW[d.getDay()]}) 일기`);
+  await loadDay(ds);                                     // 닫으면 일기 목록으로 복귀
+  openDiaryPage('archive');
 }
 
 /* ═══════════════ 🏠 개인 용무함 (업무 아님 · 인쇄/보고 제외) ═══════════════ */
@@ -8142,7 +8684,15 @@ function attachBoxListeners(){
       const v = snap.exists() ? snap.val() : [];
       const next = (Array.isArray(v) ? v : Object.values(v||{})).map(normSticky);
       if(JSON.stringify(next) === JSON.stringify(stickies)) return;
-      stickies = next; renderStickies();
+      stickies = next;
+      /* 방금 받아들인 내용이 곧 내가 아는 최신본이다. 시각도 함께 맞춰 두지 않으면
+         다음 저장이 '다른 기기에서 고쳤어요'로 헛되이 막힌다.
+         기기마다 시계가 조금씩 다를 수 있으므로 Date.now()로 짐작하지 않고 서버 값을 그대로 읽는다.
+         실제로 내용이 달라졌을 때만 한 번 읽으므로 평소 통신은 늘지 않는다. */
+      db.ref(`diaries/${USER.uid}/stickiesTs`).get()
+        .then(t => { const v = t.exists()? +t.val()||0 : 0; if(v > stickiesTsSeen) stickiesTsSeen = v; })
+        .catch(()=>{});
+      renderStickies();
     };
     db.ref(`diaries/${USER.uid}/stickies`).on('value', stickyCb);
   }
@@ -8218,7 +8768,8 @@ function applyTheme(){
   const listOn  = !$('todayView').classList.contains('hidden') && curDate === todayStr();
   const goalOn  = !$('goalView').classList.contains('hidden');
   const archOn  = !$('archiveView').classList.contains('hidden');
-  if(todayTheme && (listOn || goalOn || archOn)) document.body.dataset.theme = todayTheme;
+  const diaOn   = dvOpen && curDate === todayStr();      /* 일기도 오늘 날짜일 때만 테마 적용 */
+  if(todayTheme && (listOn || goalOn || archOn || diaOn)) document.body.dataset.theme = todayTheme;
   else delete document.body.dataset.theme;
 }
 async function loadTheme(){
@@ -9528,6 +10079,11 @@ $('goalRestoreBtn').onclick = async () => {
 /* ═══════════════ 💡 포스트잇 — 화면에 붙여 두는 짧은 메모 ═══════════════ */
 /* 탭·날짜와 무관하게 화면에 떠 있고, 끌어서 옮기고 모서리로 크기를 바꾼다 */
 let stickies = [], stickyTimer = null, stickyDirty = false, stickyCb = null;
+/* 목표·장기메모와 같은 안전장치 — 서버에서 제대로 읽어오기 전에는 절대 저장(=덮어쓰기)하지 않는다.
+   예전에 목표가 통째로 사라진 사고가 '읽기 실패 → 빈 값 → 통째 set()' 경로였다. */
+let stickiesLoaded = false;         /* 이번 로그인에서 서버 목록을 실제로 읽어왔는가 */
+let stickiesTsSeen = 0;             /* 내가 마지막으로 알고 있는 서버의 포스트잇 수정 시각 */
+let stickyRetryTimer = null;        /* 읽기에 실패했을 때 조용히 다시 시도 */
 let stickyPix = {};                 /* Storage를 못 쓸 때 다이어리 안에 보관한 사진 (id → 그림자료) */
 let stickyZ = 1, stickyBusy = false;
 const STICKY_W = 200, STICKY_H = 200, STICKY_MINW = 150, STICKY_MINH = 110;
@@ -9575,18 +10131,46 @@ async function loadStickies(){
     const snap = await withTimeout(db.ref(`diaries/${USER.uid}/stickies`).get(), 5000);
     const v = snap.exists() ? snap.val() : [];
     stickies = (Array.isArray(v) ? v : Object.values(v||{})).map(normSticky);
-  }catch(e){ stickies = stickies || []; }
+    try{ const t = await db.ref(`diaries/${USER.uid}/stickiesTs`).get(); stickiesTsSeen = t.exists()? +t.val()||0 : 0; }catch(e2){}
+    stickiesLoaded = true;
+    clearTimeout(stickyRetryTimer); stickyRetryTimer = null;
+  }catch(e){
+    stickies = stickies || [];
+    stickiesLoaded = false;                    /* 못 읽었으면 저장을 잠근다 — 빈 화면으로 서버를 덮지 않게 */
+    toast('포스트잇을 불러오지 못했어요 — 덮어쓰기를 막기 위해 저장을 잠시 멈춥니다');
+    clearTimeout(stickyRetryTimer);
+    stickyRetryTimer = setTimeout(async () => {          /* 조용히 다시 시도 */
+      if(!USER || stickiesLoaded) return;
+      await loadStickies();
+      if(stickiesLoaded) toast('포스트잇을 다시 불러왔어요');
+    }, 5000);
+  }
   renderStickies();
   await loadStickyPix();                 /* 다이어리 안에 보관된 사진 채우기 */
   if(Object.keys(stickyPix).length) renderStickies();
 }
 function markStickies(){ stickyDirty = true; clearTimeout(stickyTimer); stickyTimer = setTimeout(saveStickies, 700); }
 async function saveStickies(){
-  if(!USER) return;
+  if(!stickyDirty || !USER || !stickiesLoaded) return;   /* 못 읽어온 상태로는 절대 덮어쓰지 않는다 */
   stickyDirty = false;
+  const snapshot = JSON.parse(JSON.stringify(stickies));
   try{
-    if(stickies.length) await db.ref(`diaries/${USER.uid}/stickies`).set(JSON.parse(JSON.stringify(stickies)));
+    /* 목표·장기메모와 같은 이유 — 다른 기기의 최신본을 덮어쓰지 않는다 */
+    let serverTs = 0;
+    try{ const t = await db.ref(`diaries/${USER.uid}/stickiesTs`).get(); serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
+    if(serverTs && stickiesTsSeen && serverTs > stickiesTsSeen){
+      stickyDirty = true;
+      toast('다른 기기에서 포스트잇을 고쳤어요 — 💡 를 다시 열어 확인해 주세요');
+      return;
+    }
+    /* 덮어쓰기 직전 모습을 보관 — 설정 › 🕘 되돌리기 › 💡 포스트잇 에서 되살릴 수 있다.
+       사진은 본문에 담기지 않고 주소·번호만 있으므로 보관본이 무거워지지 않는다. */
+    try{ const cur = await db.ref(`diaries/${USER.uid}/stickies`).get();
+         if(cur.exists()) await pushUndo('stickies', cur.val(), '포스트잇이 바뀌기 직전'); }catch(e){}
+    if(snapshot.length) await db.ref(`diaries/${USER.uid}/stickies`).set(snapshot);
     else await db.ref(`diaries/${USER.uid}/stickies`).remove();
+    stickiesTsSeen = Date.now();
+    try{ await db.ref(`diaries/${USER.uid}/stickiesTs`).set(stickiesTsSeen); }catch(e){}
   }catch(e){ stickyDirty = true; }
 }
 function applyStickyBox(el, s){
@@ -10215,7 +10799,7 @@ $('brandName').onclick = () => {
 };
 
 /* 지금 떠 있는 창이 있으면 하나 닫고 true 반환 */
-const OVERLAYS = ['confirmModal','askModal','stampTimeModal','perModal','delayModal','doneCatNoteModal','doneLibModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
+const OVERLAYS = ['confirmModal','askModal','dexProgModal','stampTimeModal','perModal','delayModal','doneCatNoteModal','doneLibModal','diaryExpMenu','undoModal','aiModal','evtModal','vacModal','evModal','bankModal','diaryModal',
                   'fontModal','themeModal','backupModal','settingsMenu','exportMenu','lightbox'];
 function topOverlay(){
   for(const id of OVERLAYS){
@@ -10234,6 +10818,7 @@ function closeOneOverlay(){
   const el = topOverlay();
   if(el){
     if(el.id === 'confirmModal'){ finishChoice(null); return true; }
+    if(el.id === 'dexProgModal'){ $('dexProgCancel').click(); return true; }   /* 만드는 중엔 '중단'으로만 */
     /* 닫기 버튼이 있으면 그 동작을 그대로(저장 등) 태움 */
     const closer = {askModal:'askCancel', stampTimeModal:'stampPickCancel', evtModal:'evtClose', vacModal:'vacClose', evModal:'evClose',
       bankModal:'bankClose', diaryModal:'diaryClose', doneCatNoteModal:'doneCatNoteClose', doneLibModal:'doneLibClose', fontModal:'fontClose', themeModal:'themeClose',
@@ -10255,6 +10840,7 @@ window.addEventListener('popstate', () => {
   history.pushState({app:1}, '');            // 항상 한 칸 채워둬 브라우저가 나가지 않게
 
   if(closeOneOverlay()) return;              // ① 열린 창 닫기
+  if(dvOpen){ closeDiaryPage(); return; }    // ①-2 일기 페이지 접기 (저장하고 돌아감)
   if(prioMode){ prioMode = false;            // ② 우선순위 → 일반 목록
     try{ localStorage.setItem('prioMode','0'); }catch(e){}
     renderCats(); renderInbox(); renderPriv(); return; }
