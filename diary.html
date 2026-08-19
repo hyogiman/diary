@@ -2874,6 +2874,16 @@ function normDelays(v){
 /* 사유를 고른 기록만 '유효한 지연기록'으로 센다 (실제 시간만 적어 둔 임시 입력은 제외) */
 const validDelays = t => (t.delayHistory||[]).filter(r => r.reasonCode);
 const delayOf = (t, ds) => (t.delayHistory||[]).find(r => r.date === ds) || null;
+/* 예전 완료본에는 from 표식이 없다. 자동 완료 칸에 들어 있으면 출신을 채워 넣어
+   다음 저장부터는 자료 자체가 온전해지게 한다. */
+function backfillDoneOrigin(cats){
+  (cats||[]).forEach(c => {
+    const box = autoDoneBoxOf(c);
+    if(!box) return;
+    (c.tasks||[]).forEach(t => { if(t && t.done && !t.from) t.from = box; });
+  });
+  return cats;
+}
 function normalize(v){
   return {
     note: v.note||'', memo: v.memo||'', diary: normDiary(v.diary), dnote: v.dnote||'', wx: v.wx||null,
@@ -2886,13 +2896,13 @@ function normalize(v){
               who:(n.meta&&n.meta.who)||'', agenda:(n.meta&&n.meta.agenda)||'' },
       files: Array.isArray(n.files)? n.files : Object.values(n.files||{})
     })),
-    cats: (Array.isArray(v.cats)? v.cats : Object.values(v.cats||{})).map(c => ({
+    cats: backfillDoneOrigin((Array.isArray(v.cats)? v.cats : Object.values(v.cats||{})).map(c => ({
       id: c.id||uid8(), origin: c.origin||'', name: c.name||'', color: c.color||0, priv: !!c.priv,
       note: c.note||'',                                          /* 카테고리 전체에 걸친 메모 */
       files: Array.isArray(c.files)? c.files : Object.values(c.files||{}),
       open: false,
       tasks: (Array.isArray(c.tasks)? c.tasks : Object.values(c.tasks||{})).map(normTask)
-    }))
+    })))
   };
 }
 function shiftDay(n){
@@ -3145,6 +3155,15 @@ function goalNameOf(id, ds){
   return g? g.text.trim() : '';
 }
 const isDoneCat = c => /\(완료\)$/.test(c.name.trim());
+/* 앱이 완료 처리 때 스스로 만드는 칸인지 — 여기 있는 업무는 완료를 풀면 원래 함으로 돌아간다.
+   사용자가 직접 만든 '○○(완료)' 카테고리는 해당하지 않는다. */
+function autoDoneBoxOf(cat){
+  if(!cat) return '';
+  const nm = (cat.name||'').trim();
+  if(nm === '기타업무(완료)') return 'inbox';
+  if(nm === '개인용무(완료)' || (cat.priv && /\(완료\)$/.test(nm))) return 'priv';
+  return '';
+}
 function renderCats(){
   $('prioBtn').classList.toggle('active', prioMode);
   $('carryBtn').classList.toggle('hidden', prioMode);
@@ -3473,7 +3492,11 @@ function taskRow(t, ctx){
     cancelCompletionHold(t);
     if(ctx.priv && !t.done){ await completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
     if(ctx.inbox && !ctx.priv && !t.done){ await completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
-    if(t.done && t.from && !ctx.inbox){ uncompleteBack(t, ctx); return; }         // 완료 해제 → 원래 함으로
+    /* 완료 해제 → 원래 함으로.
+       from 표식은 나중에 생긴 칸이라 예전 완료본에는 비어 있다.
+       그런 자료는 자동으로 만들어지는 완료 칸의 이름을 보고 출신을 알아낸다. */
+    const backBox = t.from || autoDoneBoxOf(ctx.cat);
+    if(t.done && backBox && !ctx.inbox){ uncompleteBack(t, ctx, backBox); return; }
     t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
     t.doneAt = t.done ? curDate : '';
     t.completedAt = t.done ? Date.now() : 0;
@@ -6256,8 +6279,9 @@ async function moveTaskTo(t, ctx, dest){
 
 /* 완료를 풀면 원래 있던 함으로 되돌려 보낸다.
    예전에는 완료 목록에 미완료로 남아 어느 쪽에도 속하지 않는 상태가 됐다. */
-function uncompleteBack(t, ctx){
-  const back = t.from === 'priv' ? priv : inbox;
+function uncompleteBack(t, ctx, forced){
+  const origin = forced || t.from || autoDoneBoxOf(ctx.cat) || 'inbox';
+  const back = origin === 'priv' ? priv : inbox;
   const restored = {...normTask(t), id:uid8(), done:false, status:'wait', doneAt:'', completedAt:0, from:'',
     gcalId:'', gcalCalendar:'', gcalSig:''};               /* 완료 일정의 연결 메타는 따라가지 않는다 */
   back.push(restored);
@@ -6268,9 +6292,9 @@ function uncompleteBack(t, ctx){
     if(ci >= 0) day.cats.splice(ci, 1);
   }
   markDirty();
-  if(t.from === 'priv') markPriv(); else markInbox();
+  if(origin === 'priv') markPriv(); else markInbox();
   renderAll();
-  toast(t.from === 'priv' ? '개인 용무함으로 되돌렸어요' : '기타 업무함으로 되돌렸어요');
+  toast(origin === 'priv' ? '개인 용무함으로 되돌렸어요' : '기타 업무함으로 되돌렸어요');
 }
 
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
