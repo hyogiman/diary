@@ -3659,15 +3659,14 @@ function taskRow(t, ctx){
     const dueIn = panel.querySelector('.ap-due');
     if(dueIn) dueIn.addEventListener('change', e => {
       t.due = e.target.value || '';
-      /* 날짜별 일지 업무: 시간이 이미 있으면 timeDay도 새 실행 날짜를 따라간다.
-         보관함/개인용무함은 기존의 '오늘 잡은 시간' 규칙을 유지한다. */
-      if(!ctx.inbox && t.time) t.timeDay = t.due || curDate;
+      /* 시간이 이미 있으면 실행일도 새 날짜를 따라간다 — 보관함·개인용무함도 마찬가지다 */
+      if(t.time) t.timeDay = t.due || (ctx.inbox ? todayStr() : curDate);
       ctx.save(); ctx.rerender();   /* 캘린더는 버튼을 눌러야 */
     });
     const dclr = panel.querySelector('.ap-dclr');
     if(dclr) dclr.onclick = () => {
       t.due = '';
-      if(!ctx.inbox && t.time) t.timeDay = curDate;
+      if(t.time) t.timeDay = ctx.inbox ? todayStr() : curDate;
       ctx.save(); ctx.rerender();
     };
 
@@ -3687,8 +3686,12 @@ function taskRow(t, ctx){
     panel.querySelector('.ap-time').addEventListener('change', e => {
       const nextTime = e.target.value || '';
       t.time = nextTime;
-      if(ctx.inbox) t.timeDay = nextTime ? todayStr() : '';       /* 보관함 — 기존 규칙 유지 */
-      else t.timeDay = nextTime ? (t.due || curDate) : '';        /* 날짜별 일지 — 실행 날짜와 함께 저장 */
+      /* 실행일(timeDay)은 '이 일을 실제로 하는 날'이다.
+         날짜를 골랐으면 그 날, 안 골랐으면 — 보관함·개인용무함은 오늘, 날짜별 일지는 보고 있는 날.
+         예전에는 보관함·개인용무함이 due 를 무시하고 늘 오늘로 적어서,
+         앞날로 잡아 둔 용무가 다음 날 clearStaleTimes 에 지워지고 캘린더 연결까지 끊겼다. */
+      if(ctx.inbox) t.timeDay = nextTime ? (t.due || todayStr()) : '';
+      else t.timeDay = nextTime ? (t.due || curDate) : '';
       ctx.save(); ctx.rerender();
       /* 캘린더로는 바로 보내지 않는다 — '📅 캘린더 등록/수정'을 눌러야 반영된다 */
       if(!$('schedDrawer').classList.contains('hidden')) renderSchedule(schedCache||[]);
@@ -8435,11 +8438,16 @@ function clearStaleTimes(arr){
   const today = todayStr();
   let n = 0;
   (arr||[]).forEach(t => {
-    if(!t || t.done) return;
-    if(t.time && t.timeDay && t.timeDay !== today){
+    if(!t || t.done || !t.time) return;
+    /* 날짜를 고른 용무는 그 날이 실행일이다. 예전 자료가 오늘로 잘못 적혀 있으면 여기서 바로잡는다 */
+    if(t.due && t.timeDay !== t.due) t.timeDay = t.due;
+    if(!t.timeDay) t.timeDay = today;                    /* 예전 자료 — 오늘 잡은 것으로 본다 */
+    /* ★ '오늘이 아니면'이 아니라 '지났으면' 비운다.
+         앞으로 잡아 둔 용무(치과 예약 같은)까지 지워 버리면 캘린더 연결이 끊기고
+         구글에는 일정만 미아로 남는다. */
+    if(t.timeDay < today){
       t.time = ''; t.timeDay = ''; t.gcalId = ''; t.gcalCalendar = ''; t.gcalSig = ''; n++;
     }
-    else if(t.time && !t.timeDay) t.timeDay = today;     /* 예전 자료 — 오늘 잡은 것으로 본다 */
   });
   return n;
 }
@@ -9110,14 +9118,19 @@ function renderSchedule(events, cachedTs){
   const catOf = id => {
     for(const c of (schedDate === curDate ? day.cats : []))
       for(const t of c.tasks) if(t.gcalId && t.gcalId === id) return {cat:c, task:t};
+    /* 개인 용무함·기타 업무함은 카테고리가 없어 일정 제목에 [이름] 표식이 붙지 않는다.
+       그래서 예전에는 캘린더 이름('업무 일지 기록')이 라벨로 나와 무슨 일인지 알 수 없었다.
+       gcalId 로 직접 찾아 제 이름과 색을 붙인다. */
+    for(const t of (priv||[]))  if(t.gcalId && t.gcalId === id) return {task:t, name:'개인용무', color:PRIV_COLOR};
+    for(const t of (inbox||[])) if(t.gcalId && t.gcalId === id) return {task:t, name:'기타업무', color:'#B08A5A'};
     return null;
   };
   const evs = (events||[]).filter(e => !e.allDay && !pendingEventIds.has(e.id)).map(e => {
     const own = catOf(e.id);
     return { kind:'gcal', ev:e, title:e.title, st:new Date(e.start),
       dur: Math.max(15, (new Date(e.end) - new Date(e.start))/60000), loc:e.loc, link:e.link,
-      color: own? catColor(own.cat) : '',
-      catName: own? own.cat.name.trim() : (e.calendarName || ''),
+      color: own? (own.cat ? catColor(own.cat) : own.color) : '',
+      catName: own? (own.cat ? own.cat.name.trim() : own.name) : (e.calendarName || ''),
       done: own? own.task.done : false };
   });
   const items = [...evs, ...tasks].sort((a,b)=> a.st - b.st);
