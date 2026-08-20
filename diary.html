@@ -1114,6 +1114,7 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .undo-what .mini-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .undo-item .dv{flex:none;font-size:.68rem;font-weight:800;color:#fff;background:var(--ink-soft);
   border-radius:999px;padding:1px 7px}
+.undo-item .dv.lo{background:var(--accent)}     /* 이 기기 판본은 포인트색으로 눈에 띄게 */
 .undo-nav{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:10px}
 .undo-date{font-family:'Jua',sans-serif;font-size:1.05rem;color:var(--accent-deep);min-width:150px;text-align:center}
 .undo-list{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
@@ -2023,6 +2024,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <h3>🕘 되돌리기</h3>
     <div class="undo-help">내용이 지워졌거나 엉뚱하게 바뀌었을 때, 자동으로 보관해 둔 예전 상태로 되돌립니다.<br>
       먼저 <b>내용 보기</b>로 무엇이 담겨 있는지 확인한 뒤에 되돌리세요.<br>
+      <b>📱 이 기기</b>는 저장할 때마다 남긴 최근 1시간치, <b>☁️ 서버</b>는 오래 보관하는 것이에요.<br>
       되돌리기 직전 상태도 목록 맨 위에 남으니 다시 돌아올 수 있어요.</div>
     <div class="undo-what" id="undoWhat">
       <button type="button" class="mini-btn on" data-w="day">📔 이 날짜</button>
@@ -3010,6 +3012,7 @@ auth.onAuthStateChanged(async u => {
     await loadPriv();
     await loadDay(curDate);
     restoreRest();                    /* 켜 둔 채 앱이 꺼졌다면 이어서 잰다 */
+    sweepLocalVers();                 /* 기기에 묵은 판본이 남아 있으면 치운다 */
   }else{
     $('appView').classList.add('hidden');
     $('loginView').classList.remove('hidden');
@@ -3239,7 +3242,18 @@ function peekRefresh(){
 /* ───────── 되돌리기 지점 ─────────
    덮어쓰기 전의 내용을 따로 보관해 둔다. 서버는 이력을 남기지 않으므로
    한번 덮어쓰면 되살릴 방법이 없기 때문. */
-const UNDO_KEEP = 24, UNDO_GAP = 5*60*1000;   /* 촘촘히·오래 보관 — 되살릴 시점이 밀려나지 않게 */
+/* 서버 보관본은 «드물게, 오래». 촘촘한 되돌리기는 기기 판본이 맡으므로
+   여기서는 굴러가는 최근 것 몇 개와, 잃으면 큰일 나는 «위험한 변화 직전»만 붙잡는다.
+   예전에는 날짜당 24벌을 두어 백업이 실제 자료보다 무거웠다. */
+const UNDO_KEEP = 3;                          /* 굴러가는 보관본 */
+const UNDO_KEEP_RISK = 3;                     /* 위험한 변화 직전 — 따로 오래 붙잡는다 */
+const UNDO_RISK_AGE = 30*24*60*60*1000;       /* 위험 보관본도 한 달까지 */
+const UNDO_GAP = 5*60*1000;
+const RISKY_WHY = ['전체 삭제 직전', '많이 지워지기 직전', '되돌리기 직전'];
+const isRiskyWhy = w => RISKY_WHY.includes(String(w || ''));
+/* 어느 보관본이 «위험한 변화 직전»인지 알아야 지킬 수 있는데, 내용까지 받으면 무겁다.
+   그래서 아주 작은 색인(undoIdx/{날짜}/{시각} = 까닭)을 따로 둔다. 한 줄에 스무 글자 남짓. */
+const undoWhy = {};
 let dayBase = null;                 /* 이 날짜에 마지막으로 저장돼 있던 내용 */
 const undoLast = {};                /* 날짜별 마지막 보관 시각 */
 const undoKeys = {};                /* 날짜별 보관본 시각 목록 (내용을 다시 받지 않으려고) */
@@ -3272,21 +3286,20 @@ function deviceName(){
 }
 /* 오래된 보관본을 솎아 낸다 — 최근 것은 촘촘히, 지난 것은 듬성듬성 남긴다.
    예전에는 최신 8개만 남겨서, 오래 작업하면 정작 되살리고 싶은 시점이 밀려나 사라졌다. */
-function thinUndoKeys(keys){
-  const now = Date.now(), sorted = keys.slice().sort((a,b)=>b-a);
-  const keep = [], seen = new Set();
+/* 남길 보관본을 고른다 — 최근 UNDO_KEEP 개 + 위험한 변화 직전 UNDO_KEEP_RISK 개.
+   whyOf 는 시각 → 까닭. 모르는 것은 보통 보관본으로 본다. */
+function thinUndoKeys(keys, whyOf){
+  const now = Date.now(), sorted = keys.slice().sort((a,b) => b-a);
+  const keep = new Set();
+  let plain = 0, risk = 0;
   for(const ts of sorted){
-    const age = now - ts;
-    let bucket;
-    if(age < 60*60*1000)          bucket = 'h'+ts;                       /* 1시간 안 — 전부 */
-    else if(age < 24*60*60*1000)  bucket = 'H'+Math.floor(ts/(60*60*1000));   /* 하루 안 — 시간당 1개 */
-    else if(age < 30*24*60*60*1000) bucket = 'D'+Math.floor(ts/(24*60*60*1000)); /* 한 달 안 — 하루 1개 */
-    else continue;                                                        /* 한 달 넘으면 버림 */
-    if(seen.has(bucket)) continue;
-    seen.add(bucket); keep.push(ts);
-    if(keep.length >= UNDO_KEEP) break;
+    if(now - ts > UNDO_RISK_AGE) continue;                 /* 한 달 넘으면 버림 */
+    if(isRiskyWhy(whyOf && whyOf[ts])){
+      if(risk < UNDO_KEEP_RISK){ keep.add(ts); risk++; }
+    }else if(plain < UNDO_KEEP){ keep.add(ts); plain++; }
+    if(plain >= UNDO_KEEP && risk >= UNDO_KEEP_RISK) break;
   }
-  return keep;
+  return [...keep];
 }
 /* 보관에 성공했는지 돌려준다.
    ★ 평소 저장 중이라면 보관이 실패해도 저장은 계속 진행한다(그게 낫다).
@@ -3294,16 +3307,30 @@ function thinUndoKeys(keys){
      밀고 나가면 돌아올 길이 사라진다. 그래서 성공 여부를 반드시 알려 준다. */
 async function pushUndo(ds, data, why){
   if(!USER || !data) return false;
+  const base = `diaries/${USER.uid}`;
   try{
     const ts = Date.now();
-    await withTimeout(db.ref(`diaries/${USER.uid}/undo/${ds}/${ts}`).set({ why: why||'', dev: deviceName(), data }), 12000);
+    await withTimeout(db.ref(`${base}/undo/${ds}/${ts}`).set({ why: why||'', dev: deviceName(), data }), 12000);
     undoLast[ds] = ts;
-    /* 오래된 보관본 정리 — 내용까지 받으면 무거우니 시각 목록만 확인한다 */
-    undoKeys[ds] = (undoKeys[ds] || []).concat(ts);
-    const all = undoKeys[ds].slice().sort((a,b)=>b-a);
-    const keep = new Set(thinUndoKeys(all));
-    for(const old of all) if(!keep.has(old))
-      await db.ref(`diaries/${USER.uid}/undo/${ds}/${old}`).remove();
+    (undoWhy[ds] = undoWhy[ds] || {})[ts] = why || '';
+    try{ await db.ref(`${base}/undoIdx/${ds}/${ts}`).set(why || ''); }catch(e){}   /* 작은 색인 */
+    /* 오래된 보관본 정리 — 내용까지 받으면 무거우니 색인(까닭)만 확인한다 */
+    if(!undoKeys[ds]){
+      try{
+        const ix = await withTimeout(db.ref(`${base}/undoIdx/${ds}`).get(), 8000);
+        const m = ix.exists() ? (ix.val() || {}) : {};
+        Object.keys(m).forEach(k => { undoWhy[ds][k] = m[k]; });
+        undoKeys[ds] = Object.keys(m).map(Number);
+      }catch(e){ undoKeys[ds] = []; }
+    }
+    undoKeys[ds] = undoKeys[ds].concat(ts);
+    const all = [...new Set(undoKeys[ds])].sort((a,b) => b-a);
+    const keep = new Set(thinUndoKeys(all, undoWhy[ds]));
+    for(const old of all) if(!keep.has(old)){
+      await db.ref(`${base}/undo/${ds}/${old}`).remove();
+      try{ await db.ref(`${base}/undoIdx/${ds}/${old}`).remove(); }catch(e){}
+      delete undoWhy[ds][old];
+    }
     undoKeys[ds] = [...keep];
     return true;
   }catch(e){ return false; }        /* 평소 저장은 이 값을 보지 않으므로 그대로 진행된다 */
@@ -3331,9 +3358,13 @@ async function saveNow(){
   const isEmpty = isDayEmpty(clean);
   if(!isEmpty) clean.updatedAt = Date.now();
   lastSelfTs = clean.updatedAt || 0; curTs = lastSelfTs;
-  /* 덮어쓰기 전에 되돌리기 지점을 남긴다 — 위험한 변화이거나 마지막 보관에서 시간이 지났을 때 */
-  if(dayBase && (riskyChange(dayBase, isEmpty? {} : clean) || Date.now() - (undoLast[ds]||0) > UNDO_GAP)){
-    await pushUndo(ds, dayBase, isEmpty ? '전체 삭제 직전' : '내용이 바뀌기 직전');
+  /* ★ 이 기기에 판본 한 벌 — 서버에 보내기 전에, 서버가 되든 안 되든 남긴다 */
+  pushLocalVer(ds, isEmpty ? {} : clean);
+  /* 서버 보관본은 성기게 — 위험한 변화이거나 마지막 보관에서 시간이 지났을 때만.
+     촘촘한 몫은 위의 기기 판본이 맡으므로 여기서 욕심낼 필요가 없다. */
+  const risky = dayBase ? riskyChange(dayBase, isEmpty? {} : clean) : false;
+  if(dayBase && (risky || Date.now() - (undoLast[ds]||0) > UNDO_GAP)){
+    await pushUndo(ds, dayBase, isEmpty ? '전체 삭제 직전' : risky ? '많이 지워지기 직전' : '내용이 바뀌기 직전');
   }
   saveInFlight = true;
   /* 오래 걸리면 «이 기기에는 남아 있다»는 것부터 알린다 — 말없이 '입력 중…'만 떠 있지 않게 */
@@ -5364,7 +5395,7 @@ const SIZE_LABEL = {
   goals:'🎯 목표', stickies:'💡 포스트잇',
   stickyPix:'💡 포스트잇 사진 (일지 안 보관)', diaryPix:'📖 일기 사진 (일지 안 보관)',
   bankBak:'장기메모 되돌림용 사본', inboxBak:'기타 업무함 되돌림용 사본',
-  privBak:'개인 용무함 되돌림용 사본',
+  privBak:'개인 용무함 되돌림용 사본', undoIdx:'되돌리기 색인 (아주 작음)',
   events:'기념일·일정', vacs:'휴가', settings:'설정', pending:'못 보낸 저장분'
 };
 $('sizeStatBtn').onclick = async () => {
@@ -5385,7 +5416,7 @@ $('sizeStatBtn').onclick = async () => {
   const bytes = v => { try{ return JSON.stringify(v).length; }catch(e){ return 0; } };
   const sz = b => b >= 1048576 ? (b/1048576).toFixed(2)+'MB' : Math.round(b/1024)+'KB';
   const rows = [];
-  let bakFound = [];
+  let bakFound = [], oldUndo = [];
   Object.keys(root).forEach(k => {
     if(k === 'undo'){
       /* 되돌리기 보관본은 '사진이 든 것'과 '글만 있는 것'을 갈라 봐야 판단이 선다 */
@@ -5397,6 +5428,14 @@ $('sizeStatBtn').onclick = async () => {
       }));
       if(pic)   rows.push([`🧹 되돌리기 보관본 · 사진이 든 것 (${picN}건)`, pic]);
       if(plain) rows.push([`되돌리기 보관본 · 글만 (${allN-picN}건)`, plain]);
+      /* 예전 규칙(날짜당 24벌)으로 쌓인 것들 — 지금 규칙으로 줄이면 얼마나 비는지 재 둔다 */
+      Object.keys(root.undo||{}).forEach(ds => {
+        const byTs = root.undo[ds] || {};
+        const all = Object.keys(byTs).map(Number).sort((a,b) => b-a);
+        const whyOf = {}; all.forEach(t => { whyOf[t] = (byTs[t]||{}).why || ''; });
+        const keep = new Set(thinUndoKeys(all, whyOf));
+        all.forEach(t => { if(!keep.has(t)) oldUndo.push({ds, ts:t, bytes: bytes(byTs[t])}); });
+      });
       return;
     }
     if(/^\d{4}$/.test(k)){ rows.push([`${k}년 일지`, bytes(root[k])]); return; }
@@ -5410,19 +5449,42 @@ $('sizeStatBtn').onclick = async () => {
   const body = rows.filter(r => r[1] > 0).slice(0,12)
     .map(([k,b]) => ` · ${k}\n   ${sz(b)}  (${Math.round(b/total*100)}%)`).join('\n');
   const clean = bakFound.reduce((a,f) => a + f.bytes, 0);
+  const oldBytes = oldUndo.reduce((a,f) => a + f.bytes, 0);
+
+  const opts = [];
+  if(oldBytes) opts.push({value:'thin',  label:`예전 보관본 줄이기 (${sz(oldBytes)})`, kind:'primary'});
+  if(clean)    opts.push({value:'clean', label:'사진 든 보관본 치우기',              kind: oldBytes ? 'cancel' : 'primary'});
+  opts.push({value:'close', label:'닫기', kind: opts.length ? 'cancel' : 'primary'});
 
   const pick = await askChoice({
     title:'📦 저장 용량 진단',
     desc:`지금 담긴 자료 — 모두 ${sz(total)}\n\n${body}\n\n` +
-         (clean ? `🧹 이 중 ${sz(clean)}는 사진이 통째로 남은 되돌리기 보관본이에요.\n` +
+         (oldBytes ? `🕘 예전 규칙(날짜당 24벌)으로 쌓인 보관본 ${oldUndo.length}건 · ${sz(oldBytes)}를 줄일 수 있어요.\n` +
+                     `지금 규칙(최근 3개 + 위험한 변화 직전)만 남깁니다.\n\n` : '') +
+         (clean ? `🧹 이 중 ${sz(clean)}는 사진이 통째로 남은 보관본이에요.\n` +
                   `사진은 이미 따로 옮겨져 있어 지워도 일지와 사진은 그대로입니다.\n\n` : '') +
          `(Firebase 화면의 숫자와는 차이가 날 수 있어요 — 그쪽은 따로 계산합니다)`,
-    options: clean
-      ? [{value:'clean', label:'무거운 보관본 치우기', kind:'primary'},
-         {value:'close', label:'닫기', kind:'cancel'}]
-      : [{value:'close', label:'닫기', kind:'primary'}]
+    options: opts
   });
   if(pick === 'clean') await runBakCleanup(bakFound);
+  else if(pick === 'thin'){
+    if(!(await askConfirm(
+      `보관본 ${oldUndo.length}건을 치웁니다.\n` +
+      `날짜마다 최근 3개와 «위험한 변화 직전» 3개는 남습니다.\n` +
+      `이 기기에서 오늘 쓰던 판본은 따로 보관되니 영향받지 않아요.`,
+      {title:'🕘 예전 보관본 줄이기', ok:'줄이기', danger:true}))) return;
+    let done = 0;
+    for(const f of oldUndo){
+      try{
+        await db.ref(`diaries/${USER.uid}/undo/${f.ds}/${f.ts}`).remove();
+        try{ await db.ref(`diaries/${USER.uid}/undoIdx/${f.ds}/${f.ts}`).remove(); }catch(e){}
+        if(undoKeys[f.ds]) undoKeys[f.ds] = undoKeys[f.ds].filter(t => t !== f.ts);
+        if(undoWhy[f.ds]) delete undoWhy[f.ds][f.ts];
+        done++;
+      }catch(e){}
+    }
+    toast(`보관본 ${done}건을 줄였어요 — Firebase 화면의 숫자는 바로 줄지 않을 수 있어요`);
+  }
 };
 
 /* ═══════════════ 🧹 보관본 정리 ═══════════════
@@ -5469,7 +5531,12 @@ async function runBakCleanup(preFound){
     {title:'🧹 무거운 보관본 정리', ok:'정리하기', danger:true}))) return;
   let done = 0;
   for(const f of found){
-    try{ await db.ref(`diaries/${USER.uid}/${f.path}`).remove(); done++; }catch(e){}
+    try{
+      await db.ref(`diaries/${USER.uid}/${f.path}`).remove(); done++;
+      /* undo/{날짜}/{시각} 이면 작은 색인도 함께 치운다 */
+      const m = /^undo\/(.+)\/(\d+)$/.exec(f.path);
+      if(m){ try{ await db.ref(`diaries/${USER.uid}/undoIdx/${m[1]}/${m[2]}`).remove(); }catch(e){} }
+    }catch(e){}
   }
   Object.keys(undoKeys).forEach(k => delete undoKeys[k]);
   toast(`보관본 ${done}건을 치웠어요 — Firebase 화면의 저장용량은 바로 줄지 않을 수 있어요`);
@@ -6338,24 +6405,40 @@ async function renderUndoList(){
   }catch(e){ box.innerHTML = '<div class="undo-none">보관본을 확인하지 못했어요 — 연결을 확인해 주세요</div>'; return; }
   const keys = Object.keys(v).sort((a,b)=>b-a);
   undoKeys[undoDate] = keys.map(Number);
-  if(!keys.length){
+  undoWhy[undoDate] = {};
+  keys.forEach(k => { undoWhy[undoDate][k] = (v[k]||{}).why || ''; });
+
+  /* ★ 서버 보관본과 «이 기기 판본»을 한 목록에 섞는다.
+     창을 둘로 나누면 어디를 봐야 할지 헷갈리므로, 출처는 배지로만 구분한다.
+     기기 판본은 날짜별 일지에만 있다(목표·장기메모·포스트잇은 서버 보관본만). */
+  const kind = UNDO_SPECIAL[undoDate] ? undoDate : '';
+  const locals = kind ? [] : await getLocalVers(undoDate);
+  const items = [
+    ...locals.map(lv => ({ ts: lv.ts, local: true,
+                           rec: { why: '', dev: '이 기기', data: lv.data } })),
+    ...keys.map(k => ({ ts: +k, local: false, rec: v[k] || {} }))
+  ].sort((a,b) => b.ts - a.ts);
+
+  if(!items.length){
     box.innerHTML = '<div class="undo-none">이 날짜에 보관된 예전 상태가 없어요.<br>내용을 고치면 그때부터 자동으로 쌓입니다.</div>';
     return;
   }
   box.innerHTML = '';
-  const kind = UNDO_SPECIAL[undoDate] ? undoDate : '';
   const rows = [];
-  keys.forEach((ts, i) => {
-    const rec = v[ts] || {};
+  items.forEach((it, i) => {
+    const ts = it.ts, rec = it.rec;
     const when = undoWhen(+ts);
     const row = document.createElement('div');
     row.className = 'undo-row';
     const b = document.createElement('button');
     b.type = 'button'; b.className = 'undo-item';
-    const dev = rec.dev ? `<span class="dv">${esc(rec.dev)}</span>` : '';
+    const dev = it.local
+      ? `<span class="dv lo">📱 이 기기</span>`
+      : (rec.dev ? `<span class="dv">☁️ ${esc(rec.dev)}</span>` : `<span class="dv">☁️ 서버</span>`);
     /* why(무슨 일 직전이었는지)는 예전부터 함께 담고 있었는데 보여 주지 않았다 —
        '전체 삭제 직전' 같은 표시가 있으면 어느 것을 고를지 훨씬 쉽다 */
-    const why = rec.why ? `<span class="wy">${esc(rec.why)}</span>` : '';
+    const whyTxt = it.local ? (i === 0 ? '방금 쓰던 중' : '') : (rec.why || '');
+    const why = whyTxt ? `<span class="wy">${esc(whyTxt)}</span>` : '';
     b.innerHTML =
       `<span class="u-top"><span class="t">${when}</span>${dev}${why}` +
       `<span class="go">내용 보기 ▾</span></span>` +
@@ -6377,7 +6460,7 @@ async function renderUndoList(){
         go.type = 'button'; go.className = 'btn-line';
         go.style.cssText = 'border-color:var(--danger);color:var(--danger);font-weight:800';
         go.textContent = '이 상태로 되돌리기 ↩';
-        go.onclick = () => restoreUndo(undoDate, ts, rec);
+        go.onclick = () => restoreUndo(undoDate, ts, rec, it.local);
         pv.appendChild(go);
       }
       pv.classList.remove('hidden');
@@ -6403,13 +6486,33 @@ async function renderUndoList(){
     if(i === 0) open(true);
   });
 }
-async function restoreUndo(ds, ts, rec){
+async function restoreUndo(ds, ts, rec, isLocal){
   const when = undoWhen(+ts);
   const what = UNDO_SPECIAL[ds] || `${ds.replace(/-/g,'.')} 의 내용`;
+  /* 기기 판본으로 되돌릴 때, 그 뒤에 «다른 기기»가 같은 날짜를 고쳤다면 그 작업을 덮게 된다.
+     서버 수정 시각이 판본보다 새로우면 먼저 알린다. */
+  if(isLocal){
+    let srvTs = 0;
+    try{
+      const c = await withTimeout(dayRef(ds).child('updatedAt').get(), 6000);
+      srvTs = c.exists() ? (+c.val() || 0) : 0;
+    }catch(e){}
+    if(srvTs > ts + 1000 && srvTs !== lastSelfTs){
+      const go = await askChoice({
+        title:'⚠ 다른 기기에서 고친 내용이 있어요',
+        desc:`이 판본은 ${when} 것인데, 서버에는 ${undoWhen(srvTs)}에 저장된 더 새로운 내용이 있어요.\n` +
+             `되돌리면 그 작업을 덮게 됩니다.\n(덮기 직전 서버 내용은 보관하니 다시 돌아올 수는 있어요)`,
+        options:[{value:'stop', label:'그만두기', kind:'cancel'},
+                 {value:'go',   label:'그래도 되돌리기', kind:'primary'}]
+      });
+      if(go !== 'go') return;
+    }
+  }
   if(!(await askConfirm(
     `${what}을(를)\n${when}${rec.dev? ` · ${rec.dev}`:''} 시점 상태로 되돌립니다.\n\n${undoSummary(rec.data||{}, UNDO_SPECIAL[ds]? ds : '').replace(/<[^>]+>/g,'')}\n\n` +
     `지금 내용은 '되돌리기 직전'이라는 이름으로 이 목록 맨 위에 남습니다.\n` +
-    `보관에 실패하면 되돌리지 않고 멈추니, 지금 쓴 것이 그냥 사라지지는 않아요.`,
+    `보관에 실패하면 되돌리지 않고 멈추니, 지금 쓴 것이 그냥 사라지지는 않아요.` +
+    (isLocal ? `\n\n(📱 이 기기에만 있던 판본이라, 되돌리면 서버에도 올라갑니다)` : ''),
     {title:'🕘 되돌리기', ok:'되돌리기', danger:true}))) return;
   /* 목표·장기메모는 날짜가 아니라 통째로 되돌린다 */
   if(UNDO_SPECIAL[ds]){
@@ -9086,6 +9189,85 @@ function markDraft(){
 function dropDraft(ds){
   clearTimeout(draftTimer);
   try{ Promise.resolve(idbDel(draftKey(ds))).catch(()=>{}); }catch(e){}
+}
+
+/* ── 기기 판본 기록(local version history) ────────────────────────────
+   서버 보관본은 통신·용량을 먹으므로 성기게 둘 수밖에 없는데, 정작 되돌리고 싶은 건
+   «방금 쓰던 것»이다. 그 촘촘한 몫을 이 기기가 맡는다.
+   ▸ 저장할 때마다 한 벌씩 남긴다 — 타자를 멈추고 0.8초 뒤가 저장 시점이라,
+     이 간격이 곧 '한 문단 쓰고 쉰 지점'이 된다. 따로 초 단위 타이머를 돌릴 필요가 없다.
+   ▸ 서버에는 한 톨도 올리지 않는다(용량 0 · 통신 0).
+   ▸ 나이에 따라 솎아낸다. 방금 것은 촘촘히, 오래된 것은 성기게. */
+const histKey = ds => `hist:${USER.uid}:${ds}`;
+const HIST_MAX = 60;                     /* 안전 상한 — 곡선대로면 35벌 안팎 */
+/* 나이별로 이만큼 간격을 두고 하나씩만 남긴다 (밀리초). 마지막은 '이보다 오래되면 버림' */
+const HIST_STEPS = [
+  [2*60*1000,        0],                 /* 최근 2분 — 전부 */
+  [10*60*1000,   30*1000],               /* 2~10분 — 30초 간격 */
+  [60*60*1000,  5*60*1000]               /* 10분~1시간 — 5분 간격 */
+];                                        /* 1시간 넘으면 버림 */
+function thinHist(list, now){
+  const out = [], seen = new Set();
+  for(const v of list.slice().sort((a,b) => b.ts - a.ts)){
+    const age = now - v.ts;
+    const step = HIST_STEPS.find(([lim]) => age < lim);
+    if(!step) continue;                                   /* 1시간 넘음 — 버린다 */
+    const bucket = step[1] ? 'b' + Math.floor(v.ts / step[1]) : 'a' + v.ts;
+    if(seen.has(bucket)) continue;
+    seen.add(bucket); out.push(v);
+    if(out.length >= HIST_MAX) break;
+  }
+  return out;
+}
+/* 저장 직전 모습을 이 기기에 한 벌 남긴다. 실패해도 저장은 그대로 진행한다. */
+async function pushLocalVer(ds, snapshot){
+  if(!USER || !ds || !snapshot) return;
+  try{
+    const list = (await idbGet(histKey(ds))) || [];
+    const now = Date.now();
+    /* thinHist 가 최신순으로 정렬해 두므로 «마지막»이 아니라 «가장 새 것»과 견줘야 한다 */
+    const last = list.reduce((a,b) => (!a || b.ts > a.ts) ? b : a, null);
+    /* 저장할 때마다 updatedAt 이 바뀌므로 그것만 빼고 견준다 — 안 그러면 같은 글도 매번 쌓인다 */
+    const same = o => { try{ const c = Object.assign({}, o); delete c.updatedAt; return JSON.stringify(c); }
+                        catch(e){ return String(Math.random()); } };
+    const body = JSON.stringify(snapshot);
+    if(last && same(last.data) === same(snapshot)) return;   /* 달라진 게 없으면 남기지 않는다 */
+    list.push({ts: now, data: JSON.parse(body)});
+    await idbSet(histKey(ds), thinHist(list, now));
+    noteHistDate(ds);
+  }catch(e){}
+}
+async function getLocalVers(ds){
+  if(!USER || !ds) return [];
+  try{
+    const list = (await idbGet(histKey(ds))) || [];
+    const kept = thinHist(list, Date.now());
+    if(kept.length !== list.length) idbSet(histKey(ds), kept).catch(()=>{});
+    return kept.sort((a,b) => b.ts - a.ts);
+  }catch(e){ return []; }
+}
+function dropLocalVers(ds){ try{ Promise.resolve(idbDel(histKey(ds))).catch(()=>{}); }catch(e){} }
+/* 판본이 남아 있는 날짜 목록 — IndexedDB 는 열쇠를 훑을 수단이 마땅치 않아 따로 적어 둔다 */
+const HIST_DATES = () => `histDates:${USER ? USER.uid : 'anon'}`;
+function noteHistDate(ds){
+  try{
+    const a = JSON.parse(localStorage.getItem(HIST_DATES()) || '[]');
+    if(!a.includes(ds)){ a.push(ds); localStorage.setItem(HIST_DATES(), JSON.stringify(a.slice(-60))); }
+  }catch(e){}
+}
+/* 앱을 열 때 한 번 — 1시간이 지나 남길 것이 없어진 날짜의 판본을 치운다.
+   서버는 건드리지 않으므로 통신이 늘지 않는다. */
+async function sweepLocalVers(){
+  let a = [];
+  try{ a = JSON.parse(localStorage.getItem(HIST_DATES()) || '[]'); }catch(e){ return; }
+  const left = [];
+  for(const ds of a){
+    try{
+      const kept = await getLocalVers(ds);          /* 읽으면서 스스로 솎아낸다 */
+      if(kept.length) left.push(ds); else dropLocalVers(ds);
+    }catch(e){ left.push(ds); }
+  }
+  try{ localStorage.setItem(HIST_DATES(), JSON.stringify(left)); }catch(e){}
 }
 const inboxKey = () => `inbox:${USER.uid}`;
 const privKey  = () => `priv:${USER.uid}`;
