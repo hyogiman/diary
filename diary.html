@@ -3072,6 +3072,42 @@ async function loadDay(dateStr, opts={}){
   $('sheet').classList.remove('loading');
   renderDate(); renderSheet();
   attachDayListener(dateStr);
+  offerDraft(dateStr, v);                         /* 못 보낸 초안이 남아 있으면 되살릴지 묻는다 */
+}
+/* 서버에서 받아 온 것보다 이 기기의 초안이 새로우면 되살릴지 묻는다.
+   묻지 않고 자동으로 덮으면, 다른 기기에서 고친 내용을 모르게 밀어낼 수 있다. */
+async function offerDraft(ds, serverVal){
+  if(!USER) return;
+  let d = null;
+  try{ d = await idbGet(draftKey(ds)); }catch(e){ return; }
+  if(!d || !d.data || !d.ts) return;
+  const serverTs = (serverVal && serverVal.updatedAt) || 0;
+  if(d.ts <= serverTs){ dropDraft(ds); return; }        /* 서버가 더 최신 — 묵은 초안은 버린다 */
+  const a = JSON.stringify(normalize(d.data)), b = JSON.stringify(normalize(serverVal||{}));
+  if(a === b){ dropDraft(ds); return; }                 /* 내용이 같으면 물을 것도 없다 */
+  if(ds !== curDate) return;                            /* 그새 날짜를 옮겼으면 다음 기회에 */
+  const mins = Math.max(1, Math.round((Date.now() - d.ts)/60000));
+  const when = mins >= 60 ? `${Math.floor(mins/60)}시간 ${mins%60}분 전` : `${mins}분 전`;
+  const pick = await askChoice({
+    title:'📝 못 보낸 글이 남아 있어요',
+    desc:`${when}까지 이 기기에서 쓰던 내용이 서버로 넘어가지 못했어요.
+` +
+         `되살리면 지금 화면 내용을 그것으로 바꾸고 바로 저장합니다.
+
+` +
+         `(되살리기 직전 모습은 되돌리기에 남겨 두니 다시 돌아올 수 있어요)`,
+    options:[{value:'drop', label:'서버 것 쓰기', kind:'cancel'},
+             {value:'keep', label:'되살리기',     kind:'primary'}]
+  });
+  if(pick !== 'keep'){ dropDraft(ds); return; }
+  if(ds !== curDate) return;                            /* 묻는 동안 날짜가 바뀌었으면 손대지 않는다 */
+  try{ await pushUndo(ds, serverVal || {}, '못 보낸 글 되살리기 직전'); }catch(e){}
+  day = normalize(d.data);
+  renderSheet();
+  markDirty();
+  clearTimeout(saveTimer);
+  const ok = await saveNow();
+  toast(ok ? '못 보낸 글을 되살렸어요' : '되살렸어요 — 서버 전송은 연결되면 이어집니다');
 }
 function normTask(t){
   t = t || {};
@@ -3171,6 +3207,7 @@ function renderDate(){
 /* ───────── 저장 (자동, 800ms 디바운스) ───────── */
 function markDirty(){
   dirty = true; $('saveState').textContent = '입력 중…';
+  markDraft();                         /* ★ 서버보다 먼저, 이 기기에 남긴다 */
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 800);
   peekRefresh();                       /* 🎯 목표 펼침의 업무 연동 숫자도 함께 갱신 */
@@ -3250,10 +3287,20 @@ async function pushUndo(ds, data, why){
   }catch(e){ /* 보관 실패해도 저장은 진행 */ }
 }
 
+/* 서버 쓰기가 끝나기를 언제까지 기다릴지.
+   ★ Firebase 의 set() 은 연결이 끊기거나 늘어지면 «실패»가 아니라 «그냥 안 끝난다».
+     예전에는 그 상태에서 catch 가 돌지 않아 기기 임시본도 안 남고, 화면은 '입력 중…'
+     그대로였다. 그래서 새로고침하면 쓴 글이 통째로 사라졌다. 이제 기다리다 끊는다. */
+const SAVE_WAIT = 12000;
+let saveInFlight = false;
 async function saveNow(){
   if(!dirty) return true;                     /* 저장할 것이 없으면 이미 안전한 상태 */
   if(!USER) return false;
   if(!dayOwner){ dirty = false; return false; }     /* 어느 날짜의 내용인지 확정 전이면 저장하지 않는다 */
+  if(saveInFlight){                           /* 앞의 저장이 아직 안 끝났으면 겹쳐 보내지 않는다 */
+    clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 1500);
+    return false;
+  }
   dirty = false;
   const ds = dayOwner;                        /* 화면이 다른 날짜로 옮겨가도 내용은 제 날짜에 저장 */
   const clean = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
@@ -3266,18 +3313,27 @@ async function saveNow(){
   if(dayBase && (riskyChange(dayBase, isEmpty? {} : clean) || Date.now() - (undoLast[ds]||0) > UNDO_GAP)){
     await pushUndo(ds, dayBase, isEmpty ? '전체 삭제 직전' : '내용이 바뀌기 직전');
   }
+  saveInFlight = true;
+  /* 오래 걸리면 «이 기기에는 남아 있다»는 것부터 알린다 — 말없이 '입력 중…'만 떠 있지 않게 */
+  const slow = setTimeout(() => {
+    $('saveState').textContent = '⏳ 서버 저장이 늦어지고 있어요 — 이 기기에는 남아 있어요';
+  }, 4000);
   try{                                        // ① 서버 우선
-    if(isEmpty) await dayRef(ds).remove();
-    else await dayRef(ds).set(clean);
+    if(isEmpty) await withTimeout(dayRef(ds).remove(), SAVE_WAIT);
+    else await withTimeout(dayRef(ds).set(clean), SAVE_WAIT);
     dayBase = isEmpty ? null : JSON.parse(JSON.stringify(clean));
     patchYearCache(ds, isEmpty ? null : clean);      /* 캐시를 통째로 버리지 않고 그 날짜만 손본다 */
     try{ await idbDel(dayKey(ds)); await removePending('day:'+ds); }catch(e){}   // 서버 완료 → 기기 임시본 삭제
+    dropDraft(ds);                                   // 서버에 안전히 들어갔으니 초안은 필요 없다
     $('saveState').textContent = '✓ 저장됨 ' + new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'});
     return true;
-  }catch(e){                                  // ② 실패했을 때만 기기에 임시 보관
+  }catch(e){                                  // ② 못 보냈으면 기기에 임시 보관 — 초안은 그대로 둔다
     try{ await idbSet(dayKey(ds), {__ts: Date.now(), __del: isEmpty, data: isEmpty? null : clean}); await addPending('day:'+ds); }catch(e2){}
-    $('saveState').textContent = '📴 오프라인 — 기기에 임시 보관됨 (연결되면 서버로 옮기고 기기에서 삭제)';
+    $('saveState').textContent = '📴 서버에 못 보냈어요 — 기기에 보관됨 (연결되면 자동으로 올라가요)';
     return false;
+  }finally{
+    clearTimeout(slow);
+    saveInFlight = false;
   }
 }
 async function flushSave(){
@@ -3297,7 +3353,11 @@ async function flushSave(){
   clearTimeout(stickyTimer);
   if(stickyDirty) await saveStickies();
 }
-window.addEventListener('beforeunload', () => { if(dirty){ saveNow(); } flushCalendarSyncs(); });
+window.addEventListener('beforeunload', () => { if(dirty){ markDraft(); saveNow(); } flushCalendarSyncs(); });
+/* 화면을 벗어날 때(앱 전환·화면 끄기)는 기다려 주지 않는다 — 초안부터 곧바로 남긴다 */
+document.addEventListener('visibilitychange', () => {
+  if(document.hidden && dirty){ clearTimeout(draftTimer); draftTimer = null; markDraft(); }
+});
 
 /* ───────── 시트 렌더 ───────── */
 function renderSheet(){
@@ -8859,7 +8919,30 @@ async function pixCacheGet(id){ try{ return (await idbGet(pixKey(id))) || null; 
 function pixCacheSet(id, v){ try{ Promise.resolve(idbSet(pixKey(id), v)).catch(()=>{}); }catch(e){} }
 function pixCacheDel(id){ try{ Promise.resolve(idbDel(pixKey(id))).catch(()=>{}); }catch(e){} }
 
+/* ── 기기 초안(draft) ─────────────────────────────────────────────────
+   되돌리기는 «서버에 저장된 것»만 되살린다. 그래서 저장이 막히면 그 사이에 쓴 글은
+   어디에도 남지 않는다(실제로 그렇게 한참 쓴 글을 잃은 적이 있다).
+   그 틈을 메우려고, 글자를 칠 때마다 서버와 상관없이 이 기기에 초안을 남긴다.
+   서버 저장이 확인되면 초안은 지운다 — 남아 있다는 것 자체가 «아직 못 보냈다»는 뜻이다.
+   dayKey(오프라인 임시본)와는 다른 자리다. 저 쪽은 '보낼 것', 이 쪽은 '잃지 않을 것'. */
 const dayKey   = ds => `day:${USER.uid}:${ds}`;
+const draftKey = ds => `draft:${USER.uid}:${ds}`;
+let draftTimer = null;
+function markDraft(){
+  if(!USER || !dayOwner) return;
+  const ds = dayOwner;
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(() => {
+    try{
+      const snap = JSON.parse(JSON.stringify(day, (k,v)=> (k==='open'||k==='_ov')? undefined : v));
+      Promise.resolve(idbSet(draftKey(ds), {ts: Date.now(), data: snap})).catch(()=>{});
+    }catch(e){}
+  }, 400);                                  /* 늦어도 0.4초 뒤에는 기기에 남는다 */
+}
+function dropDraft(ds){
+  clearTimeout(draftTimer);
+  try{ Promise.resolve(idbDel(draftKey(ds))).catch(()=>{}); }catch(e){}
+}
 const inboxKey = () => `inbox:${USER.uid}`;
 const privKey  = () => `priv:${USER.uid}`;
 const pendKey  = () => `pending:${USER.uid}`;
