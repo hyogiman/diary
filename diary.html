@@ -2111,6 +2111,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
           <div class="set-grp">💾 저장 공간</div>
           <button class="btn-line" id="storeCheckBtn">저장소 연결 확인</button>
           <button class="btn-line" id="netStatBtn">통신량 진단</button>
+          <button class="btn-line" id="sizeStatBtn">저장 용량 진단</button>
           <button class="btn-line hidden" id="photoFixBtn">예전 사진 정리</button>
           <button class="btn-line" id="bakFixBtn">무거운 보관본 정리</button>
         </div>
@@ -5273,6 +5274,75 @@ $('netStatBtn').onclick = async () => {
   }
 };
 
+/* ═══════════════ 📦 저장 용량 진단 ═══════════════
+   'RTDB 가 4MB 인데 무엇 때문인가'를 짐작으로 찾지 않기 위해, 자료를 한 번 통째로 읽어
+   자리별 크기를 재서 보여 준다. 읽는 만큼 다운로드가 한 번 나가므로 눌렀을 때만 한다. */
+const SIZE_LABEL = {
+  bank:'📌 장기메모', inbox:'★ 기타 업무함', priv:'★ 개인 용무함',
+  goals:'🎯 목표', stickies:'💡 포스트잇',
+  stickyPix:'💡 포스트잇 사진 (일지 안 보관)', diaryPix:'📖 일기 사진 (일지 안 보관)',
+  bankBak:'장기메모 되돌림용 사본', inboxBak:'기타 업무함 되돌림용 사본',
+  privBak:'개인 용무함 되돌림용 사본',
+  events:'기념일·일정', vacs:'휴가', settings:'설정', pending:'못 보낸 저장분'
+};
+$('sizeStatBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+  if(!(await askConfirm(
+    '어디에 저장 공간이 쓰이는지 재려면 자료를 한 번 통째로 읽어야 해요.\n' +
+    '지금 크기만큼(보통 몇 MB) 다운로드가 한 번 발생합니다.\n\n' +
+    '연결이 좋은 곳에서 해 주세요.',
+    {title:'📦 저장 용량 진단', ok:'재기'}))) return;
+  toast('자료를 재는 중…');
+  let root = null;
+  try{
+    const snap = await withTimeout(db.ref(`diaries/${USER.uid}`).get(), 60000);
+    root = snap.exists() ? snap.val() : null;
+  }catch(e){ toast('다 읽지 못했어요 — 연결을 확인한 뒤 다시 해 주세요'); return; }
+  if(!root){ toast('아직 담긴 자료가 없어요'); return; }
+
+  const bytes = v => { try{ return JSON.stringify(v).length; }catch(e){ return 0; } };
+  const sz = b => b >= 1048576 ? (b/1048576).toFixed(2)+'MB' : Math.round(b/1024)+'KB';
+  const rows = [];
+  let bakFound = [];
+  Object.keys(root).forEach(k => {
+    if(k === 'undo'){
+      /* 되돌리기 보관본은 '사진이 든 것'과 '글만 있는 것'을 갈라 봐야 판단이 선다 */
+      let pic = 0, plain = 0, picN = 0, allN = 0;
+      Object.keys(root.undo||{}).forEach(ds => Object.keys(root.undo[ds]||{}).forEach(ts => {
+        const v = root.undo[ds][ts], b = bytes(v); allN++;
+        if(bakPhotoBytes(v)){ pic += b; picN++; bakFound.push({path:`undo/${ds}/${ts}`, label:`${ds} 되돌리기 지점`, bytes:b}); }
+        else plain += b;
+      }));
+      if(pic)   rows.push([`🧹 되돌리기 보관본 · 사진이 든 것 (${picN}건)`, pic]);
+      if(plain) rows.push([`되돌리기 보관본 · 글만 (${allN-picN}건)`, plain]);
+      return;
+    }
+    if(/^\d{4}$/.test(k)){ rows.push([`${k}년 일지`, bytes(root[k])]); return; }
+    const b = bytes(root[k]);
+    if(['bankBak','inboxBak','privBak'].includes(k) && bakPhotoBytes(root[k]))
+      bakFound.push({path:k, label:SIZE_LABEL[k]||k, bytes:b});
+    rows.push([SIZE_LABEL[k] || k, b]);
+  });
+  rows.sort((a,b) => b[1] - a[1]);
+  const total = rows.reduce((a,r) => a + r[1], 0);
+  const body = rows.filter(r => r[1] > 0).slice(0,12)
+    .map(([k,b]) => ` · ${k}\n   ${sz(b)}  (${Math.round(b/total*100)}%)`).join('\n');
+  const clean = bakFound.reduce((a,f) => a + f.bytes, 0);
+
+  const pick = await askChoice({
+    title:'📦 저장 용량 진단',
+    desc:`지금 담긴 자료 — 모두 ${sz(total)}\n\n${body}\n\n` +
+         (clean ? `🧹 이 중 ${sz(clean)}는 사진이 통째로 남은 되돌리기 보관본이에요.\n` +
+                  `사진은 이미 따로 옮겨져 있어 지워도 일지와 사진은 그대로입니다.\n\n` : '') +
+         `(Firebase 화면의 숫자와는 차이가 날 수 있어요 — 그쪽은 따로 계산합니다)`,
+    options: clean
+      ? [{value:'clean', label:'무거운 보관본 치우기', kind:'primary'},
+         {value:'close', label:'닫기', kind:'cancel'}]
+      : [{value:'close', label:'닫기', kind:'primary'}]
+  });
+  if(pick === 'clean') await runBakCleanup(bakFound);
+};
+
 /* ═══════════════ 🧹 보관본 정리 ═══════════════
    되돌리기·사진정리는 안전을 위해 '고치기 전 모습'을 통째로 남긴다.
    그래서 사진을 Storage 로 옮겨도, 보관본 안에는 예전 사진이 그대로 남아
@@ -5300,8 +5370,12 @@ async function scanBaks(){
 }
 $('bakFixBtn').onclick = async () => {
   $('settingsMenu').classList.add('hidden');
+  await runBakCleanup();
+};
+/* 설정 버튼과 📦 저장 용량 진단 두 곳에서 부르는 한 벌짜리 정리 */
+async function runBakCleanup(preFound){
   toast('보관본을 살펴보는 중…');
-  const found = await scanBaks();
+  const found = preFound || await scanBaks();
   if(!found.length){ toast('치울 보관본이 없어요 — 이미 가벼운 상태예요'); return; }
   const total = found.reduce((a,b)=>a+b.bytes, 0);
   const mb = (total/1048576).toFixed(2);
@@ -5316,12 +5390,13 @@ $('bakFixBtn').onclick = async () => {
     try{ await db.ref(`diaries/${USER.uid}/${f.path}`).remove(); done++; }catch(e){}
   }
   Object.keys(undoKeys).forEach(k => delete undoKeys[k]);
-  refreshBakFixBtn();
-  toast(`보관본 ${done}건을 치웠어요 — 저장용량은 하루 뒤 다시 계산됩니다`);
-};
-/* 치울 게 있을 때만 설정에 보이게 — 확인은 눌렀을 때만 하므로 평소 통신은 없다 */
-let bakFixSeen = false;
-function refreshBakFixBtn(){ const b = $('bakFixBtn'); if(b) b.classList.toggle('hidden', !bakFixSeen); }
+  toast(`보관본 ${done}건을 치웠어요 — Firebase 화면의 저장용량은 바로 줄지 않을 수 있어요`);
+}
+/* ★ 예전에는 bakFixSeen 이 true 가 되어야 보이게 해 두었는데, 그 값을 켜 주는 곳이
+   어디에도 없어서 이 버튼이 한 번도 나타나지 않았다. 정작 사진이 통째로 남는 곳은
+   되돌리기 보관본이라, 정리할 길이 막혀 있던 셈이다.
+   확인은 눌렀을 때만 하므로 평소 통신이 없다 — 그냥 늘 보이게 둔다. */
+function refreshBakFixBtn(){ const b = $('bakFixBtn'); if(b) b.classList.remove('hidden'); }
 
 /* ═══════════════ 🖼 예전 사진 정리 ═══════════════
    예전에 넣은 사진은 일지 데이터 안에 글자로 담겨 있어, 그 날짜를 읽을 때마다
