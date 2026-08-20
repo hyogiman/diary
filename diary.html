@@ -453,9 +453,12 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #fabCat:hover{background:var(--accent-deep);transform:scale(1.06)}
 /* 🕒 시각 찍기 — 업무 버튼 왼쪽에 나란히. 글칸에 커서가 있을 때만 또렷해진다 */
 /* 우하단 한 자리를 '＋ 업무'와 번갈아 쓴다 — 글칸에 커서가 있을 때만 나타난다 */
+/* 색으로 구분한다 — '＋ 업무'는 포인트색(주황·초록 등 테마색) 채움,
+   '🕒 시각'은 잉크색 채움. 말풍선(.bub)과 같은 색이라 한 덩어리로 읽힌다.
+   --ink 와 --card 는 어느 테마에서도 서로 반대색이라 대비가 깨지지 않는다. */
 #fabStamp{position:fixed;right:18px;bottom:calc(26px + env(safe-area-inset-bottom));
-  height:44px;padding:0 15px;border-radius:999px;background:var(--accent);color:#fff;
-  border:1.5px solid var(--accent);z-index:60;box-shadow:0 6px 18px rgba(200,110,40,.4);
+  height:44px;padding:0 15px;border-radius:999px;background:var(--ink);color:var(--card);
+  border:1.5px solid var(--ink);z-index:60;box-shadow:0 6px 18px rgba(40,25,10,.34);
   display:flex;align-items:center;justify-content:center;gap:4px;
   opacity:0;pointer-events:none;transform:scale(.9);transition:.16s}
 #fabStamp.ready{opacity:1;pointer-events:auto;transform:none}
@@ -464,6 +467,9 @@ button:disabled{opacity:.45;cursor:not-allowed}
 body.stamp-up #fabCat{opacity:0;pointer-events:none;transform:scale(.9)}
 /* 일기 페이지에서는 아래 도구 띠가 있으므로 🕒 버튼을 그 위로 올린다 */
 body.diary-page #fabStamp{bottom:calc(76px + env(safe-area-inset-bottom))}
+/* 길게 누르기가 이 버튼의 기능(과거 시각 넣기)이라, 브라우저의 길게누르기 메뉴
+   (뒤로·새로고침·다운로드)가 대신 뜨면 안 된다. 아래 세 가지를 함께 꺼야 안 뜬다. */
+#fabStamp{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 #fabStamp .fi{font-size:1.05rem;line-height:1}
 #fabStamp .fl{font-family:'Jua',sans-serif;font-size:.92rem;line-height:1;padding-bottom:1px}
 /* 말풍선 */
@@ -1781,7 +1787,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         </div>
       </div>
       <div class="sd-foot">
-        <button class="mini-btn" id="schedRefresh" title="Diary에 저장된 실행시간으로 다시 그리기">↻ 새로고침</button>
+        <button class="mini-btn" id="schedRefresh" title="지금 시각으로 다시 그리고 그 자리로 옮기기">🕘 Now</button>
         <button class="mini-btn" id="schedClose">✕ 닫기</button>
       </div>
     </aside>
@@ -2070,6 +2076,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
         <div class="set-sec">
           <div class="set-grp">💾 저장 공간</div>
           <button class="btn-line" id="storeCheckBtn">저장소 연결 확인</button>
+          <button class="btn-line" id="netStatBtn">통신량 진단</button>
           <button class="btn-line hidden" id="photoFixBtn">예전 사진 정리</button>
           <button class="btn-line" id="bakFixBtn">무거운 보관본 정리</button>
         </div>
@@ -2287,6 +2294,93 @@ const FAMILY_CALENDAR_ID = "5ba1fb5a0d81eb7ee717a5054d23688adab8aa876369e5a1737e
 const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
+
+/* ═══════════════ 📊 통신량 계측 ═══════════════
+   RTDB 다운로드가 왜 늘어나는지 짐작으로 찾지 않기 위해, 앱이 실제로 받아 온 자료의
+   크기를 경로별로 세어 둔다. 서버에 더 묻지 않고 «이미 받은 것»의 크기만 재므로
+   계측 자체는 통신을 늘리지 않는다. 기록은 이 기기 안(localStorage)에만 남는다. */
+const NET_KEY = 'diaryNetMeter', NET_DAYS = 7;
+let netMeter = (() => { try{ return JSON.parse(localStorage.getItem(NET_KEY) || '{}') || {}; }catch(e){ return {}; } })();
+let netSaveTimer = null;
+function netFlush(){
+  clearTimeout(netSaveTimer);
+  netSaveTimer = setTimeout(() => {
+    try{
+      const keep = {};
+      Object.keys(netMeter).sort().slice(-NET_DAYS).forEach(d => { keep[d] = netMeter[d]; });
+      netMeter = keep;
+      localStorage.setItem(NET_KEY, JSON.stringify(netMeter));
+    }catch(e){}
+  }, 2000);
+}
+/* 경로를 사람이 알아볼 묶음 이름으로 — 날짜·번호가 다른 것은 한 줄로 모은다.
+   ★ 는 사진이 함께 딸려 올 수 있는 자리 */
+function netLabel(path){
+  const p = String(path || '').replace(/^diaries\/[^/]+\/?/, '');
+  if(/^\d{4}\/\d{2}\/\d{2}\/updatedAt$/.test(p)) return '날짜 일지 · 수정시각만';
+  if(/^\d{4}\/\d{2}\/\d{2}$/.test(p))            return '★ 날짜 일지 (하루치)';
+  if(/^\d{4}\/\d{2}$/.test(p))                     return '★ 날짜 일지 (한 달치)';
+  if(/^\d{4}$/.test(p))                              return '★ 날짜 일지 (한 해 통째)';
+  if(/^stickyPix/.test(p))                           return '★ 포스트잇 사진 (일지 안 보관)';
+  if(/^diaryPix/.test(p))                            return '★ 일기 사진 (일지 안 보관)';
+  if(p === 'undo')                                   return '★ 되돌리기 보관본 (전체)';
+  if(/^undo\/[^/]+\/\d+$/.test(p))                 return '되돌리기 보관본 1건';
+  if(/^undo\//.test(p))                              return '되돌리기 보관본 (한 묶음)';
+  if(/^settings/.test(p))                            return '설정';
+  if(/Ts$/.test(p))                                  return '수정시각 표식';
+  if(/Bak$/.test(p))                                 return '★ 되돌림용 사본';
+  return p || '(뿌리 전체)';
+}
+function netAdd(path, snap){
+  try{
+    if(!snap || typeof snap.val !== 'function') return;
+    const v = snap.val();
+    if(v === null || v === undefined) return;
+    const bytes = JSON.stringify(v).length;
+    if(!bytes) return;
+    const d = todayStr(), k = netLabel(path);
+    const bucket = netMeter[d] || (netMeter[d] = {});
+    const rec = bucket[k] || (bucket[k] = {b:0, n:0});
+    rec.b += bytes; rec.n += 1;
+    netFlush();
+  }catch(e){}
+}
+/* db.ref 를 감싸 «읽기(get·once)»와 «실시간 수신(on)»만 잰다. 쓰기는 건드리지 않는다.
+   off 는 원래 함수 이름으로 부르므로, 감싼 함수를 짝지어 두지 않으면 구독이 안 끊긴다.
+   끊기지 않은 구독은 그 자체로 통신을 늘리므로 여기가 가장 조심할 곳이다. */
+const _dbRefRaw = db.ref.bind(db);
+const netCbMap = new WeakMap();
+function netWrapRef(ref, path){
+  if(!ref || ref.__netWrapped) return ref;
+  try{ ref.__netWrapped = true; }catch(e){ return ref; }
+  if(typeof ref.get === 'function'){
+    const rawGet = ref.get.bind(ref);
+    ref.get = async (...a) => { const s = await rawGet(...a); netAdd(path, s); return s; };
+  }
+  if(typeof ref.once === 'function'){
+    const rawOnce = ref.once.bind(ref);
+    ref.once = async (...a) => { const s = await rawOnce(...a); netAdd(path, s); return s; };
+  }
+  if(typeof ref.on === 'function'){
+    const rawOn = ref.on.bind(ref);
+    ref.on = (ev, cb, ...rest) => {
+      if(typeof cb !== 'function') return rawOn(ev, cb, ...rest);
+      let w = netCbMap.get(cb);
+      if(!w){ w = snap => { netAdd(path, snap); return cb(snap); }; netCbMap.set(cb, w); }
+      return rawOn(ev, w, ...rest);
+    };
+  }
+  if(typeof ref.off === 'function'){
+    const rawOff = ref.off.bind(ref);
+    ref.off = (ev, cb, ...rest) => rawOff(ev, (cb && netCbMap.get(cb)) || cb, ...rest);
+  }
+  if(typeof ref.child === 'function'){
+    const rawChild = ref.child.bind(ref);
+    ref.child = p => netWrapRef(rawChild(p), path + '/' + p);
+  }
+  return ref;
+}
+db.ref = p => netWrapRef(_dbRefRaw(p), String(p == null ? '' : p));
 
 /* Calendar 서버 호출 — Firebase 로그인 토큰으로만 접근 */
 function calendarKeyFromTarget(){
@@ -5022,7 +5116,11 @@ function hasOldPhotosNow(){
   const inDay = (day.cats||[]).some(c => old(c.tasks))
              || old(day.notes)
              || (day.memoFiles||[]).some(f => f.type==='image' && f.data && !f.url);
-  return inDay || old(bank) || old(inbox) || old(priv);
+  /* 일기·포스트잇 사진은 본문이 아니라 diaryPix·stickyPix 노드에 따로 담긴다.
+     모양이 달라 위 검사에 걸리지 않아 그동안 정리 대상에서 빠져 있었다. */
+  const pixIn = bl => (bl||[]).some(b => b && b.t === 'img' && b.ref);
+  return inDay || old(bank) || old(inbox) || old(priv)
+      || pixIn(day.diary) || (stickies||[]).some(st => pixIn(st.blocks));
 }
 function refreshPhotoFixBtn(){
   const b = $('photoFixBtn');
@@ -5078,6 +5176,37 @@ $('storeCheckBtn').onclick = async () => {
         '열려면 — Google Cloud 콘솔 → 우측 상단 Cloud Shell → 아래 한 줄 붙여넣기\n\n' +
         `echo '[{"origin":["https://hyogiman.github.io"],"method":["GET"],"responseHeader":["Content-Type","Content-Disposition"],"maxAgeSeconds":3600}]' > cors.json && gcloud storage buckets update gs://${FB_BUCKET} --cors-file=cors.json`),
     {title: zipOk ? '🔌 저장소 정상' : '🔌 저장소 정상 (백업 첨부만 제한)', ok:'좋아요', cancel:'닫기'});
+};
+
+/* ═══════════════ 📊 통신량 진단 보기 ═══════════════ */
+$('netStatBtn').onclick = async () => {
+  $('settingsMenu').classList.add('hidden');
+  const days = Object.keys(netMeter).sort().reverse();
+  if(!days.length){ toast('아직 잰 것이 없어요 — 앱을 조금 쓴 뒤 다시 눌러 주세요'); return; }
+  const sz = b => b >= 1048576 ? (b/1048576).toFixed(2)+'MB' : Math.round(b/1024)+'KB';
+  const rows = Object.entries(netMeter[days[0]] || {}).sort((a,b) => b[1].b - a[1].b);
+  const total = rows.reduce((a,r) => a + r[1].b, 0);
+  const body = rows.slice(0,10).map(([k,v]) => ` · ${k}\n   ${sz(v.b)} · ${v.n}회`).join('\n');
+  const past = days.slice(1,7).map(d => {
+    const t = Object.values(netMeter[d] || {}).reduce((a,v) => a + v.b, 0);
+    return `${d.slice(5).replace('-','/')} ${sz(t)}`;
+  }).join('  ');
+  const pick = await askChoice({
+    title: '📊 통신량 진단',
+    desc: `${days[0]} · 이 기기가 받아 온 양 — 합계 ${sz(total)}\n\n${body}\n\n` +
+          (past ? `지난 날: ${past}\n\n` : '') +
+          `★ 는 사진이 함께 딸려 올 수 있는 자리예요.\n` +
+          `이 기기에서만 잰 값이라 Firebase 콘솔의 합계(모든 기기)보다 작습니다.`,
+    options: [
+      {value:'reset', label:'기록 지우기', kind:'cancel'},
+      {value:'close', label:'닫기',        kind:'primary'}
+    ]
+  });
+  if(pick === 'reset'){
+    netMeter = {};
+    try{ localStorage.removeItem(NET_KEY); }catch(e){}
+    toast('통신량 기록을 지웠어요');
+  }
 };
 
 /* ═══════════════ 🧹 보관본 정리 ═══════════════
@@ -5189,6 +5318,56 @@ async function movePhoto(f){
     return false;
   }
 }
+/* 일기·포스트잇 안에 따로 보관된 사진 모으기 — 블록 자체를 돌려주어야 자리에서 갈아끼울 수 있다 */
+function eachDayPix(d){
+  return (Array.isArray(d.diary) ? d.diary : []).filter(b => b && b.t === 'img' && b.ref);
+}
+/* 사진 한 장을 Storage 로 — files[].data 방식(movePhoto)과 달리 사진 본체가
+   다른 노드(stickyPix·diaryPix)에 있어 먼저 받아 와야 한다.
+   새 주소에서 실제로 열리는 것을 확인한 뒤에만 블록을 갈아끼운다. */
+async function movePixBlock(b, kind){
+  const node = kind === 'sticky' ? 'stickyPix' : 'diaryPix';
+  const dir  = kind === 'sticky' ? 'sticky'    : 'diary';
+  const box  = kind === 'sticky' ? stickyPix   : diaryPix;
+  let stage = '준비';
+  try{
+    stage = '사진 찾기';
+    let data = box[b.id] || await pixCacheGet(b.id);
+    if(!data){
+      const snap = await withTimeout(db.ref(`diaries/${USER.uid}/${node}/${b.id}`).get(), 15000);
+      data = snap.exists() ? snap.val() : null;
+    }
+    if(!data) throw new Error('보관된 사진을 찾지 못함');
+    stage = '사진 변환';
+    const blob = dataUrlToBlob(data);
+    if(!blob || !blob.size) throw new Error('사진 자료를 읽지 못함');
+    const safe = (b.name||'사진').replace(/\.[^.]*$/,'').replace(/[^\w가-힣.\-]/g,'_').slice(-40) || '사진';
+    const path = `docs/${USER.uid}/${dir}/${b.id}_${safe}.jpg`;
+    stage = '올리기';
+    const task = storage.ref(path).put(blob, {contentType:'image/jpeg'});
+    await task;
+    stage = '주소 받기';
+    const url = await task.snapshot.ref.getDownloadURL();
+    if(!url) throw new Error('주소를 받지 못함');
+    stage = '열리는지 확인';
+    let ok = await verifyImage(url);
+    if(!ok) ok = await verifyImage(url);              /* 한 번 더 — 네트워크가 느릴 수 있다 */
+    if(!ok) throw new Error('새 주소로 사진이 열리지 않음');
+    b.url = url; b.path = path; delete b.ref;         /* 확인된 뒤에만 갈아끼운다 */
+    return true;
+  }catch(e){
+    photoFailReasons.push(`${stage}: ${e.code || e.message || '알 수 없음'}`);
+    return false;
+  }
+}
+/* 새 자리에 저장까지 끝난 뒤에야 원래 노드를 비운다 — 순서를 바꾸면 사진을 잃는다 */
+async function dropPixNode(kind, id){
+  const node = kind === 'sticky' ? 'stickyPix' : 'diaryPix';
+  const box  = kind === 'sticky' ? stickyPix   : diaryPix;
+  delete box[id]; pixCacheDel(id);
+  try{ await db.ref(`diaries/${USER.uid}/${node}/${id}`).remove(); }catch(e){}
+}
+
 /* 기록이 있는 연도를 찾는다 — 올해부터 거슬러 올라가며 빈 해가 이어지면 멈춘다 */
 async function yearsWithData(){
   const now = +curDate.slice(0,4);
@@ -5211,11 +5390,14 @@ $('photoFixBtn').onclick = async () => {
     const years = await yearsWithData();
     const jobs = [];
     const perYear = {};
+    let diaryPixCount = 0;
     for(const y of years){
       let yd; try{ yd = await getYear(y); }catch(e){ continue; }
       for(const mm of Object.keys(yd)) for(const dd of Object.keys(yd[mm])){
         const ds = `${y}-${mm}-${dd}`;
-        const n = eachDayPhotos(normalize(yd[mm][dd])).length;
+        const nd = normalize(yd[mm][dd]);
+        const n  = eachDayPhotos(nd).length + eachDayPix(nd).length;   /* 일기 안 사진도 함께 */
+        diaryPixCount += eachDayPix(nd).length;
         if(n){ jobs.push({ds, n}); perYear[y] = (perYear[y]||0) + n; }
       }
     }
@@ -5224,15 +5406,30 @@ $('photoFixBtn').onclick = async () => {
     const bankPhotos  = oldPhotos(bank);       /* 📌 장기메모 */
     const inboxPhotos = oldPhotos(inbox);      /* ★ 기타 업무함 */
     const privPhotos  = oldPhotos(priv);       /* ★ 개인 용무함 */
-    const total = jobs.reduce((a,b)=>a+b.n, 0) + bankPhotos.length + inboxPhotos.length + privPhotos.length;
+    /* 💡 포스트잇 — 날짜와 무관하게 한 노드에 모여 있고, 늘 화면에 있어 앱을 열 때마다 다시 받아 왔다 */
+    const stickyPixBlocks = [];
+    (stickies||[]).forEach(st => (st.blocks||[]).forEach(b => {
+      if(b && b.t === 'img' && b.ref) stickyPixBlocks.push(b);
+    }));
+    const total = jobs.reduce((a,b)=>a+b.n, 0) + bankPhotos.length + inboxPhotos.length
+                + privPhotos.length + stickyPixBlocks.length;
     if(!total){ toast('일지 안에 담긴 예전 사진이 없어요 — 이미 가벼운 상태예요'); photoFixBusy=false; return; }
     const where = Object.keys(perYear).sort().reverse().map(y => `${y}년 ${perYear[y]}장`);
     if(bankPhotos.length)  where.push(`장기메모 ${bankPhotos.length}장`);
     if(inboxPhotos.length) where.push(`기타 업무함 ${inboxPhotos.length}장`);
     if(privPhotos.length)  where.push(`개인 용무함 ${privPhotos.length}장`);
+    if(stickyPixBlocks.length) where.push(`💡 포스트잇 ${stickyPixBlocks.length}장`);
+    const heavy = [];
+    if(stickyPixBlocks.length) heavy.push(`포스트잇 ${stickyPixBlocks.length}장`);
+    if(diaryPixCount)          heavy.push(`일기 ${diaryPixCount}장`);
     if(!(await askConfirm(
       `일지 안에 담긴 사진 ${total}장을 찾았어요.\n\n` +
       where.join(' · ') + `\n(${jobs.length}일치)\n\n` +
+      (heavy.length
+        ? `그중 ${heavy.join(' · ')}은 앱을 열 때마다 다시 받아 오던 것이라, ` +
+          `옮기면 통신량이 눈에 띄게 줄어듭니다.\n` +
+          `옮긴 뒤에는 일지 안 사본을 지우므로, 정리 이전 시점으로 되돌리면 그 사진만 빈칸이 됩니다.\n\n`
+        : '') +
       `이 사진들을 따로 보관해 일지를 가볍게 합니다.\n` +
       `새 자리에서 사진이 열리는지 확인한 뒤에만 원본을 지우니, 사진이 사라지지 않아요.\n` +
       `연결이 좋은 곳에서 진행해 주세요.`,
@@ -5250,22 +5447,30 @@ $('photoFixBtn').onclick = async () => {
       const raw = JSON.parse(JSON.stringify(snap.val()));
       const d = normalize(JSON.parse(JSON.stringify(snap.val())));
       const list = eachDayPhotos(d);
-      if(list.length){
+      const pix  = eachDayPix(d);                       /* 일기 안에 따로 보관된 사진 */
+      if(list.length || pix.length){
         try{ await pushUndo(ds, raw, '사진 정리 직전'); }
-        catch(e){ kept += list.length; continue; }      /* 보관에 실패하면 그 날은 건드리지 않는다 */
+        catch(e){ kept += list.length + pix.length; continue; }   /* 보관에 실패하면 그 날은 건드리지 않는다 */
       }
       let changed = 0;
       for(const f of list){
         toast(`사진을 옮기는 중… ${moved+kept+1}/${total}`);
         if(await movePhoto(f)){ moved++; changed++; } else kept++;
       }
+      const pixDone = [];
+      for(const b of pix){
+        toast(`사진을 옮기는 중… ${moved+kept+1}/${total}`);
+        if(await movePixBlock(b, 'diary')){ moved++; changed++; pixDone.push(b.id); } else kept++;
+      }
       if(changed){
         const clean = JSON.parse(JSON.stringify(d));
+        clean.diary = packDiary(clean.diary);           /* ★ 빈 글칸만 남기지 않는다 — isDayEmpty 함정 */
         clean.updatedAt = Date.now(); lastSelfTs = clean.updatedAt;
         try{
           await dayRef(ds).set(clean);
           patchYearCache(ds, clean);
           if(ds === curDate){ day = normalize(clean); curTs = clean.updatedAt; renderSheet(); }
+          for(const id of pixDone) await dropPixNode('diary', id);   /* 저장이 끝난 뒤에 비운다 */
         }catch(e){ kept += changed; moved -= changed; }
       }
     }
@@ -5298,6 +5503,20 @@ $('photoFixBtn').onclick = async () => {
         try{ await db.ref(`diaries/${USER.uid}/${bak}`).set({ts:Date.now(), data:before}); }catch(e){}
         try{ await save(); redraw(); }
         catch(e){ kept += n; moved -= n; }
+      }
+    }
+    if(stickyPixBlocks.length){                  /* 💡 포스트잇 — 노드 하나에 모여 있다 */
+      const movedIds = [];
+      for(const b of stickyPixBlocks){
+        toast(`사진을 옮기는 중… ${moved+kept+1}/${total}`);
+        if(await movePixBlock(b, 'sticky')){ moved++; movedIds.push(b.id); } else kept++;
+      }
+      if(movedIds.length){
+        try{
+          /* saveStickies 가 덮어쓰기 직전 모습을 undo/stickies 에 알아서 남긴다 */
+          stickyDirty = true; await saveStickies(); renderStickies();
+          for(const id of movedIds) await dropPixNode('sticky', id);   /* 저장이 끝난 뒤에 비운다 */
+        }catch(e){ kept += movedIds.length; moved -= movedIds.length; }
       }
     }
     refreshPhotoFixBtn();
@@ -5465,6 +5684,8 @@ function insertManualStamp(){
   openStampTimePicker(el);
 }
 let stampLongTimer=null, stampLongFired=false;
+/* 길게 누르면 우리 시각 선택창이 떠야 한다 — 브라우저 기본 메뉴는 막는다 */
+$('fabStamp').addEventListener('contextmenu', e => { e.preventDefault(); e.stopPropagation(); });
 $('fabStamp').addEventListener('pointerdown', () => {
   clearTimeout(stampLongTimer); stampLongFired=false;
   if(!stampable(stampTarget)) return;
@@ -7869,7 +8090,14 @@ let dvBack = 'today';               /* 닫으면 돌아갈 곳 */
 let dvCaret = null;                 /* {bi, pos} — 사진을 끼워 넣을 자리 */
 let diaryPix = {};                  /* Storage를 못 쓸 때 따로 보관한 사진 (id → 그림자료) */
 
-function isDiaryEditorOpen(){ return dvOpen; }
+/* 일기가 화면에 떠 있는가 — 전체 페이지(#diaryView)이거나 옛 비밀번호 모달의 본문이 열린 상태.
+   ★ 이 판정은 여기 한 곳에만 둔다. 예전에는 아래쪽에 같은 이름이 한 번 더 있어서
+     뒤엣것이 이기는 바람에, 전체 페이지로 일기를 쓰는 동안에도 '작성 중'으로 잡히지 않았다. */
+function isDiaryEditorOpen(){
+  if(dvOpen) return true;
+  const m = $('diaryModal'), b = $('diaryBody');
+  return !!(m && b && !m.classList.contains('hidden') && !b.classList.contains('hidden'));
+}
 
 function openDiaryPage(back){
   disarmLock();
@@ -8077,9 +8305,11 @@ async function loadDiaryPix(blocksOrList){
   const need = diaryBlocks(blocksOrList).filter(b => b.t==='img' && b.ref && !diaryPix[b.id]).map(b => b.id);
   if(!need.length) return 0;
   await Promise.all([...new Set(need)].map(async id => {
+    const hit = await pixCacheGet(id);                 /* 이 기기에 이미 받아 둔 것 */
+    if(hit){ diaryPix[id] = hit; return; }
     try{
       const snap = await withTimeout(db.ref(`diaries/${USER.uid}/diaryPix/${id}`).get(), 8000);
-      if(snap.exists()) diaryPix[id] = snap.val();
+      if(snap.exists()){ diaryPix[id] = snap.val(); pixCacheSet(id, snap.val()); }
     }catch(e){}
   }));
   return need.length;
@@ -8088,7 +8318,7 @@ async function loadDiaryPix(blocksOrList){
 async function dropDiaryPix(b){
   if(!b) return;
   if(b.ref){
-    delete diaryPix[b.id];
+    delete diaryPix[b.id]; pixCacheDel(b.id);
     try{ await db.ref(`diaries/${USER.uid}/diaryPix/${b.id}`).remove(); }catch(e){}
   }else if(b.path){
     try{ await storage.ref(b.path).delete(); }catch(e){}
@@ -8195,6 +8425,18 @@ async function idbGet(k){ const d = await idbOpen(); return new Promise((res, re
 async function idbDel(k){ const d = await idbOpen(); return new Promise((res, rej) => {
   const tx = d.transaction('kv','readwrite'); tx.objectStore('kv').delete(k);
   tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+
+/* ── 일지 안에 보관된 사진(stickyPix·diaryPix)은 이 기기에 담아 둔다 ──────────
+   Storage 가 막혔던 때 일지 노드 안에 base64 로 들어간 사진들은 한 번 만들어지면
+   내용이 바뀌지 않는다. 그런데도 앱을 열 때마다 서버에서 다시 받아 오면
+   그 사진 크기만큼 매번 RTDB 다운로드가 나간다(포스트잇은 늘 화면에 있어 특히 잦다).
+   한 번 받은 것은 기기에 두고 다시 쓰고, 사진을 지울 때 이 사본도 함께 지운다. */
+const pixKey = id => `pix:${USER.uid}:${id}`;
+async function pixCacheGet(id){ try{ return (await idbGet(pixKey(id))) || null; }catch(e){ return null; } }
+/* idbSet·idbDel 은 약속(Promise)을 돌려주므로 try 만으로는 실패를 못 잡는다.
+   IndexedDB 를 못 쓰는 환경(사생활 보호 모드 등)에서도 앱이 멈추지 않게 함께 막는다. */
+function pixCacheSet(id, v){ try{ Promise.resolve(idbSet(pixKey(id), v)).catch(()=>{}); }catch(e){} }
+function pixCacheDel(id){ try{ Promise.resolve(idbDel(pixKey(id))).catch(()=>{}); }catch(e){} }
 
 const dayKey   = ds => `day:${USER.uid}:${ds}`;
 const inboxKey = () => `inbox:${USER.uid}`;
@@ -8561,20 +8803,19 @@ async function exportArcDone(kind){
 let arcDiary = false, diaryUnlocked = false, lockTimer = null, openingDiary = false;
 const LOCK_DELAY = 60*1000;                   // 화면을 벗어난 뒤 1분
 
-/* 잠금 타이머: 일기 화면을 벗어나면 시작, 돌아오면 취소 */
-/* 일기 작성창이 열려 있는가 — 열려 있으면 어떤 경우에도 잠그지 않음 */
-function isDiaryEditorOpen(){
-  return !$('diaryModal').classList.contains('hidden') && !$('diaryBody').classList.contains('hidden');
-}
+/* 잠금 타이머 — 일기 화면을 떠나거나 앱을 백그라운드로 보낼 때만 건다.
+   1분 안에 돌아오면 disarmLock() 으로 없던 일이 되고, 지나면 잠근다.
+   ★ 잠글 때 열려 있던 일기 페이지도 저장한 뒤 함께 접는다.
+     예전에는 잠금 상태로만 바꾸고 화면은 그대로 두어, 잠갔다면서 일기가 다 보였다. */
 function armLock(){
-  if(!diaryUnlocked || isDiaryEditorOpen()) return;      // 작성 중에는 타이머 자체를 걸지 않음
+  if(!diaryUnlocked) return;
   clearTimeout(lockTimer);
   lockTimer = setTimeout(() => {
-    if(isDiaryEditorOpen()) return;                      // 타이머 만료 시점에 작성 중이면 잠그지 않음
     diaryUnlocked = false; arcDiary = false;
     $('arcLockBtn').classList.add('hidden');
-    if(!$('archiveView').classList.contains('hidden')) refreshArchive();
     $('diaryModal').classList.add('hidden');
+    hideDiaryPage();                                     /* 저장하고 일기 화면을 접는다 */
+    if(!$('archiveView').classList.contains('hidden')) refreshArchive();
   }, LOCK_DELAY);
 }
 function disarmLock(){ clearTimeout(lockTimer); }
@@ -8600,8 +8841,8 @@ function hideDiaryPage(){
 }
 $('arcLockBtn').onclick = lockDiaryNow;
 document.addEventListener('visibilitychange', () => {   // 앱을 백그라운드로 보낼 때도 잠금 예약(단, 작성 중 제외)
-  if(document.hidden){ if(!isDiaryEditorOpen()) armLock(); }
-  else if(arcDiary || isDiaryEditorOpen()) disarmLock();
+  if(document.hidden) armLock();                        /* 일기를 열어 둔 채 나가도 예약한다 */
+  else if(arcDiary || isDiaryEditorOpen()) disarmLock(); /* 1분 안에 돌아오면 없던 일로 */
 });
 
 /* 비밀번호 게이트 — 일기장과 같은 모달 사용 */
@@ -9156,13 +9397,32 @@ function diaryScheduleRows(){
   return rows.sort((a,b)=> a.st - b.st);
 }
 
+/* 지금 시각 줄이 화면 가운데 오도록 시간표를 옮긴다.
+   오늘이 아니거나 그릴 범위 밖이면 '지금 줄'이 없으므로 false 를 돌려준다. */
+function scrollScheduleToNow(smooth){
+  const wrap = $('schedWrap');
+  if(!wrap) return false;
+  const line = wrap.querySelector('.tl-now');
+  if(!line) return false;
+  /* offsetTop 은 어느 조상 기준인지 달라질 수 있어 실제 화면 위치로 계산한다 */
+  const wr = wrap.getBoundingClientRect(), lr = line.getBoundingClientRect();
+  const top = wrap.scrollTop + (lr.top - wr.top) - wrap.clientHeight/2 + 24;
+  const y = Math.max(0, top);
+  if(typeof wrap.scrollTo === 'function') wrap.scrollTo({top:y, behavior: smooth ? 'smooth' : 'auto'});
+  else wrap.scrollTop = y;
+  return true;
+}
+
 $('schedRefresh').onclick = async () => {
   schedDate = curDate || todayStr();
   await clearLegacyScheduleCache(schedDate);
   schedCache = null;
   renderSchedule();
-  $('schedState').textContent = '✓ Diary 실행시간 기준 · Google Calendar 수신 안 함';
-  toast('Diary 기준 시간표를 새로 그렸어요');
+  /* 다시 그린 직후에는 아직 자리를 잡기 전이라 한 박자 뒤에 옮긴다 */
+  requestAnimationFrame(() => {
+    if(!scrollScheduleToNow(true)) toast('지금 시각은 이 날짜 시간표에 없어요');
+  });
+  toast('지금 시각으로 맞췄어요');
 };
 
 /* 업무가 바뀌면 Google 응답을 기다리지 않고 Diary 값으로 즉시 다시 그린다. */
@@ -9179,7 +9439,8 @@ function openSchedDrawer(){
   $('schedDrawer').classList.remove('hidden');
   requestAnimationFrame(()=> $('schedDrawer').classList.add('on'));
   clearLegacyScheduleCache(schedDate);
-  loadSchedule();
+  /* 열자마자 지금 시각이 보이게 — 아침 8시부터 훑어 내려갈 일이 없다 */
+  loadSchedule().then(() => requestAnimationFrame(() => scrollScheduleToNow(false)));
 }
 function closeSchedDrawer(){
   $('schedDrawer').classList.remove('on');
@@ -9200,7 +9461,10 @@ async function loadSchedule(force){
   $('schedYmd').textContent = `🗂 ${d.getMonth()+1}월 ${d.getDate()}일(${DOW[d.getDay()]}) 시간표`;
   schedCache = null;
   renderSchedule();
-  $('schedState').textContent = 'Diary 실행시간 기준 · Google Calendar 수신 안 함';
+  /* 예전에는 여기에 'Diary 실행시간 기준 · Google Calendar 수신 안 함' 을 늘 띄웠다.
+     이제는 당연한 동작이라 알릴 필요가 없어 비워 둔다.
+     이 자리는 calendarUx() 가 캘린더 반영 상황을 잠깐 보여 줄 때만 쓴다. */
+  $('schedState').textContent = '';
 }
 
 function hhmm(iso){ const d = new Date(iso); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; }
@@ -9221,6 +9485,14 @@ function renderSchedule(_events, _cachedTs){
     h0 = Math.min(h0, it.st.getHours());
     h1 = Math.max(h1, Math.ceil((minOf(it.st) + it.dur)/60));
   });
+  /* 오늘을 볼 때는 지금 시각이 반드시 시간표 안에 들어오게 넓힌다.
+     이렇게 하지 않으면 이른 아침이나 늦은 밤에는 '지금' 줄 자체가 없어
+     🕘 Now 를 눌러도 옮겨 갈 자리가 없다. */
+  const nowH = new Date().getHours();
+  if(schedDate === todayStr()){
+    h0 = Math.min(h0, nowH);
+    h1 = Math.max(h1, Math.min(24, nowH + 1));
+  }
   h1 = Math.min(24, Math.max(h1, h0+4));
 
   body.style.height = ((h1-h0)*PXH + 12) + 'px';
@@ -10559,7 +10831,7 @@ function addStickyImage(file, s){
 async function dropStickyPix(b){
   if(!b) return;
   if(b.ref){
-    delete stickyPix[b.id];
+    delete stickyPix[b.id]; pixCacheDel(b.id);
     try{ await db.ref(`diaries/${USER.uid}/stickyPix/${b.id}`).remove(); }catch(e){}
   }else{
     deleteStored(b);
@@ -10572,10 +10844,12 @@ async function loadStickyPix(){
     if(b.t === 'img' && b.ref && !stickyPix[b.id]) need.push(b.id);
   }));
   if(!need.length) return;
-  await Promise.all(need.map(async id => {
+  await Promise.all([...new Set(need)].map(async id => {
+    const hit = await pixCacheGet(id);                 /* 이 기기에 이미 받아 둔 것 */
+    if(hit){ stickyPix[id] = hit; return; }
     try{
       const snap = await withTimeout(db.ref(`diaries/${USER.uid}/stickyPix/${id}`).get(), 8000);
-      if(snap.exists()) stickyPix[id] = snap.val();
+      if(snap.exists()){ stickyPix[id] = snap.val(); pixCacheSet(id, snap.val()); }
     }catch(e){}
   }));
 }
