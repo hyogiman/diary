@@ -181,7 +181,6 @@ input:focus,textarea:focus{outline-offset:0}
 .task-meta{display:flex;align-items:center;gap:6px;flex:none;flex-wrap:wrap;min-width:0}
 /* 업무 목록 간소화 — 왼쪽: 퀵메모·상태·업무명·목표 / 오른쪽: 실행일정·기한·지연·삭제 */
 .task.task-simple{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;column-gap:12px;row-gap:6px;flex-wrap:nowrap}
-.task.task-simple>.task-direct-done{display:none}
 .task-left{display:flex;align-items:center;gap:6px;min-width:0}
 .task-left .note-btn,.task-left .status-chip,.task-left .goal-mark{flex:none}
 /* 업무명과 목표 뱃지는 한 묶음으로 둬서 🎯가 업무명 바로 뒤에 붙는다. */
@@ -467,6 +466,30 @@ button:disabled{opacity:.45;cursor:not-allowed}
 body.stamp-up #fabCat{opacity:0;pointer-events:none;transform:scale(.9)}
 /* 일기 페이지에서는 아래 도구 띠가 있으므로 🕒 버튼을 그 위로 올린다 */
 body.diary-page #fabStamp{bottom:calc(76px + env(safe-area-inset-bottom))}
+/* ───────── ☕ 휴식 — 왼쪽 아래 한 자리 ─────────
+   누르면 시간이 흐르고, 그동안에는 아무것도 입력할 수 없다.
+   '입력 잠금'은 #restVeil 한 장으로만 처리한다. 요소마다 껐다 켜면 되살리는 짝을
+   빠뜨리기 쉬워 예전에 🕒 버튼이 사라진 것과 같은 사고가 난다.
+   여기서는 body.resting 이 빠지는 순간 모든 것이 저절로 원래대로 돌아온다. */
+#restDock{position:fixed;left:18px;bottom:calc(26px + env(safe-area-inset-bottom));
+  z-index:131;display:flex;align-items:center;gap:8px}
+body.diary-page #restDock{bottom:calc(76px + env(safe-area-inset-bottom))}
+#fabRest{height:44px;padding:0 15px;border-radius:999px;background:var(--field);color:var(--ink);
+  border:1.5px solid var(--rule);box-shadow:0 6px 18px rgba(40,25,10,.18);transition:.15s;
+  display:flex;align-items:center;justify-content:center;gap:4px;
+  -webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+#fabRest .fi{font-size:1.1rem;line-height:1}
+#fabRest .fl{font-family:'Jua',sans-serif;font-size:.92rem;line-height:1;padding-bottom:1px}
+#fabRest:active{transform:scale(.94)}
+body.resting #fabRest{background:var(--amber);border-color:var(--amber);color:#fff;
+  box-shadow:0 6px 20px rgba(214,154,43,.55)}
+#restClock{font-family:'Jua',sans-serif;font-size:1.02rem;letter-spacing:.5px;
+  background:var(--card);color:var(--ink);border:1.5px solid var(--amber);
+  padding:7px 12px;border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+#restVeil{position:fixed;inset:0;z-index:130;background:rgba(40,25,10,.45);
+  backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:24px}
+#restVeil .rv-big{font-family:'Jua',sans-serif;font-size:2.2rem;color:#fff;letter-spacing:1px}
+#restVeil .rv-sub{font-size:.88rem;color:rgba(255,255,255,.85);line-height:1.7;margin-top:8px}
 /* 길게 누르기가 이 버튼의 기능(과거 시각 넣기)이라, 브라우저의 길게누르기 메뉴
    (뒤로·새로고침·다운로드)가 대신 뜨면 안 된다. 아래 세 가지를 함께 꺼야 안 뜬다. */
 #fabStamp{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
@@ -1743,6 +1766,16 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 
   <button id="fabStamp" title="짧게: 지금 시각 · 길게: 과거 시각"><span class="fi">🕒</span><span class="fl">시각</span><span class="bub" id="stampBub"></span></button>
   <button id="fabCat" title="업무 카테고리 추가"><span class="fi">＋</span><span class="fl">업무</span></button>
+  <div id="restDock">
+    <button id="fabRest" title="휴식 시작 · 다시 누르면 끝나고 기록됩니다"><span class="fi">☕</span><span class="fl">휴식</span></button>
+    <span id="restClock" class="hidden">00:00</span>
+  </div>
+  <div id="restVeil" class="hidden">
+    <div style="text-align:center">
+      <div class="rv-big">☕ 휴식 중</div>
+      <div class="rv-sub">왼쪽 아래 버튼을 다시 누르면<br>쉰 시간이 기록됩니다</div>
+    </div>
+  </div>
 
   <div id="goalView" class="hidden">
     <div id="goalNav">
@@ -1804,6 +1837,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
       <span class="at-spacer"></span>
       <button class="mini-btn" id="arcDoneBtn">✅ 완료 업무</button>
+      <button class="mini-btn" id="arcRestBtn">☕ 휴식 기록</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
@@ -2174,6 +2208,19 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="btn-line" id="vacClose">닫기</button>
     </div>
     <div id="vacList" style="margin-top:14px"></div>
+  </div>
+</div>
+<div id="restModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:179;display:flex;align-items:center;justify-content:center;padding:16px">
+  <div class="bk-card" style="max-width:360px">
+    <h3 id="restEditTitle">☕ 휴식 기록</h3>
+    <div class="ev-field"><label>시작</label><input type="time" id="restFrom"></div>
+    <div class="ev-field"><label>종료</label><input type="time" id="restTo"></div>
+    <div id="restEditHint" style="font-size:.8rem;font-weight:700;color:var(--accent-deep);text-align:center;margin:4px 0 2px"></div>
+    <div class="bk-btns">
+      <button class="btn-primary" id="restSave">저장</button>
+      <button class="btn-line" id="restDel">지우기</button>
+      <button class="btn-line" id="restCancel">닫기</button>
+    </div>
   </div>
 </div>
 <div id="askModal" class="hidden" style="position:fixed;inset:0;background:rgba(40,25,10,.5);z-index:190;display:flex;align-items:center;justify-content:center;padding:16px">
@@ -2688,7 +2735,16 @@ let arcYear = new Date().getFullYear(), arcMonth = null;
 let mediaRecorder = null, recChunks = [];
 
 function todayStr(){ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
-function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:[], dnote:'', mood:0, cond:0, prioOrder:[], wx:null }; }
+function emptyDay(){ return { note:'', memo:'', memoFiles:[], cats:[], notes:[], diary:[], dnote:'', mood:0, cond:0, prioOrder:[], rests:[], wx:null }; }
+/* ☕ 쉰 시간 — {id, s:시작(ms), e:끝(ms)}. 끝난 휴식만 담는다(진행 중인 것은 기기에만).
+   ★ emptyDay 에 넣었으므로 isDayEmpty 가 자동으로 함께 본다.
+     휴식만 기록한 날이 '빈 날'로 지워지지 않게 하는 것이 이 한 줄의 목적이다. */
+function normRests(v){
+  return (Array.isArray(v) ? v : Object.values(v||{}))
+    .map(r => ({ id:(r&&r.id)||uid8(), s:+((r&&r.s)||0), e:+((r&&r.e)||0) }))
+    .filter(r => r.s && r.e && r.e > r.s)
+    .sort((a,b) => a.s - b.s);
+}
 /* ── 일기 본문: 글·사진이 번갈아 쌓이는 블록 ───────────────────────────
    예전 일기는 문자열 하나였다. 포스트잇이 s.text → blocks 로 옮겨간 것과 똑같이
    읽을 때 문자열을 자동으로 글 블록 하나로 승격시킨다. 예전 기록은 그대로 열린다.
@@ -2930,6 +2986,7 @@ auth.onAuthStateChanged(async u => {
     await loadInbox();
     await loadPriv();
     await loadDay(curDate);
+    restoreRest();                    /* 켜 둔 채 앱이 꺼졌다면 이어서 잰다 */
   }else{
     $('appView').classList.add('hidden');
     $('loginView').classList.remove('hidden');
@@ -3065,6 +3122,7 @@ function normalize(v){
     note: v.note||'', memo: v.memo||'', diary: normDiary(v.diary), dnote: v.dnote||'', wx: v.wx||null,
     mood: +v.mood||0, cond: +v.cond||0,
     prioOrder: Array.isArray(v.prioOrder)? v.prioOrder : [],
+    rests: normRests(v.rests),
     memoFiles: Array.isArray(v.memoFiles)? v.memoFiles : Object.values(v.memoFiles||{}),
     notes: (Array.isArray(v.notes)? v.notes : Object.values(v.notes||{})).map(n => ({
       id: n.id||uid8(), title: n.title||'', body: n.body||'',
@@ -3697,7 +3755,6 @@ function taskRow(t, ctx){
   row.style.borderLeft = `3px solid ${col}40`;
   row.style.paddingLeft = '7px';
   row.innerHTML = `
-    <button class="chk task-direct-done" style="border-color:${col};${t.done? `background:${col}`:''}" title="완료 체크">${t.done?'✔':''}</button>
     <div class="task-left">
       <button class="note-btn" title="상세 — 기한·실행 일정·목표·메모·첨부">📝${t.note.trim()? '<span class="dot"></span>':''}${t.files.length? `<span class="cnt">📎${t.files.length}</span>`:''}</button>
       <button class="status-chip ${st.cls}" title="상태 바꾸기">${st.label}</button>
@@ -3716,28 +3773,9 @@ function taskRow(t, ctx){
       </div>
     </div>`;
   bindDelayBtn(row, t, ctx);
-  row.querySelector('.chk').onclick = async () => {
-    cancelCompletionHold(t);
-    if(ctx.priv && !t.done){ await completePriv(t, ctx.idx); return; }       // 개인 용무 완료 → 그날 일지로
-    if(ctx.inbox && !ctx.priv && !t.done){ await completeInbox(t, ctx.idx); return; }   // 기타 업무도 동일
-    /* 완료 해제 → 원래 함으로.
-       from 표식은 나중에 생긴 칸이라 예전 완료본에는 비어 있다.
-       그런 자료는 자동으로 만들어지는 완료 칸의 이름을 보고 출신을 알아낸다. */
-    const backBox = t.from || autoDoneBoxOf(ctx.cat);
-    if(t.done && backBox && !ctx.inbox){ uncompleteBack(t, ctx, backBox); return; }
-    t.done=!t.done; t.status = t.done?'done':(t.status==='done'?'doing':t.status);
-    t.doneAt = t.done ? curDate : '';
-    t.completedAt = t.done ? Date.now() : 0;
-    ctx.save(); ctx.rerender();
-    clearTimeout(saveTimer);
-    const diarySaved = await saveNow();             /* 완료 상태는 Diary 저장을 먼저 확정 */
-    if(!diarySaved){
-      toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요');
-      return;
-    }
-    if(t.done && !ctx.inbox) await clearCarriedCopies(t, ctx.cat, curDate);   // 이월본 정리
-    await reflectTaskCompletion(t, ctx.cat);         /* Diary 확정 뒤 Calendar PATCH */
-  };
+  /* ★ 완료 체크박스는 없앴다 — 완료로 만드는 길은 아래 .status-chip 한 곳뿐이다.
+     예전에는 체크박스와 상태 토글이 각각 완료를 처리해서(규칙 ④ 위반),
+     어느 쪽으로 눌렀느냐에 따라 완료 시각이 다르게 남을 여지가 있었다. */
   row.querySelector('.task-text').addEventListener('input', e => { t.text=e.target.value; ctx.save(); });
   row.querySelector('.task-text').addEventListener('change', () => { if(t.gcalId) syncTaskToCalendar(t, ctx.cat); });
   row.querySelector('.status-chip').onclick = async () => {
@@ -4415,6 +4453,16 @@ async function renderArchive(){
   $('arcDoneBtn').classList.toggle('active', arcDone);
   $('arcDoneBtn').textContent = arcDone ? '📅 날짜별 기록' : '✅ 완료 업무';
   $('arcDiaryBtn').classList.toggle('active', arcDiary);
+  $('arcRestBtn').classList.toggle('active', arcRest);
+  $('arcRestBtn').textContent = arcRest ? '📅 날짜별 기록' : '☕ 휴식 기록';
+  if(arcRest){
+    $('monthGrid').classList.add('hidden');
+    $('evtHint').classList.add('hidden');
+    $('searchIn').placeholder = '🔍 휴식 기록에서는 검색을 쓰지 않아요';
+    $('yearLabel').textContent = arcRestScope==='year' ? `${arcYear}년 휴식` : `${arcYear}년 ${+arcMonth}월 휴식`;
+    renderArcRest(yd);
+    return;
+  }
   if(arcDone){
     $('monthGrid').classList.add('hidden');
     $('evtHint').classList.add('hidden');
@@ -5533,6 +5581,233 @@ $('photoFixBtn').onclick = async () => {
     }
   }catch(e){ toast('사진 정리 중 문제가 생겼어요: ' + (e.message||'')); }
   photoFixBusy = false;
+};
+
+
+/* ═══════════════ ☕ 휴식 ═══════════════
+   왼쪽 아래 버튼으로 쉬는 시간을 잰다. 켜 둔 동안에는 아무것도 입력할 수 없고,
+   다시 누르면 '언제부터 언제까지'가 그 날짜 일지(day.rests)에 남는다.
+   ▸ 진행 중인 휴식은 서버가 아니라 이 기기에만 둔다.
+     앱이 꺼졌다 켜져도 이어지고, 서버에는 '끝난 휴식'만 확정해 넣어
+     끝나지 않은 어중간한 기록이 남지 않는다. */
+const REST_KEY  = () => `diaryRest:${USER ? USER.uid : 'anon'}`;
+const REST_LONG = 6*60*60*1000;      /* 이만큼 넘게 켜져 있으면 깜빡 잊은 것으로 보고 물어본다 */
+const REST_MIN  = 60*1000;           /* 1분이 안 되는 것은 기록하지 않는다 */
+let restStart = 0, restTick = null, restEditing = null;
+
+const restPad   = v => String(v).padStart(2,'0');
+const restClock = ms => { const d = new Date(ms); return `${restPad(d.getHours())}:${restPad(d.getMinutes())}`; };
+const restDateOf = ms => { const d = new Date(ms);
+  return `${d.getFullYear()}-${restPad(d.getMonth()+1)}-${restPad(d.getDate())}`; };
+function restHMS(ms){
+  const t = Math.max(0, Math.floor(ms/1000));
+  return t >= 3600 ? `${Math.floor(t/3600)}:${restPad(Math.floor(t%3600/60))}:${restPad(t%60)}`
+                   : `${restPad(Math.floor(t/60))}:${restPad(t%60)}`;
+}
+function restMinText(min){
+  const m = Math.max(0, Math.round(min));
+  return m >= 60 ? (m%60 ? `${Math.floor(m/60)}시간 ${m%60}분` : `${Math.floor(m/60)}시간`) : `${m}분`;
+}
+
+function paintRest(){
+  const on = !!restStart;
+  document.body.classList.toggle('resting', on);
+  $('restVeil').classList.toggle('hidden', !on);
+  $('restClock').classList.toggle('hidden', !on);
+  const lb = $('fabRest').querySelector('.fl');
+  if(lb) lb.textContent = on ? '휴식 끝' : '휴식';
+  if(on) $('restClock').textContent = restHMS(Date.now() - restStart);
+}
+function beginRest(from){
+  restStart = from || Date.now();
+  try{ localStorage.setItem(REST_KEY(), JSON.stringify({s: restStart})); }catch(e){}
+  /* 쉬는 동안 글칸에 커서가 남아 있으면 키보드로는 계속 쓸 수 있다 — 먼저 놓는다 */
+  try{ if(document.activeElement && document.activeElement.blur) document.activeElement.blur(); }catch(e){}
+  paintRest();
+  clearInterval(restTick);
+  restTick = setInterval(() => { if(restStart) $('restClock').textContent = restHMS(Date.now()-restStart); }, 1000);
+}
+async function endRest(quiet){
+  if(!restStart) return;
+  const s = restStart, e = Date.now();
+  restStart = 0; clearInterval(restTick); restTick = null;
+  try{ localStorage.removeItem(REST_KEY()); }catch(err){}
+  paintRest();
+  if(e - s < REST_MIN){ if(!quiet) toast('1분이 안 되는 휴식은 기록하지 않았어요'); return; }
+  const ok = await editDayRests(restDateOf(s), arr => arr.push({id:uid8(), s, e}));
+  if(!quiet) toast(ok ? `☕ ${restClock(s)}~${restClock(e)} · ${restMinText((e-s)/60000)} 기록했어요`
+                      : '휴식 기록을 저장하지 못했어요');
+}
+/* 어떤 날짜의 휴식 목록이든 안전하게 고친다.
+   오늘이면 화면의 day 를 그대로 쓰고(저장 경로가 하나로 유지된다),
+   지난 날짜면 그 날짜만 읽어 고쳐 쓰고 연도 캐시도 함께 손본다. */
+async function editDayRests(ds, mutate){
+  if(ds === curDate){
+    if(!Array.isArray(day.rests)) day.rests = [];
+    mutate(day.rests);
+    day.rests = normRests(day.rests);
+    markDirty(); clearTimeout(saveTimer);
+    return await saveNow();
+  }
+  try{
+    const snap = await dayRef(ds).get();
+    const d = normalize(snap.exists() ? snap.val() : {});
+    mutate(d.rests);
+    d.rests = normRests(d.rests);
+    const clean = JSON.parse(JSON.stringify(d, (k,v) => (k==='open'||k==='_ov') ? undefined : v));
+    clean.diary = packDiary(clean.diary);          /* ★ 빈 글칸만 남기지 않는다 — isDayEmpty 함정 */
+    if(isDayEmpty(clean)){ await dayRef(ds).remove(); patchYearCache(ds, null); }
+    else{
+      clean.updatedAt = Date.now(); lastSelfTs = clean.updatedAt;
+      await dayRef(ds).set(clean); patchYearCache(ds, clean);
+    }
+    return true;
+  }catch(e){ return false; }
+}
+/* 앱을 다시 열었을 때 — 켜 둔 채였다면 이어서 잰다.
+   너무 오래(6시간 넘게) 켜져 있었으면 깜빡 잊은 쪽일 가능성이 크므로 먼저 묻는다. */
+async function restoreRest(){
+  let saved = null;
+  try{ saved = JSON.parse(localStorage.getItem(REST_KEY()) || 'null'); }catch(e){}
+  if(!saved || !saved.s) return;
+  const gone = Date.now() - saved.s;
+  if(gone > REST_LONG){
+    try{ localStorage.removeItem(REST_KEY()); }catch(e){}
+    const pick = await askChoice({
+      title:'☕ 휴식이 켜진 채였어요',
+      desc:`${restClock(saved.s)}부터 ${restMinText(gone/60000)} 동안 휴식이 켜져 있었어요.\n` +
+           `끄는 걸 깜빡했다면 버리고, 실제로 쉰 시간이 있다면 기록한 뒤\n` +
+           `기록 탭 › ☕ 휴식 기록에서 시각을 고치면 됩니다.`,
+      options:[{value:'drop', label:'버리기', kind:'cancel'},
+               {value:'keep', label:'기록하기', kind:'primary'}]
+    });
+    if(pick === 'keep'){ restStart = saved.s; await endRest(false); }
+    return;
+  }
+  beginRest(saved.s);
+}
+
+$('fabRest').onclick = async () => { if(restStart) await endRest(false); else beginRest(); };
+$('restVeil').onclick = () => toast('휴식 중이에요 — 왼쪽 아래 ☕ 버튼을 눌러 끝내세요');
+/* 가림막이 손가락은 막지만 키보드 초점까지 막지는 못한다 — 들어오는 초점을 되돌린다 */
+document.addEventListener('focusin', e => {
+  if(!restStart || !e.target) return;
+  if(e.target.closest && e.target.closest('#restDock')) return;
+  try{ e.target.blur(); }catch(err){}
+}, true);
+/* 화면 밖에 있는 동안 1초 타이머는 느려질 수 있다 — 돌아오면 실제 시각으로 다시 맞춘다 */
+document.addEventListener('visibilitychange', () => { if(!document.hidden && restStart) paintRest(); });
+
+/* ── 기록 탭 › ☕ 휴식 기록 ───────────────────────────────────────── */
+let arcRest = false, arcRestScope = 'month';
+
+$('arcRestBtn').onclick = () => {
+  arcRest = !arcRest;
+  searchQ = ''; $('searchIn').value = '';
+  if(arcRest){
+    arcDone = false;
+    if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
+  }
+  refreshArchive();
+};
+
+function collectRests(yd){
+  const out = [];
+  Object.keys(yd||{}).sort().forEach(mm => {
+    if(arcRestScope === 'month' && mm !== arcMonth) return;
+    const month = yd[mm] || {};
+    Object.keys(month).sort().forEach(dd => {
+      const rests = normRests((month[dd]||{}).rests);
+      if(rests.length) out.push({date:`${arcYear}-${mm}-${dd}`, rests});
+    });
+  });
+  return out;
+}
+function renderArcRest(yd){
+  const list = $('dayList'); list.innerHTML = '';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap';
+  bar.innerHTML = `
+    <button class="mini-btn ${arcRestScope==='month'?'active':''}" data-s="month">${+arcMonth}월</button>
+    <button class="mini-btn ${arcRestScope==='year'?'active':''}" data-s="year">${arcYear}년 전체</button>`;
+  bar.querySelectorAll('button[data-s]').forEach(b => b.onclick = () => { arcRestScope = b.dataset.s; renderArchive(); });
+  list.appendChild(bar);
+
+  const days = collectRests(yd);
+  const scopeTxt = arcRestScope === 'month' ? `${+arcMonth}월` : `${arcYear}년`;
+  const totalMin = days.reduce((a,d) => a + d.rests.reduce((x,r) => x + (r.e-r.s)/60000, 0), 0);
+  const head = document.createElement('div');
+  head.className = 'empty-note'; head.style.padding = '0 0 12px';
+  head.textContent = days.length
+    ? `☕ ${scopeTxt} 휴식 ${restMinText(totalMin)} · 쉰 날 ${days.length}일 · 하루 평균 ${restMinText(totalMin/days.length)}`
+    : `${scopeTxt}에는 기록된 휴식이 없어요.`;
+  list.appendChild(head);
+
+  days.slice().reverse().forEach(({date, rests}) => {
+    const dayMin = rests.reduce((a,r) => a + (r.e-r.s)/60000, 0);
+    const dt = new Date(date+'T12:00:00');
+    const sec = document.createElement('section'); sec.className = 'done-cat-group';
+    const hd = document.createElement('div'); hd.className = 'done-cat-head';
+    hd.style.borderBottomColor = 'var(--amber)';
+    hd.innerHTML = `<span style="color:var(--amber)">${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]})</span>`
+                 + `<span class="done-cat-count">${restMinText(dayMin)}</span>`;
+    sec.appendChild(hd);
+    rests.forEach(r => {
+      const card = document.createElement('button');
+      card.type = 'button'; card.className = 'done-lib-card';
+      card.style.borderLeftColor = 'var(--amber)';
+      card.innerHTML = `
+        <div class="dl-top"><span class="dl-when">${restClock(r.s)} ~ ${restClock(r.e)}</span></div>
+        <div class="dl-title">☕ ${restMinText((r.e-r.s)/60000)}</div>
+        <div class="dl-meta">눌러서 시각 고치기 · 지우기</div>`;
+      card.onclick = () => openRestEdit(date, r);
+      sec.appendChild(card);
+    });
+    list.appendChild(sec);
+  });
+}
+/* 잘못 눌러 크게 잡힌 기록을 여기서 바로잡는다 — 이 창이 유일한 수정 경로 */
+function openRestEdit(ds, r){
+  restEditing = {ds, id:r.id};
+  const dt = new Date(ds+'T12:00:00');
+  $('restEditTitle').textContent = `☕ ${dt.getMonth()+1}/${dt.getDate()}(${DOW[dt.getDay()]}) 휴식`;
+  $('restFrom').value = restClock(r.s);
+  $('restTo').value   = restClock(r.e);
+  $('restEditHint').textContent = `지금 ${restMinText((r.e-r.s)/60000)}로 기록돼 있어요`;
+  $('restModal').classList.remove('hidden');
+}
+function closeRestEdit(){ $('restModal').classList.add('hidden'); restEditing = null; }
+$('restCancel').onclick = closeRestEdit;
+$('restModal').addEventListener('click', e => { if(e.target.id === 'restModal') closeRestEdit(); });
+$('restSave').onclick = async () => {
+  if(!restEditing) return;
+  const ds = restEditing.ds, id = restEditing.id;
+  const toMs = v => {
+    if(!/^\d{1,2}:\d{2}$/.test(v||'')) return 0;
+    const [h,m] = v.split(':').map(Number);
+    const d = new Date(ds+'T00:00:00'); d.setHours(h, m, 0, 0); return d.getTime();
+  };
+  const st = toMs($('restFrom').value), en = toMs($('restTo').value);
+  if(!st || !en || en <= st){ toast('끝나는 시각이 시작보다 뒤여야 해요'); return; }
+  const ok = await editDayRests(ds, arr => {
+    const i = arr.findIndex(x => x.id === id);
+    if(i >= 0){ arr[i].s = st; arr[i].e = en; }
+  });
+  closeRestEdit();
+  toast(ok ? `☕ ${restClock(st)}~${restClock(en)} · ${restMinText((en-st)/60000)}로 고쳤어요` : '고치지 못했어요');
+  if(ok) refreshArchive();
+};
+$('restDel').onclick = async () => {
+  if(!restEditing) return;
+  if(!(await askConfirm('이 휴식 기록을 지울까요?', {title:'☕ 휴식 기록 지우기', ok:'지우기'}))) return;
+  const ds = restEditing.ds, id = restEditing.id;
+  const ok = await editDayRests(ds, arr => {
+    const i = arr.findIndex(x => x.id === id);
+    if(i >= 0) arr.splice(i, 1);
+  });
+  closeRestEdit();
+  toast(ok ? '휴식 기록을 지웠어요' : '지우지 못했어요');
+  if(ok) refreshArchive();
 };
 
 /* ═══════════════ 🕒 시각 찍기 ═══════════════
@@ -6935,7 +7210,7 @@ $('searchIn').addEventListener('input', e => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>{ searchQ = e.target.value.trim(); refreshArchive(); }, 300);
 });
-function refreshArchive(){ (searchQ && !arcDone) ? doSearch(searchQ) : renderArchive(); }
+function refreshArchive(){ (searchQ && !arcDone && !arcRest) ? doSearch(searchQ) : renderArchive(); }
 function hl(text, q){
   const i = text.toLowerCase().indexOf(q.toLowerCase());
   if(i<0) return esc(text);
@@ -7439,7 +7714,6 @@ function renderPrio(){
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
       <span class="pr-rank">${i+1}</span>
-      <button class="chk" style="border-color:${col}" title="완료 체크"></button>
       ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
       <span class="pr-cat" style="background:${col}" title="${esc(label)}">
         <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
@@ -7456,18 +7730,7 @@ function renderPrio(){
         </div>
       </div>`;
     bindDelayBtn(row, t, {inbox:!!bx});
-    row.querySelector('.chk').onclick = async () => {
-      cancelCompletionHold(t);
-      if(bx==='inbox'){ await completeInbox(t, inbox.indexOf(t)); return; }
-      if(bx==='priv'){ await completePriv(t, priv.indexOf(t)); return; }
-      t.done = true; t.status = 'done'; t.doneAt = curDate; t.completedAt = Date.now(); markDirty(); renderCats();
-      clearTimeout(saveTimer);
-      const diarySaved = await saveNow();
-      if(!diarySaved){ toast('Diary 서버 저장이 확인되지 않아 Calendar 완료 반영은 보류했어요'); return; }
-      await clearCarriedCopies(t, c, curDate);
-      await reflectTaskCompletion(t, c);
-      toast('완료! Diary 저장 후 Calendar에 반영했어요');
-    };
+    /* ★ 여기도 체크박스를 없앴다 — 완료는 .status-chip 한 곳에서만 확정한다. */
     row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
     row.querySelector('.status-chip').onclick = async () => {
       const shown = displayTaskStatus(t);
@@ -7532,7 +7795,10 @@ let doneLibSelected = null;
 $('arcDoneBtn').onclick = () => {
   arcDone = !arcDone;
   searchQ = ''; $('searchIn').value = '';
-  if(arcDone && arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
+  if(arcDone){
+    arcRest = false;                                        /* 세 모드는 한 번에 하나만 */
+    if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
+  }
   refreshArchive();
 };
 
@@ -11238,6 +11504,7 @@ window.addEventListener('popstate', () => {
     renderCats(); renderInbox(); renderPriv(); return; }
   if(peekOpen){ peekOpen = false;            // ③ 목표 펼침 닫기
     $('goalPeekBox').classList.add('hidden'); return; }
+  if(arcRest && !$('archiveView').classList.contains('hidden')){ arcRest=false; refreshArchive(); return; }
   if(arcDone && !$('archiveView').classList.contains('hidden')){ arcDone=false; searchQ=''; $('searchIn').value=''; refreshArchive(); return; }
   if($('todayView').classList.contains('hidden')){ switchTab('today'); return; }   // ④ 목록 탭으로
   if(curDate !== todayStr()){ loadDay(todayStr()); return; }                        // ⑤ 오늘로
