@@ -2366,6 +2366,25 @@ const auth = firebase.auth();
 const db = firebase.database();
 const storage = firebase.storage();
 
+/* 크기는 «글자 수»가 아니라 «바이트»로 센다.
+   ★ JS 의 .length 는 한글도 1로 세지만 UTF-8 로는 한 글자에 3바이트다.
+     그대로 두면 한글이 많은 일지가 실제의 절반쯤으로 작게 나와, Firebase 화면의
+     숫자와 크게 어긋난다(2.70MB 로 보였는데 실제는 4.13MB 였다). */
+const _utf8Enc = (typeof TextEncoder !== 'undefined') ? new TextEncoder() : null;
+function utf8Len(str){
+  const t = String(str == null ? '' : str);
+  if(_utf8Enc){ try{ return _utf8Enc.encode(t).length; }catch(e){} }
+  let n = 0;
+  for(let i = 0; i < t.length; i++){
+    const c = t.codePointAt(i);
+    if(c > 0xFFFF){ n += 4; i++; }        /* 이모지 등 */
+    else if(c > 0x7FF) n += 3;            /* 한글·한자 */
+    else if(c > 0x7F)  n += 2;
+    else n += 1;
+  }
+  return n;
+}
+
 /* ═══════════════ 📊 통신량 계측 ═══════════════
    RTDB 다운로드가 왜 늘어나는지 짐작으로 찾지 않기 위해, 앱이 실제로 받아 온 자료의
    크기를 경로별로 세어 둔다. 서버에 더 묻지 않고 «이미 받은 것»의 크기만 재므로
@@ -2407,7 +2426,7 @@ function netAdd(path, snap){
     if(!snap || typeof snap.val !== 'function') return;
     const v = snap.val();
     if(v === null || v === undefined) return;
-    const bytes = JSON.stringify(v).length;
+    const bytes = utf8Len(JSON.stringify(v));
     if(!bytes) return;
     const d = todayStr(), k = netLabel(path);
     const bucket = netMeter[d] || (netMeter[d] = {});
@@ -5413,7 +5432,7 @@ $('sizeStatBtn').onclick = async () => {
   }catch(e){ toast('다 읽지 못했어요 — 연결을 확인한 뒤 다시 해 주세요'); return; }
   if(!root){ toast('아직 담긴 자료가 없어요'); return; }
 
-  const bytes = v => { try{ return JSON.stringify(v).length; }catch(e){ return 0; } };
+  const bytes = v => { try{ return utf8Len(JSON.stringify(v)); }catch(e){ return 0; } };
   const sz = b => b >= 1048576 ? (b/1048576).toFixed(2)+'MB' : Math.round(b/1024)+'KB';
   const rows = [];
   let bakFound = [], oldUndo = [];
@@ -5463,7 +5482,8 @@ $('sizeStatBtn').onclick = async () => {
                      `지금 규칙(최근 3개 + 위험한 변화 직전)만 남깁니다.\n\n` : '') +
          (clean ? `🧹 이 중 ${sz(clean)}는 사진이 통째로 남은 보관본이에요.\n` +
                   `사진은 이미 따로 옮겨져 있어 지워도 일지와 사진은 그대로입니다.\n\n` : '') +
-         `(Firebase 화면의 숫자와는 차이가 날 수 있어요 — 그쪽은 따로 계산합니다)`,
+         `(글자를 UTF-8 바이트로 재요. Firebase 는 여기에 열쇠 이름·구조 몫이 더 붙어\n` +
+         ` 조금 더 크게 나옵니다 — 비슷하되 똑같지는 않아요)`,
     options: opts
   });
   if(pick === 'clean') await runBakCleanup(bakFound);
@@ -5493,7 +5513,7 @@ $('sizeStatBtn').onclick = async () => {
    저장용량이 줄지 않는다. 여기서 그 무거운 보관본만 골라 치운다. */
 function bakPhotoBytes(v){
   const s = JSON.stringify(v||'');
-  return s.includes('data:image') ? s.length : 0;
+  return s.includes('data:image') ? utf8Len(s) : 0;
 }
 async function scanBaks(){
   const found = [];                                   /* {path, label, bytes} */
