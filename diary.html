@@ -3014,21 +3014,20 @@ auth.onAuthStateChanged(async u => {
     $('appView').classList.remove('hidden');
     /* 다른 초기 데이터 로드와 병렬로 일기 PIN을 미리 가져와 첫 클릭 체감을 줄인다. */
     setTimeout(prefetchDiaryPin, 0);
-    await loadName();
-    await loadGoals();
-    await loadBank();
-    await loadStickies();
-    await loadVacs();
-    await loadEvents();
-    await loadCustomIcon();
-    await loadCalTarget();
-    await loadLeaveMode();
-    await loadTheme();
-    await loadHandFont();
-    await loadPrivPrint();
-    await syncPending();
-    await loadInbox();
-    await loadPriv();
+    /* ★ 예전에는 아래 것들을 하나씩 줄 세워 기다렸다 — 서버를 15번 다녀와야 화면이 떴다.
+       한 번 다녀오는 데 0.1~0.2초씩만 잡아도 그것만으로 2~3초다.
+       이름·목표·장기메모·포스트잇·설정들은 서로 아무 상관이 없으니 한꺼번에 물어본다.
+       ▸ 하나가 넘어져도 나머지는 계속 가야 하므로 각각 따로 받아 낸다.
+         Promise.all 은 하나만 실패해도 그 뒤(보관함·오늘 일지)가 통째로 멈춘다.
+       ▸ 순서가 필요한 것만 뒤에 남긴다 — «못 보낸 것 올리기»가 끝나야 보관함·일지가
+         최신을 읽고, 오늘 일지는 저장 대상(dayOwner)을 정하므로 언제나 마지막이다. */
+    const settle = p => Promise.resolve(p).catch(e => { try{ console.error('초기 로드 실패', e); }catch(e2){} });
+    await Promise.all([
+      loadName(), loadGoals(), loadBank(), loadStickies(), loadVacs(), loadEvents(),
+      loadCustomIcon(), loadCalTarget(), loadLeaveMode(), loadTheme(), loadHandFont(),
+      loadPrivPrint(), syncPending()
+    ].map(settle));
+    await Promise.all([loadInbox(), loadPriv()].map(settle));
     await loadDay(curDate);
     restoreRest();                    /* 켜 둔 채 앱이 꺼졌다면 이어서 잰다 */
     sweepLocalVers();                 /* 기기에 묵은 판본이 남아 있으면 치운다 */
