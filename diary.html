@@ -1739,6 +1739,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
           <div class="actions" style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="mini-btn" id="carryBtn">↩ 미완료 가져오기</button>
             <button class="mini-btn" id="prioBtn">⚡ 우선순위</button>
+            <button class="mini-btn hidden" id="todayOnlyBtn">📌 오늘만</button>
             <button class="mini-btn" id="delayViewBtn">⏳ 지연사유 확인</button>
           </div>
         </div>
@@ -3544,6 +3545,7 @@ function renderCats(){
   $('prioList').classList.toggle('hidden', !prioMode);
   $('catList').classList.toggle('hidden', prioMode);
   if(prioMode){ $('emptyTasks').classList.add('hidden'); renderPrio(); return; }
+  $('todayOnlyBtn').classList.add('hidden');      /* 우선순위 화면에서만 쓰는 버튼 */
   const box = $('catList'); box.innerHTML = '';
   $('emptyTasks').classList.toggle('hidden', day.cats.length>0);
   const catOrder = day.cats.map((cat,ci)=>({cat,ci}));
@@ -8141,11 +8143,40 @@ function keepTodayWx(wx){
 /* ═══════════════ ⚡ 우선순위 화면 (카테고리 무시, 할 일 순서) ═══════════════ */
 let prioMode = false;
 try{ prioMode = localStorage.getItem('prioMode')==='1'; }catch(e){}
+/* 📌 오늘만 — 우선순위 목록에서 «오늘 날짜가 붙은 것»만 추린다.
+   앱을 다시 열면 꺼진다(늘 켜져 있으면 업무가 사라진 줄 알기 쉬워서). */
+let prioTodayOnly = false;
 $('prioBtn').onclick = () => {
   prioMode = !prioMode;
+  if(!prioMode) prioTodayOnly = false;          /* 우선순위를 끄면 추림도 함께 푼다 */
   try{ localStorage.setItem('prioMode', prioMode?'1':'0'); }catch(e){}
   renderCats(); renderInbox(); renderPriv();
 };
+$('todayOnlyBtn').onclick = () => {
+  prioTodayOnly = !prioTodayOnly;
+  renderPrio();
+  $('todayOnlyBtn').classList.toggle('active', prioTodayOnly);
+};
+/* «오늘 날짜가 붙었다»는 화면에 보이는 배지와 같은 기준으로 판단한다.
+   ▸ 📅 실행 날짜가 오늘   (날짜를 직접 넣었거나, 보관함이면 시간을 잡아 둔 날, 아니면 시간이 있는 오늘 업무)
+   ▸ 🚩 기한이 오늘
+   날짜도 시간도 없는 «📅 미정»은 오늘 것으로 보지 않는다. */
+function prioIsToday(t, ctx){
+  const T = todayStr();
+  if((t.deadline || '').trim() === T) return true;
+  return taskScheduleBadge(t, ctx).date === T;
+}
+/* 📌 오늘만은 «확인만 하는 창»이라 손수 정한 순서를 따르지 않고 늘 같은 차례로 보여 준다.
+   ① 오늘 시간이 잡힌 일 — 이른 시각부터(지난 시각이 위로 와서 놓친 것이 먼저 보인다)
+   ② 날짜만 오늘인 일
+   ③ 기한만 오늘까지인 일
+   캘린더 등록 여부는 차례에 끼어들지 않는다 — 표시(gcal-linked)만 그대로 둔다. */
+function todayOnlyRank(t, ctx){
+  const T = todayStr();
+  const d = taskScheduleBadge(t, ctx).date;
+  if(d === T) return (t.time || '').trim() ? 0 : 1;
+  return 2;
+}
 /* ── 우선순위 자동 정렬 규칙 ──────────────────────────────────
    1순위  날짜가 지난 일 (급한 것부터: 오래 지난 순 → 시간 이른 순)
    2순위  오늘 · 날짜+시간이 모두 있는 것 (시간 이른 순)
@@ -8201,11 +8232,40 @@ function prioItems(){
 function renderPrio(){
   const box = $('prioList'); box.innerHTML = '';
   const items = prioItems();
+  $('todayOnlyBtn').classList.remove('hidden');
+  $('todayOnlyBtn').classList.toggle('active', prioTodayOnly);
   if(!items.length){
     box.innerHTML = '<div class="empty-note">지금 처리할 미완료 업무가 없어요 🎉</div>';
     return;
   }
-  items.forEach(({c,t,box:bx}, i) => {
+  /* 원래 순번(idx)을 그대로 지고 다닌다 —
+     ▲▼ 는 day.prioOrder 의 자리를 바꾸는데, 걸러낸 뒤 번호를 새로 매기면 엉뚱한 것이 움직인다. */
+  const shown = items.map((it, idx) => ({...it, idx}))
+                     .filter(it => !prioTodayOnly || prioIsToday(it.t, {inbox:!!it.box}));
+  if(prioTodayOnly){
+    shown.sort((a, b) => {
+      const ra = todayOnlyRank(a.t, {inbox:!!a.box}), rb = todayOnlyRank(b.t, {inbox:!!b.box});
+      if(ra !== rb) return ra - rb;
+      if(ra === 0) return (a.t.time||'').localeCompare(b.t.time||'');   /* 시간 이른 순 */
+      return a.idx - b.idx;                                            /* 나머지는 원래 차례대로 */
+    });
+  }
+  if(prioTodayOnly && !shown.length){
+    box.innerHTML = `<div class="empty-note">오늘 날짜가 붙은 업무가 없어요.<br>
+      «📌 오늘만»을 다시 눌러 전체를 보세요.</div>`;
+    return;
+  }
+  if(prioTodayOnly){
+    const note = document.createElement('div');
+    note.className = 'empty-note';
+    note.style.cssText = 'padding:0 0 10px;font-weight:800;color:var(--accent-deep)';
+    note.innerHTML = `📌 오늘 ${shown.length}건만 보는 중 (전체 ${items.length}건)` +
+      `<br><span style="font-weight:700;color:var(--ink-soft);font-size:.74rem">` +
+      `시간 잡힌 일 → 오늘 할 일 → 오늘까지 기한 차례 · 확인 전용이라 순서는 못 바꿔요</span>`;
+    box.appendChild(note);
+  }
+  shown.forEach(({c,t,box:bx,idx}, seq) => {
+    const i = idx;                                   /* day.prioOrder 안의 진짜 자리 */
     const col = c? catColor(c) : (bx==='priv'? PRIV_COLOR : '#B08A5A');
     const label = c? (catNameOf(c)||'무제') : (bx==='priv'? '개인용무' : '기타업무');
     const icon = c? (c.priv? '🏠' : '📁') : (bx==='priv'? '🏠' : '📥');
@@ -8218,7 +8278,7 @@ function renderPrio(){
     row.dataset.tid = t.id;
     row.style.borderLeft = `3px solid ${col}40`; row.style.paddingLeft = '7px';
     row.innerHTML = `
-      <span class="pr-rank">${i+1}</span>
+      <span class="pr-rank">${(prioTodayOnly ? seq : i) + 1}</span>
       ${t.goal && goalNameOf(t.goal)? `<button class="goal-mark" title="주간 목표 연결됨">🎯</button>`:''}
       <span class="pr-cat" style="background:${col}" title="${esc(label)}">
         <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
@@ -8227,12 +8287,12 @@ function renderPrio(){
       <div class="task-meta">
         <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 상세 열기">${scheduleBadge.label}</button>
         ${deadlineBadge.date ? `<button class="due-chip ${deadlineBadge.over?'over':''}" title="기한 ${deadlineBadge.date} — 상세 열기">${deadlineBadge.label}</button>` : ''}
-        <button class="status-chip ${st.cls}">${st.label}</button>
         ${delayBtnHTML(t)}
-        <div class="ctl pr-ctl">
+        <button class="status-chip ${st.cls}">${st.label}</button>
+        ${prioTodayOnly ? '' : `<div class="ctl pr-ctl">
           ${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>' : '<span class="ctl-gap"></span>'}
           <button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button>
-        </div>
+        </div>`}
       </div>`;
     bindDelayBtn(row, t, {inbox:!!bx});
     /* ★ 여기도 체크박스를 없앴다 — 완료는 .status-chip 한 곳에서만 확정한다. */
@@ -8286,9 +8346,18 @@ function renderPrio(){
       renderCats(); renderInbox(); renderPriv();
       toast(`${bx==='priv'? '개인용무' : '기타업무'} 칸으로 내렸어요`);
     };
+    /* 📌 오늘만에서는 순서 바꾸기 버튼 자체를 그리지 않는다 — 확인만 하는 창이므로 */
     const [up,down] = [...row.querySelectorAll('.ctl button')].filter(b => !b.classList.contains('off-prio'));
-    up.onclick = () => { if(i>0){ [day.prioOrder[i-1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i-1]]; markDirty(); renderCats(); } };
-    down.onclick = () => { if(i<items.length-1){ [day.prioOrder[i+1],day.prioOrder[i]]=[day.prioOrder[i],day.prioOrder[i+1]]; markDirty(); renderCats(); } };
+    if(up && down){
+      const at = shown.findIndex(x => x.idx === i);
+      const swapWith = j => {
+        if(j == null) return;
+        [day.prioOrder[j], day.prioOrder[i]] = [day.prioOrder[i], day.prioOrder[j]];
+        markDirty(); renderCats();
+      };
+      up.onclick   = () => { if(at > 0) swapWith(shown[at-1].idx); };
+      down.onclick = () => { if(at >= 0 && at < shown.length-1) swapWith(shown[at+1].idx); };
+    }
     box.appendChild(row);
   });
 }
