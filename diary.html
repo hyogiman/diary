@@ -858,6 +858,9 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 #prioList .task{flex-wrap:nowrap}
 #prioList .task-text{min-width:80px}
 .pr-ctl{flex:none;align-items:center}
+/* 📌 오늘만 — 손댈 수 없는 것은 눌리는 시늉을 하지 않는다 */
+#prioList .task-text[readonly]{cursor:default;background:transparent}
+.status-chip.ro{cursor:default;pointer-events:none}
 .ctl-gap{width:28px;flex:none;display:block}
 .off-prio,.on-prio{font-weight:800;color:var(--accent-deep)}
 .pr-rank{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#fff;
@@ -1595,6 +1598,13 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
   .sheet-title{font-size:1.45rem}
   /* 배지 줄 — 좁은 화면에서도 한 줄에 들어가도록 여백을 조금씩 줄인다 */
   .task-meta{width:100%;justify-content:flex-end;padding-left:24px;gap:5px;row-gap:5px}
+  /* ★ 우선순위 줄도 배지를 아랫줄로 내린다.
+     `#prioList .task{flex-wrap:nowrap}` 때문에 배지 줄이 width:100% 를 받고도
+     아래로 못 내려가고 옆으로 밀려, 날짜·상태가 화면 밖으로 잘려 나갔다.
+     좁은 화면에서만 줄바꿈을 열어 준다(태블릿·PC는 한 줄 그대로). */
+  #prioList .task{flex-wrap:wrap;row-gap:6px}
+  #prioList .task-text{min-width:0;flex:1 1 120px}
+  #prioList .task-meta{padding-left:34px}
   .goal-mark{width:24px;height:24px;font-size:.78rem}
   .task-meta .time-badge{max-width:100%;padding:4px 8px}
   .task-meta .status-chip{min-width:50px;padding:5px 8px}
@@ -7298,7 +7308,9 @@ let inboxOpen = false;
 try{ inboxOpen = localStorage.getItem('inboxOpen')!=='0'; }catch(e){}
 function renderInbox(){
   const list = prioMode ? inbox.filter(t => t.offPrio && !t.done) : inbox;
-  const hide = prioMode && !list.length;
+  /* 📌 오늘만에서는 이 칸을 통째로 감춘다 — 오늘 것은 이미 위 목록에 올라가 있고,
+     여기 남겨 두면 '확인만 하는 창'에 편집 거리가 다시 붙는다(화살표를 없앤 것과 같은 뜻). */
+  const hide = prioMode && (prioTodayOnly || !list.length);
   $('inboxHead').classList.toggle('hidden', hide);
   $('inboxWrap').classList.toggle('hidden', hide || (!prioMode && !inboxOpen));
   if(hide) return;
@@ -8140,6 +8152,26 @@ function keepTodayWx(wx){
   day.wx = wx;
   if(before !== JSON.stringify(wx) && !isDayEmpty(day)) markDirty();
 }
+/* 우선순위 줄에서 배지를 누르면 일반 목록의 상세로 데려간다 —
+   📌 오늘만에서도 이 길은 열어 둔다(보다가 고칠 게 보이면 바로 갈 수 있게). */
+function bindPrioJump(row, t, c, bx){
+  const go = () => {
+    prioMode = false; prioTodayOnly = false;
+    try{ localStorage.setItem('prioMode','0'); }catch(e){}
+    if(bx === 'inbox') inboxOpen = true;
+    if(bx === 'priv')  privOpen  = true;
+    t.open = true; renderAll();
+    setTimeout(() => {
+      const el = [...document.querySelectorAll('.task-text')].find(x => x.value === t.text);
+      if(el) el.scrollIntoView({behavior:'smooth', block:'center'});
+    }, 60);
+  };
+  ['.time-badge', '.due-chip', '.goal-mark'].forEach(sel => {
+    const el = row.querySelector(sel);
+    if(el) el.onclick = go;
+  });
+}
+
 /* ═══════════════ ⚡ 우선순위 화면 (카테고리 무시, 할 일 순서) ═══════════════ */
 let prioMode = false;
 try{ prioMode = localStorage.getItem('prioMode')==='1'; }catch(e){}
@@ -8154,7 +8186,7 @@ $('prioBtn').onclick = () => {
 };
 $('todayOnlyBtn').onclick = () => {
   prioTodayOnly = !prioTodayOnly;
-  renderPrio();
+  renderPrio(); renderInbox(); renderPriv();     /* 보관함 두 칸도 함께 감추거나 되살린다 */
   $('todayOnlyBtn').classList.toggle('active', prioTodayOnly);
 };
 /* «오늘 날짜가 붙었다»는 화면에 보이는 배지와 같은 기준으로 판단한다.
@@ -8240,8 +8272,17 @@ function renderPrio(){
   }
   /* 원래 순번(idx)을 그대로 지고 다닌다 —
      ▲▼ 는 day.prioOrder 의 자리를 바꾸는데, 걸러낸 뒤 번호를 새로 매기면 엉뚱한 것이 움직인다. */
-  const shown = items.map((it, idx) => ({...it, idx}))
-                     .filter(it => !prioTodayOnly || prioIsToday(it.t, {inbox:!!it.box}));
+  const pool = items.map((it, idx) => ({...it, idx}));
+  if(prioTodayOnly){
+    /* 📌 오늘만은 «오늘 할 일 전부»를 보여 준다 —
+       우선순위에서 내려 둔(offPrio) 기타업무·개인용무도 오늘 것이면 함께 올린다.
+       아래 보관함 두 칸은 어차피 감추므로, 여기서 빼면 오늘 할 일이 통째로 안 보인다. */
+    const off = [];
+    (inbox||[]).forEach(t => { if(!t.done && t.offPrio && (t.text||'').trim()) off.push({c:null, t, box:'inbox'}); });
+    (priv ||[]).forEach(t => { if(!t.done && t.offPrio && (t.text||'').trim()) off.push({c:null, t, box:'priv'}); });
+    off.forEach((it, k) => pool.push({...it, idx: items.length + k}));
+  }
+  const shown = pool.filter(it => !prioTodayOnly || prioIsToday(it.t, {inbox:!!it.box}));
   if(prioTodayOnly){
     shown.sort((a, b) => {
       const ra = todayOnlyRank(a.t, {inbox:!!a.box}), rb = todayOnlyRank(b.t, {inbox:!!b.box});
@@ -8259,7 +8300,7 @@ function renderPrio(){
     const note = document.createElement('div');
     note.className = 'empty-note';
     note.style.cssText = 'padding:0 0 10px;font-weight:800;color:var(--accent-deep)';
-    note.innerHTML = `📌 오늘 ${shown.length}건만 보는 중 (전체 ${items.length}건)` +
+    note.innerHTML = `📌 오늘 할 일 ${shown.length}건` +
       `<br><span style="font-weight:700;color:var(--ink-soft);font-size:.74rem">` +
       `시간 잡힌 일 → 오늘 할 일 → 오늘까지 기한 차례 · 확인 전용이라 순서는 못 바꿔요</span>`;
     box.appendChild(note);
@@ -8283,12 +8324,15 @@ function renderPrio(){
       <span class="pr-cat" style="background:${col}" title="${esc(label)}">
         <span class="pc-ico">${icon}</span><span class="pc-name">${esc(label)}</span>
       </span>
-      <input class="task-text" value="${esc(t.text)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <input class="task-text" value="${esc(t.text)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"${
+        prioTodayOnly ? ' readonly tabindex="-1"' : ''}>
       <div class="task-meta">
         <button class="time-badge ${gcalLinked?'gcal-linked':''}" title="${gcalLinked?'Google Calendar 등록됨 · ':''}실행 일정${scheduleBadge.date? ' '+scheduleBadge.date:''} — 상세 열기">${scheduleBadge.label}</button>
         ${deadlineBadge.date ? `<button class="due-chip ${deadlineBadge.over?'over':''}" title="기한 ${deadlineBadge.date} — 상세 열기">${deadlineBadge.label}</button>` : ''}
         ${delayBtnHTML(t)}
-        <button class="status-chip ${st.cls}">${st.label}</button>
+        ${prioTodayOnly
+          ? `<span class="status-chip ${st.cls} ro">${st.label}</span>`
+          : `<button class="status-chip ${st.cls}">${st.label}</button>`}
         ${prioTodayOnly ? '' : `<div class="ctl pr-ctl">
           ${bx? '<button class="off-prio" title="우선순위에서 내리기">↓</button>' : '<span class="ctl-gap"></span>'}
           <button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button>
@@ -8296,6 +8340,9 @@ function renderPrio(){
       </div>`;
     bindDelayBtn(row, t, {inbox:!!bx});
     /* ★ 여기도 체크박스를 없앴다 — 완료는 .status-chip 한 곳에서만 확정한다. */
+    /* 📌 오늘만은 확인만 하는 창 — 이름칸도 상태 토글도 손대지 않는다.
+       배지(📅·🚩)를 누르면 상세로 넘어가는 길은 남겨 둔다. 고치러 가는 문이라서. */
+    if(prioTodayOnly){ bindPrioJump(row, t, c, bx); box.appendChild(row); return; }
     row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
     row.querySelector('.status-chip').onclick = async () => {
       const shown = displayTaskStatus(t);
@@ -9945,7 +9992,7 @@ async function savePriv(){
 }
 function renderPriv(){
   const list = prioMode ? priv.filter(t => t.offPrio && !t.done) : priv;
-  const hide = prioMode && !list.length;
+  const hide = prioMode && (prioTodayOnly || !list.length);   /* 📌 오늘만에서는 감춘다 */
   $('privHead').classList.toggle('hidden', hide);
   $('privWrap').classList.toggle('hidden', hide || (!prioMode && !privOpen));
   if(hide) return;
