@@ -5493,19 +5493,44 @@ $('sizeStatBtn').onclick = async () => {
       `날짜마다 최근 3개와 «위험한 변화 직전» 3개는 남습니다.\n` +
       `이 기기에서 오늘 쓰던 판본은 따로 보관되니 영향받지 않아요.`,
       {title:'🕘 예전 보관본 줄이기', ok:'줄이기', danger:true}))) return;
-    let done = 0;
-    for(const f of oldUndo){
-      try{
-        await db.ref(`diaries/${USER.uid}/undo/${f.ds}/${f.ts}`).remove();
-        try{ await db.ref(`diaries/${USER.uid}/undoIdx/${f.ds}/${f.ts}`).remove(); }catch(e){}
-        if(undoKeys[f.ds]) undoKeys[f.ds] = undoKeys[f.ds].filter(t => t !== f.ts);
-        if(undoWhy[f.ds]) delete undoWhy[f.ds][f.ts];
-        done++;
-      }catch(e){}
-    }
-    toast(`보관본 ${done}건을 줄였어요 — Firebase 화면의 숫자는 바로 줄지 않을 수 있어요`);
+    const paths = [];
+    oldUndo.forEach(f => {
+      paths.push(`undo/${f.ds}/${f.ts}`, `undoIdx/${f.ds}/${f.ts}`);
+      if(undoKeys[f.ds]) undoKeys[f.ds] = undoKeys[f.ds].filter(t => t !== f.ts);
+      if(undoWhy[f.ds]) delete undoWhy[f.ds][f.ts];
+    });
+    toast(`보관본 ${oldUndo.length}건을 줄이는 중…`);
+    await removeManyPaths(paths, (d, t) => toast(`줄이는 중… ${Math.round(d/t*100)}%`));
+    const gone = sz(oldBytes);
+    toast(`보관본 ${oldUndo.length}건(${gone})을 줄였어요 — Firebase 화면의 숫자는 바로 줄지 않을 수 있어요`);
   }
 };
+
+/* 여러 자리를 한 번에 치운다.
+   ★ 하나씩 지우면 왕복이 그만큼 늘고, 무엇보다 RTDB 의 remove() 도 연결이 늘어지면
+     «실패»가 아니라 끝나지 않는다. 그 하나에 걸리면 그 뒤가 통째로 멈춰,
+     정리를 눌렀는데 절반만 지워진 채로 끝난다(실제로 290건 중 169건만 지워졌다).
+     여러 경로를 null 로 묶어 한 번에 보내고, 묶음이 실패하면 그때만 하나씩 다시 해 본다. */
+async function removeManyPaths(paths, onStep){
+  const base = `diaries/${USER.uid}`;
+  const CHUNK = 150;
+  let done = 0;
+  for(let i = 0; i < paths.length; i += CHUNK){
+    const part = paths.slice(i, i + CHUNK);
+    const patch = {};
+    part.forEach(p => { patch[p] = null; });
+    try{
+      await withTimeout(db.ref(base).update(patch), 20000);
+      done += part.length;
+    }catch(e){
+      for(const p of part){
+        try{ await withTimeout(db.ref(`${base}/${p}`).remove(), 8000); done++; }catch(e2){}
+      }
+    }
+    if(onStep) onStep(done, paths.length);
+  }
+  return done;
+}
 
 /* ═══════════════ 🧹 보관본 정리 ═══════════════
    되돌리기·사진정리는 안전을 위해 '고치기 전 모습'을 통째로 남긴다.
@@ -5549,17 +5574,16 @@ async function runBakCleanup(preFound){
     `다만 이 보관본들을 지우면 그 시점으로 되돌리는 것은 못 하게 됩니다.\n\n` +
     found.slice(0,6).map(f => ` · ${f.label}`).join('\n') + (found.length>6? `\n · 외 ${found.length-6}건` : ''),
     {title:'🧹 무거운 보관본 정리', ok:'정리하기', danger:true}))) return;
-  let done = 0;
-  for(const f of found){
-    try{
-      await db.ref(`diaries/${USER.uid}/${f.path}`).remove(); done++;
-      /* undo/{날짜}/{시각} 이면 작은 색인도 함께 치운다 */
-      const m = /^undo\/(.+)\/(\d+)$/.exec(f.path);
-      if(m){ try{ await db.ref(`diaries/${USER.uid}/undoIdx/${m[1]}/${m[2]}`).remove(); }catch(e){} }
-    }catch(e){}
-  }
+  const paths = [];
+  found.forEach(f => {
+    paths.push(f.path);
+    const m = /^undo\/(.+)\/(\d+)$/.exec(f.path);
+    if(m) paths.push(`undoIdx/${m[1]}/${m[2]}`);      /* 작은 색인도 함께 */
+  });
+  toast(`보관본 ${found.length}건을 치우는 중…`);
+  await removeManyPaths(paths, (d, t) => toast(`치우는 중… ${Math.round(d/t*100)}%`));
   Object.keys(undoKeys).forEach(k => delete undoKeys[k]);
-  toast(`보관본 ${done}건을 치웠어요 — Firebase 화면의 저장용량은 바로 줄지 않을 수 있어요`);
+  toast(`보관본 ${found.length}건을 치웠어요 — Firebase 화면의 저장용량은 바로 줄지 않을 수 있어요`);
 }
 /* ★ 예전에는 bakFixSeen 이 true 가 되어야 보이게 해 두었는데, 그 값을 켜 주는 곳이
    어디에도 없어서 이 버튼이 한 번도 나타나지 않았다. 정작 사진이 통째로 남는 곳은
