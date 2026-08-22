@@ -2519,11 +2519,6 @@ function markCalendarTombstone(id, calendarKey){
   rows[calendarTombstoneId(id, '*')] = Date.now();
   try{ localStorage.setItem(GCAL_TOMBSTONE_KEY, JSON.stringify(rows)); }catch(e){}
 }
-function isCalendarTombstoned(ev){
-  if(!ev || !ev.id) return false;
-  const rows = readCalendarTombstones();
-  return !!(rows[calendarTombstoneId(ev.id, ev.calendarKey)] || rows[calendarTombstoneId(ev.id, '*')]);
-}
 function dropEventFromScheduleCache(id, calendarKey){
   if(!id) return;
   markCalendarTombstone(id, calendarKey);
@@ -2554,18 +2549,6 @@ function clearSchedulePending(tOrId){
   const rec = gcalPendingTasks.get(key);
   if(rec && rec.timer) clearTimeout(rec.timer);
   gcalPendingTasks.delete(key);
-}
-function clearAllSchedulePending(opt={}){
-  const keepConfirmed = !!opt.keepConfirmed;
-  for(const [key, rec] of [...gcalPendingTasks.entries()]){
-    /* PATCH/POST가 성공한 일정은 Google의 읽기 응답이 같은 값을 확인할 때까지 유지한다.
-       events.list()/GET이 잠깐 stale이어도 사용자가 방금 성공시킨 변경을 옛 값으로 되돌리지 않는다. */
-    if(keepConfirmed && rec && rec.writeConfirmed) continue;
-    if(rec && rec.timer) clearTimeout(rec.timer);
-    gcalPendingTasks.delete(key);
-  }
-  gcalPendingRecheckTimers.forEach(clearTimeout);
-  gcalPendingRecheckTimers = [];
 }
 function markSchedulePending(t, cat){
   if(!t || !t.id || !t.time || !String(t.text||'').trim()) return false;
@@ -2624,20 +2607,7 @@ function findLiveTaskByGcalId(gid){
    목록에 없는 일정을 새로 만들지는 않으므로, 지운 일정이 되살아나지 않는다. */
 const GCAL_SHADOW_TTL = 90 * 1000;
 const gcalWriteShadow = new Map();
-function rememberCalendarWrite(norm){
-  if(norm && norm.id) gcalWriteShadow.set(norm.id, {ev:norm, at:Date.now()});
-}
 function forgetCalendarWrite(id){ if(id) gcalWriteShadow.delete(id); }
-function applyCalendarWriteShadow(events){
-  const now = Date.now();
-  for(const [id, rec] of [...gcalWriteShadow])
-    if(now - rec.at > GCAL_SHADOW_TTL) gcalWriteShadow.delete(id);
-  if(!gcalWriteShadow.size) return events || [];
-  return (events || []).map(e => {
-    const rec = gcalWriteShadow.get(e.id);
-    return rec ? Object.assign({}, e, rec.ev) : e;
-  });
-}
 /* 방금 쓴 일정을 서랍 캐시에 즉시 끼워 넣는다 — 목록 GET 을 기다리지 않게 */
 function patchScheduleCache(evt, fallbackId){
   /* Google 응답은 더 이상 시간표의 데이터 원본이 아니다.
@@ -2725,10 +2695,6 @@ function endCalendarMutation(){
     const waiters = gcalMutationWaiters.splice(0);
     waiters.forEach(fn=>{ try{ fn(); }catch(e){} });
   }
-}
-async function waitForCalendarMutations(){
-  if(gcalMutationCount === 0) return;
-  await new Promise(resolve => gcalMutationWaiters.push(resolve));
 }
 
 async function calendarApiFetch(path, opt={}, retry=true){
@@ -3051,7 +3017,7 @@ $('logoutBtn').onclick = async () => { $('settingsMenu').classList.add('hidden')
   /* 포스트잇 저장은 flushSave() 안에서 이미 끝난다. 목록을 비우기 전에 저장을 먼저 잠가
      빈 상태가 서버를 덮는 일이 없게 한다. */
   stickiesLoaded = false; clearTimeout(stickyRetryTimer); stickyRetryTimer = null;
-  detachAll(); stickies = []; stickyPix = {}; diaryPix = {}; renderStickies(); hideDiaryPage(); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
+  detachAll(); stickies = []; stickyPix = {}; diaryPix = {}; renderStickies(); closeDiaryPage({flush:false, lock:false}); disarmLock(); diaryUnlocked = false; arcDiary = false; $('arcLockBtn').classList.add('hidden'); auth.signOut(); };
 
 /* ───────── 날짜 이동/로드 ───────── */
 let dayLoadSeq = 0, dayReady = false;
@@ -3748,42 +3714,12 @@ function cancelAllCompletionHolds(){
   completionHolds.forEach(rec => clearTimeout(rec.timer));
   completionHolds.clear();
 }
-/* 완료 후보 3초 동안 실시간 구독이 같은 업무 객체를 갈아끼우지 않게 하고,
-   확정 시에는 오래된 객체 참조가 아니라 현재 살아 있는 task id를 다시 찾는다. */
-function liveBoxTask(kind, id){
-  if(!id) return null;
-  const arr = kind === 'priv' ? (priv||[]) : (inbox||[]);
-  return arr.find(x => x && x.id === id) || null;
-}
 function boxHasCompletionHold(kind){
   const arr = kind === 'priv' ? (priv||[]) : (inbox||[]);
   if(!arr.length || !completionHolds.size) return false;
   const ids = new Set(arr.map(x => x && x.id).filter(Boolean));
   for(const id of completionHolds.keys()) if(ids.has(id)) return true;
   return false;
-}
-function armCompletionHold(t, {isAlive, rerender, finalize}){
-  if(!t || !t.id) return;
-  cancelCompletionHold(t);
-  const rec = {
-    task:t,
-    previousStatus:t.status || 'wait',
-    completedAt:Date.now(),              /* 완료에 처음 도달한 실제 순간 */
-    doneAt:curDate,
-    timer:null
-  };
-  rec.timer = setTimeout(async () => {
-    const live = completionHolds.get(t.id);
-    if(live !== rec) return;
-    completionHolds.delete(t.id);
-    if(isAlive && !isAlive()) return;
-    /* 대기 중 다른 경로에서 상태가 바뀌었으면 완료로 확정하지 않는다. */
-    if(t.done || (t.status || 'wait') !== rec.previousStatus) return;
-    try{ await finalize(rec); }
-    catch(e){ console.warn('Completion finalize failed', e); }
-  }, COMPLETE_HOLD_MS);
-  completionHolds.set(t.id, rec);
-  rerender();                              /* 데이터는 아직 안 바꾸고 화면만 '완료'로 보여 준다 */
 }
 function moveArr(arr,i,dir,save,rerender){ const j=i+dir; if(j<0||j>=arr.length) return; [arr[i],arr[j]]=[arr[j],arr[i]]; save(); rerender(); }
 
@@ -5596,11 +5532,6 @@ async function runBakCleanup(preFound){
   Object.keys(undoKeys).forEach(k => delete undoKeys[k]);
   toast(`보관본 ${found.length}건을 치웠어요 — Firebase 화면의 저장용량은 바로 줄지 않을 수 있어요`);
 }
-/* ★ 예전에는 bakFixSeen 이 true 가 되어야 보이게 해 두었는데, 그 값을 켜 주는 곳이
-   어디에도 없어서 이 버튼이 한 번도 나타나지 않았다. 정작 사진이 통째로 남는 곳은
-   되돌리기 보관본이라, 정리할 길이 막혀 있던 셈이다.
-   확인은 눌렀을 때만 하므로 평소 통신이 없다 — 그냥 늘 보이게 둔다. */
-function refreshBakFixBtn(){ const b = $('bakFixBtn'); if(b) b.classList.remove('hidden'); }
 
 /* ═══════════════ 🖼 예전 사진 정리 ═══════════════
    예전에 넣은 사진은 일지 데이터 안에 글자로 담겨 있어, 그 날짜를 읽을 때마다
@@ -7063,23 +6994,32 @@ const BK_GLOBAL_COLLECTIONS = [
   ['stickyPix','포스트잇 내부 사진'],
   ['diaryPix', '일기 내부 사진'],
   ['vacs',     '휴가'],
-  ['dayEvents','기념일·날짜 아이콘']
+  ['dayEvents','기념일·날짜 아이콘'],
+  ['settings', '설정']
 ];
+/* 설정은 통째로 담지 않는다 — 담을 것을 하나씩 적어 둔다.
+   ★ 일기 비밀번호(diaryPin)는 일부러 뺐다. 백업 JSON 은 기기에 그냥 놓이는 파일이라
+     잠금 검증에 쓰이는 값을 굳이 함께 흘릴 이유가 없다.
+     설정이 나중에 늘어도 여기 적지 않으면 저절로 새 나가지 않는다. */
+const BK_SETTINGS_KEYS = ['name','theme','hand','leaveMode','privPrint','calTarget','customEvtIcon'];
 async function collectGlobalBackupData(){
   const out = {};
   for(const [path,label] of BK_GLOBAL_COLLECTIONS){
     try{
       const waitMs = path==='stickyPix' ? 15000 : 8000;
       const snap = await withTimeout(db.ref(`diaries/${USER.uid}/${path}`).get(), waitMs);
-      out[path] = snap.exists() ? snap.val() : null;
+      let val = snap.exists() ? snap.val() : null;
+      if(path === 'settings' && val && typeof val === 'object'){
+        const keep = {};
+        BK_SETTINGS_KEYS.forEach(k => { if(val[k] !== undefined && val[k] !== null) keep[k] = val[k]; });
+        val = Object.keys(keep).length ? keep : null;
+      }
+      out[path] = val;
     }catch(e){
       throw new Error(`${label} 백업 데이터를 읽지 못했습니다`);
     }
   }
   return out;
-}
-function globalBackupLabels(collections){
-  return BK_GLOBAL_COLLECTIONS.filter(([k])=>Object.prototype.hasOwnProperty.call(collections||{},k)).map(([,label])=>label);
 }
 
 $('bkStart').onclick = async () => {
@@ -7206,9 +7146,20 @@ $('bkRestore').onclick = () => {
       /* ZIP 루트의 공통데이터.json — 날짜 비종속 기록 복원 */
       if(obj.kind==='global' && obj.collections && typeof obj.collections==='object'){
         const allowed = BK_GLOBAL_COLLECTIONS.map(([k])=>k);
-        const keys = allowed.filter(k=>Object.prototype.hasOwnProperty.call(obj.collections,k));
+        let keys = allowed.filter(k=>Object.prototype.hasOwnProperty.call(obj.collections,k));
+        /* ★ 설정이 빈 백업이면 아예 손대지 않는다.
+           담을 설정이 하나도 없던 백업은 settings:null 로 남는데, 그대로 두면
+           updates.settings = null 이 되어 설정 노드가 통째로 지워진다.
+           그러면 백업에서 일부러 뺀 «일기 비밀번호»까지 함께 사라진다 —
+           비밀번호를 지키려고 뺀 것이 도리어 지우는 꼴이 된다. */
+        const bkSet = obj.collections.settings;
+        if(keys.includes('settings') &&
+           (!bkSet || typeof bkSet !== 'object' || Array.isArray(bkSet) || !Object.keys(bkSet).length)){
+          keys = keys.filter(k => k !== 'settings');
+        }
         if(!keys.length) throw new Error('복원할 공통 데이터가 없습니다');
-        const labels = globalBackupLabels(obj.collections);
+        const labelOf = Object.fromEntries(BK_GLOBAL_COLLECTIONS);
+        const labels = keys.map(k => labelOf[k]).filter(Boolean);
         if(!(await askConfirm(
           `백업에 들어 있는 ${labels.join(' · ')} 데이터를 현재 앱에 복원합니다.\n` +
           `해당 항목의 현재 내용은 백업 시점 상태로 바뀝니다. 계속할까요?`,
@@ -7216,7 +7167,23 @@ $('bkRestore').onclick = () => {
         ))) return;
 
         const updates = {};
-        keys.forEach(k => updates[k] = obj.collections[k] == null ? null : obj.collections[k]);
+        keys.forEach(k => {
+          /* ★ 설정만은 통째로 갈아끼우지 않고 한 칸씩 되돌린다.
+             update() 는 그 자리를 통째로 바꾸므로, 백업에 없는 일기 비밀번호가
+             통째 복원 한 번에 지워져 버린다. 담아 온 것만 덮어쓴다. */
+          if(k === 'settings'){
+            /* 어떤 경우에도 루트 settings 노드를 통째로 지우지 않는다 —
+               담아 온 칸만 하나씩 덮어쓰고, 아니면 아무것도 하지 않는다. */
+            const st = obj.collections.settings;
+            if(st && typeof st === 'object' && !Array.isArray(st)){
+              Object.entries(st).forEach(([sk, sv]) => {
+                if(BK_SETTINGS_KEYS.includes(sk) && sv != null) updates[`settings/${sk}`] = sv;
+              });
+            }
+            return;
+          }
+          updates[k] = obj.collections[k] == null ? null : obj.collections[k];
+        });
         await db.ref(`diaries/${USER.uid}`).update(updates);
 
         /* 실시간 리스너가 저장 중 상태로 오인하지 않게 로컬 dirty 상태를 먼저 정리한다. */
@@ -7231,6 +7198,12 @@ $('bkRestore').onclick = () => {
         await loadStickies();
         await loadVacs();
         await loadEvents();
+        /* 설정도 되돌렸으면 화면에 바로 비친다 */
+        if(keys.includes('settings')){
+          await Promise.all([loadName(), loadTheme(), loadHandFont(), loadPrivPrint(),
+                             loadCustomIcon(), loadCalTarget(), loadLeaveMode()]
+                            .map(p => Promise.resolve(p).catch(()=>{})));
+        }
         renderAll();
         if(typeof renderGoals==='function') renderGoals();
         if(typeof renderBankList==='function') renderBankList();
@@ -7504,22 +7477,6 @@ function uncompleteBack(t, ctx, forced, nextStatus){
 }
 
 /* 개인 용무 완료 → 보고 있는 날짜의 일지에 '개인 용무'로 박아넣음 */
-/* 구글 캘린더 등록 — 시간이 있으면 시간 일정, 없으면 종일 일정 */
-function calDates(t){
-  const base = t.time ? curDate : (t.due || curDate);   // 시간이 있으면 '오늘(일지 날짜)' 기준
-  const p2 = n => String(n).padStart(2,'0');
-  const ymd = d => `${d.getFullYear()}${p2(d.getMonth()+1)}${p2(d.getDate())}`;
-  if(t.time){
-    const [hh, mm] = t.time.split(':').map(Number);
-    const st = new Date(`${base}T00:00:00`); st.setHours(hh, mm, 0, 0);
-    const en = new Date(st.getTime() + (t.dur||60)*60000);
-    const f = d => `${ymd(d)}T${p2(d.getHours())}${p2(d.getMinutes())}00`;
-    return `${f(st)}/${f(en)}`;
-  }
-  const d0 = new Date(base+'T12:00:00'), d1 = new Date(base+'T12:00:00');
-  d1.setDate(d1.getDate()+1);
-  return `${ymd(d0)}/${ymd(d1)}`;
-}
 /* 캘린더 제목에 붙일 묶음 이름.
    ① 완료되면 카테고리가 '기타업무(완료)'로 바뀌는데, 그걸 그대로 쓰면 완료 전후로 일정 제목이 달라진다.
       '(완료)'는 앞의 ✔ 와 뜻이 겹치므로 떼어내고 이름만 쓴다.
@@ -9006,16 +8963,25 @@ function openDiaryPage(back){
   window.scrollTo(0, 0);
   loadDiaryPix(day.diary).then(n => { if(n) renderDiaryBody(); });
 }
-async function closeDiaryPage(){
+/* 일기 페이지를 접는다 — 쓰임이 둘이라 예전에는 함수도 둘(closeDiaryPage·hideDiaryPage)이었다.
+   내용이 거의 같아 한쪽만 고치면 다른 쪽이 뒤처지므로 한 벌로 합치고 뜻만 옵션으로 나눈다.
+   ▸ flush:true  — 저장이 다 끝날 때까지 «기다렸다» 접는다. 사용자가 직접 닫을 때.
+     ★ 이 기다림은 없애면 안 된다. 닫자마자 다른 기기·바깥 도구가 서버를 읽으면
+       아직 안 올라간 옛 내용을 보게 된다.
+   ▸ flush:false — 기다리지 않고 곧바로 접는다. 자동 잠금처럼 지금 당장 가려야 할 때. */
+async function closeDiaryPage(opt = {}){
+  const { flush = true, lock = true } = opt;
   if(!dvOpen) return;
   dvOpen = false;
-  await flushSave();
+  if(flush) await flushSave();
+  else saveNow();                                   /* 기다리지 않고 보내기만 한다 */
   $('diaryView').classList.add('hidden');
   $('dvTools').classList.add('hidden');
   document.body.classList.remove('diary-page');
   $('fabStamp').classList.remove('hidden');
   if(typeof refreshStampBtn === 'function') releaseStamp();
-  switchTab(dvBack);
+  switchTab(flush ? dvBack : (dvBack === 'archive' ? 'archive' : 'today'));
+  if(!lock) return;                                 /* 이미 잠그는 중이면 타이머를 건드리지 않는다 */
   if(arcDiary){ disarmLock(); refreshArchive(); }   /* 일기 목록으로 복귀 — 잠금 타이머 미가동 */
   else armLock();                                   /* 일기 화면을 완전히 벗어남 → 자동 잠금 예약 */
 }
@@ -9563,19 +9529,6 @@ function doneReportPage(label, cls=''){
 function doneReportOverflow(page){
   const b=page.querySelector('.dr-body'); return b.scrollHeight>b.clientHeight+1;
 }
-function doneReportTextChunks(text, limit=520){
-  text=String(text||'').trim(); if(!text) return [];
-  const paras=text.split(/\n+/), out=[];
-  paras.forEach(p=>{
-    let x=p.trim(); if(!x){ return; }
-    while(x.length>limit){
-      let cut=x.lastIndexOf(' ',limit); if(cut<limit*.55) cut=limit;
-      out.push(x.slice(0,cut).trim()); x=x.slice(cut).trim();
-    }
-    if(x) out.push(x);
-  });
-  return out;
-}
 /* 보고서용 긴 텍스트 묶음.
    줄바꿈은 '새 이벤트'가 아니라 같은 메모 안의 문단으로 유지한다.
    한 박스가 지나치게 커질 때만 여러 덩어리로 나눈다. */
@@ -9803,7 +9756,7 @@ function armLock(){
     diaryUnlocked = false; arcDiary = false;
     $('arcLockBtn').classList.add('hidden');
     $('diaryModal').classList.add('hidden');
-    hideDiaryPage();                                     /* 저장하고 일기 화면을 접는다 */
+    closeDiaryPage({flush:false, lock:false});            /* 저장을 보내고 곧바로 접는다 */
     if(!$('archiveView').classList.contains('hidden')) refreshArchive();
   }, LOCK_DELAY);
 }
@@ -9813,21 +9766,11 @@ function lockDiaryNow(){
   diaryUnlocked = false; arcDiary = false;
   $('arcLockBtn').classList.add('hidden');
   $('diaryModal').classList.add('hidden');
-  hideDiaryPage();                                       /* 잠그면 페이지도 반드시 접는다 */
+  closeDiaryPage({flush:false, lock:false});             /* 잠그면 페이지도 반드시 접는다 */
   refreshArchive();
   toast('🔒 일기를 잠갔어요');
 }
 /* 저장은 이미 끝난 상태에서 화면만 접는다 (자동 잠금·강제 잠금용) */
-function hideDiaryPage(){
-  if(!dvOpen) return;
-  dvOpen = false;
-  $('diaryView').classList.add('hidden');
-  $('dvTools').classList.add('hidden');
-  document.body.classList.remove('diary-page');
-  $('fabStamp').classList.remove('hidden');
-  saveNow();
-  switchTab(dvBack === 'archive' ? 'archive' : 'today');
-}
 $('arcLockBtn').onclick = lockDiaryNow;
 document.addEventListener('visibilitychange', () => {   // 앱을 백그라운드로 보낼 때도 잠금 예약(단, 작성 중 제외)
   if(document.hidden) armLock();                        /* 일기를 열어 둔 채 나가도 예약한다 */
@@ -10574,23 +10517,6 @@ function openTaskFromTimeline(t){
 }
 /* 캘린더 일정 클릭 → 모달로 수정·삭제 */
 let evEditing = null;
-function openEventEditor(ev){
-  evEditing = ev;
-  const st = new Date(ev.start), en = new Date(ev.end);
-  const mins = Math.max(15, Math.round((en - st)/60000));
-  $('evName').textContent = ev.title;
-  $('evText').value = ev.title;
-  $('evLoc').value = ev.loc || '';
-  $('evStart').value = `${String(st.getHours()).padStart(2,'0')}:${String(st.getMinutes()).padStart(2,'0')}`;
-  const sel = $('evDur');
-  sel.innerHTML = DURS.map(([m,l])=>`<option value="${m}">${l}</option>`).join('');
-  if(![...sel.options].some(o => +o.value === mins)){
-    const o = document.createElement('option');
-    o.value = mins; o.textContent = mins + '분'; sel.appendChild(o);
-  }
-  sel.value = String(mins);
-  $('evModal').classList.remove('hidden');
-}
 $('evClose').onclick = () => { $('evModal').classList.add('hidden'); evEditing = null; };
 $('evModal').addEventListener('click', e => { if(e.target.id==='evModal') $('evClose').onclick(); });
 $('evOpen').onclick = () => { if(evEditing && evEditing.link) window.open(evEditing.link, '_blank'); };
@@ -10966,18 +10892,6 @@ function parentOptions(scope){
   const {mon} = weekRange(goalKey);
   const mk = `${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}`;
   return (goals.month[mk]||[]).map(g=>({id:g.id, name:g.text}));
-}
-/* 이전 기간 키 */
-function prevKey(scope, key){
-  if(scope==='year') return String(+key - 1);
-  if(scope==='month'){
-    let y = +key.slice(0,4), m = +key.slice(5,7) - 1;
-    if(m < 1){ m = 12; y--; }
-    return `${y}-${String(m).padStart(2,'0')}`;
-  }
-  const {mon} = weekRange(key);
-  mon.setDate(mon.getDate() - 7);
-  return weekKey(`${mon.getFullYear()}-${String(mon.getMonth()+1).padStart(2,'0')}-${String(mon.getDate()).padStart(2,'0')}`);
 }
 /* 기간 키 대소 비교 (문자열 정렬로 충분: YYYY / YYYY-MM / YYYY-Www) */
 function keyAfter(a, b){ return a > b; }
@@ -12529,12 +12443,6 @@ function ovCard(it, childCount){
 
   return el;
 }
-/* 연결 가능 여부 — 주간은 월간 아래, 월간은 연간 아래로만 */
-function ovCanLink(child, parent){
-  if(child.g.id === parent.g.id) return false;
-  return (child.scope==='week' && parent.scope==='month')
-      || (child.scope==='month' && parent.scope==='year');
-}
 /* 상위의 ＋ 로 하위 목표 만들기 — 시기만 고르면 됨 */
 async function ovAddChild(parent){
   const isYear = parent.scope === 'year';
@@ -12572,18 +12480,6 @@ async function ovAddChild(parent){
   markGoals(); renderOverview();
   const inp = document.querySelector(`.ov-card[data-gid="${gid}"] .ov-txt`);
   if(inp){ inp.scrollIntoView({behavior:'smooth', block:'center'}); inp.focus(); }
-}
-/* 모바일용 — 상위 고르기 */
-async function ovPickParent(it){
-  if(it.scope==='year'){ toast('연간 목표는 최상위예요'); return; }
-  const y = goalKey;
-  const ups = it.scope==='week' ? ovCollect(y).months : ovCollect(y).years;
-  if(!ups.length){ toast(it.scope==='week'? '먼저 월간 목표를 만들어 주세요' : '먼저 연간 목표를 만들어 주세요'); return; }
-  const quick = [['','— 연결 안 함 —'], ...ups.map(u => [u.g.id, `${ovLabelOf(u)} ${u.g.text||'(제목 없음)'}`.slice(0,26)])];
-  const v = await askInput({title:'🔗 상위 목표 연결', desc:'이 목표를 어디에 묶을까요?', value:it.g.parent||'', quick, pickOnly:true});
-  if(v === null) return;
-  it.g.parent = v; markGoals(); renderOverview();
-  toast(v? '상위 목표에 연결했어요' : '연결을 해제했어요');
 }
 
 /* ── Overview — 세로 트리 ── */
