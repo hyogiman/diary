@@ -1865,7 +1865,6 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
       <span class="at-spacer"></span>
       <button class="mini-btn" id="arcDoneBtn">📅 날짜별 기록</button>
-      <button class="mini-btn" id="arcRestBtn">☕ 휴식 기록</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
       <button class="mini-btn" id="backupBtn">💾 백업</button>
@@ -4536,13 +4535,11 @@ async function renderArchive(){
   if(!arcMonth) arcMonth = curDate.slice(5,7);
   const yd = await getYear(arcYear);
 
-  /* 기록 탭 안에서 '날짜별 기록 → 완료 업무 → 지연 기록'을 같은 버튼으로 돌린다.
+  /* 기록 탭 안에서 '날짜별 기록 → 완료 업무 → 지연 기록 → 휴식 기록'을 한 버튼으로 돌린다.
      버튼 글씨는 지금 보고 있는 화면과 일치시킨다. */
-  $('arcDoneBtn').classList.toggle('active', arcDone || arcDelay);
-  $('arcDoneBtn').textContent = arcDelay ? '⏳ 지연 기록' : arcDone ? '✅ 완료 업무' : '📅 날짜별 기록';
+  $('arcDoneBtn').classList.toggle('active', arcDone || arcDelay || arcRest);
+  $('arcDoneBtn').textContent = arcRest ? '☕ 휴식 기록' : arcDelay ? '⏳ 지연 기록' : arcDone ? '✅ 완료 업무' : '📅 날짜별 기록';
   $('arcDiaryBtn').classList.toggle('active', arcDiary);
-  $('arcRestBtn').classList.toggle('active', arcRest);
-  $('arcRestBtn').textContent = arcRest ? '📅 날짜별 기록' : '☕ 휴식 기록';
   if(arcRest){
     $('monthGrid').classList.add('hidden');
     $('evtHint').classList.add('hidden');
@@ -5941,16 +5938,6 @@ document.addEventListener('visibilitychange', () => { if(!document.hidden && res
 
 /* ── 기록 탭 › ☕ 휴식 기록 ───────────────────────────────────────── */
 let arcRest = false, arcRestScope = 'month';
-
-$('arcRestBtn').onclick = () => {
-  arcRest = !arcRest;
-  searchQ = ''; $('searchIn').value = '';
-  if(arcRest){
-    arcDone = false; arcDelay = false;          /* 모드는 한 번에 하나만 */
-    if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
-  }
-  refreshArchive();
-};
 
 function collectRests(yd){
   const out = [];
@@ -8553,15 +8540,20 @@ function renderArcDelay(yd){
 let arcDone = false, arcDoneScope = 'month', arcDoneData = {records:[], total:0};
 let doneLibSelected = null;
 
-/* 같은 버튼을 세 걸음으로 — 해낸 일과 밀린 이유는 한 사건의 앞뒤라 나란히 오간다.
-   날짜별 기록 → ✅ 완료 업무 → ⏳ 지연 기록 → 다시 날짜별 기록 */
+/* 같은 버튼을 네 걸음으로 — 날짜별 기록·완료·지연·휴식을 차례로 돌려 본다.
+   날짜별 기록 → ✅ 완료 업무 → ⏳ 지연 기록 → ☕ 휴식 기록 → 다시 날짜별 기록 */
 $('arcDoneBtn').onclick = () => {
   searchQ = ''; $('searchIn').value = '';
-  if(!arcDone && !arcDelay){ arcDone = true;  arcDelay = false; }
-  else if(arcDone)          { arcDone = false; arcDelay = true; }
-  else                      { arcDone = false; arcDelay = false; }
-  if(arcDone || arcDelay){
-    arcRest = false;                                        /* 모드는 한 번에 하나만 */
+  if(!arcDone && !arcDelay && !arcRest){
+    arcDone = true;  arcDelay = false; arcRest = false;
+  }else if(arcDone){
+    arcDone = false; arcDelay = true;  arcRest = false;
+  }else if(arcDelay){
+    arcDone = false; arcDelay = false; arcRest = true;
+  }else{
+    arcDone = false; arcDelay = false; arcRest = false;
+  }
+  if(arcDone || arcDelay || arcRest){
     if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
   }
   refreshArchive();
