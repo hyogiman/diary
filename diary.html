@@ -2250,6 +2250,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="ev-field"><label>내용</label>
       <input type="text" id="restNote" maxlength="60" autocomplete="off"
              placeholder="점심 · 산책 · 커피 (선택)"></div>
+    <div style="font-size:.72rem;color:var(--ink-soft);text-align:center;margin:-2px 0 2px">
+      끝 시각이 시작보다 이르면 다음 날로 봅니다</div>
     <div id="restEditHint" style="font-size:.8rem;font-weight:700;color:var(--accent-deep);text-align:center;margin:4px 0 2px"></div>
     <div class="bk-btns">
       <button class="btn-primary" id="restSave">저장</button>
@@ -4534,9 +4536,10 @@ async function renderArchive(){
   if(!arcMonth) arcMonth = curDate.slice(5,7);
   const yd = await getYear(arcYear);
 
-  /* 기록 탭 안에서 '날짜별 기록 ↔ 완료 업무'를 같은 버튼으로 전환한다. */
-  $('arcDoneBtn').classList.toggle('active', arcDone);
-  $('arcDoneBtn').textContent = arcDone ? '📅 날짜별 기록' : '✅ 완료 업무';
+  /* 기록 탭 안에서 '날짜별 기록 → 완료 업무 → 지연 기록'을 같은 버튼으로 돌린다.
+     버튼 글씨는 «다음에 눌렀을 때 갈 곳»을 알려 준다. */
+  $('arcDoneBtn').classList.toggle('active', arcDone || arcDelay);
+  $('arcDoneBtn').textContent = arcDelay ? '📅 날짜별 기록' : arcDone ? '⏳ 지연 기록' : '✅ 완료 업무';
   $('arcDiaryBtn').classList.toggle('active', arcDiary);
   $('arcRestBtn').classList.toggle('active', arcRest);
   $('arcRestBtn').textContent = arcRest ? '📅 날짜별 기록' : '☕ 휴식 기록';
@@ -4546,6 +4549,14 @@ async function renderArchive(){
     $('searchIn').placeholder = '🔍 휴식 기록에서는 검색을 쓰지 않아요';
     $('yearLabel').textContent = arcRestScope==='year' ? `${arcYear}년 휴식` : `${arcYear}년 ${+arcMonth}월 휴식`;
     renderArcRest(yd);
+    return;
+  }
+  if(arcDelay){
+    $('monthGrid').classList.add('hidden');
+    $('evtHint').classList.add('hidden');
+    $('searchIn').placeholder = '🔍 지연 기록에서는 검색을 쓰지 않아요';
+    $('yearLabel').textContent = arcDelayScope==='year' ? `${arcYear}년 지연` : `${arcYear}년 ${+arcMonth}월 지연`;
+    renderArcDelay(yd);
     return;
   }
   if(arcDone){
@@ -5935,7 +5946,7 @@ $('arcRestBtn').onclick = () => {
   arcRest = !arcRest;
   searchQ = ''; $('searchIn').value = '';
   if(arcRest){
-    arcDone = false;
+    arcDone = false; arcDelay = false;          /* 모드는 한 번에 하나만 */
     if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
   }
   refreshArchive();
@@ -5971,7 +5982,9 @@ function renderArcRest(yd){
   const head = document.createElement('div');
   head.className = 'empty-note'; head.style.padding = '0 0 12px';
   head.textContent = days.length
-    ? `☕ ${scopeTxt} 휴식 ${restMinText(totalMin)} · 쉰 날 ${days.length}일 · 하루 평균 ${restMinText(totalMin/days.length)}`
+    /* «하루 평균»이 아니라 «쉰 날 평균»이다 — 나눈 값이 휴식을 기록한 날 수뿐이라,
+       20일 일하고 5일만 적었다면 한 달 하루 평균과는 전혀 다른 숫자가 된다. */
+    ? `☕ ${scopeTxt} 휴식 ${restMinText(totalMin)} · 쉰 날 ${days.length}일 · 쉰 날 평균 ${restMinText(totalMin/days.length)}`
     : `${scopeTxt}에는 기록된 휴식이 없어요.`;
   list.appendChild(head);
 
@@ -5990,7 +6003,8 @@ function renderArcRest(yd){
       card.style.borderLeftColor = 'var(--amber)';
       const note = (r.n||'').trim();
       card.innerHTML = `
-        <div class="dl-top"><span class="dl-when">${restClock(r.s)} ~ ${restClock(r.e)}</span></div>
+        <div class="dl-top"><span class="dl-when">${restClock(r.s)} ~ ${restClock(r.e)}${
+          restDateOf(r.e) !== restDateOf(r.s) ? '<sup>+1</sup>' : ''}</span></div>
         <div class="dl-title">☕ ${restMinText((r.e-r.s)/60000)}</div>
         <div class="dl-meta">${note ? esc(note) : '눌러서 내용·시각 적기'}</div>`;
       card.onclick = () => openRestEdit(date, r);
@@ -6009,7 +6023,9 @@ function openRestEdit(ds, r){
   $('restFrom').value = restClock(r.s);
   $('restTo').value   = restClock(r.e);
   $('restNote').value = r.n || '';
-  $('restEditHint').textContent = `지금 ${restMinText((r.e-r.s)/60000)}로 기록돼 있어요`;
+  const over = restDateOf(r.e) !== restDateOf(r.s);
+  $('restEditHint').textContent = `지금 ${restMinText((r.e-r.s)/60000)}로 기록돼 있어요` +
+    (over ? ' · 자정을 넘긴 휴식이에요 (끝 시각은 다음 날)' : '');
   $('restDel').classList.remove('hidden');
   $('restModal').classList.remove('hidden');
 }
@@ -6045,9 +6061,19 @@ $('restSave').onclick = async () => {
     const [h,m] = v.split(':').map(Number);
     const d = new Date(newDs+'T00:00:00'); d.setHours(h, m, 0, 0); return d.getTime();
   };
-  const st = toMs($('restFrom').value), en = toMs($('restTo').value);
+  const st = toMs($('restFrom').value);
+  let en = toMs($('restTo').value);
   if(!st || !en){ toast('시작과 끝나는 시각을 모두 적어 주세요'); return; }
-  if(en <= st){ toast('끝나는 시각이 시작보다 뒤여야 해요'); return; }
+  /* ★ 끝이 시작보다 이르면 «자정을 넘긴 것»으로 본다.
+     자동 기록은 자정을 넘겨도 시작 날짜에 통째로 담기는데, 예전에는 그런 기록을
+     수정하려 하면 «끝이 시작보다 뒤여야 한다»며 막혀 지우는 것 말고는 손쓸 수가 없었다.
+     다만 09:00→08:00 같은 오타가 23시간짜리로 둔갑하지 않게 12시간에서 끊는다. */
+  if(en <= st) en += 24*60*60*1000;
+  const mins = (en - st) / 60000;
+  if(mins > 12*60){
+    toast('12시간이 넘어요 — 시작·종료 시각을 다시 봐 주세요');
+    return;
+  }
   const note = ($('restNote').value || '').trim().slice(0,100);
 
   let ok;
@@ -6068,7 +6094,8 @@ $('restSave').onclick = async () => {
     });
   }
   closeRestEdit();
-  const body = `${restClock(st)}~${restClock(en)} · ${restMinText((en-st)/60000)}${note? ' · '+note : ''}`;
+  const body = `${restClock(st)}~${restClock(en)}${restDateOf(en) !== restDateOf(st) ? '(+1)' : ''}` +
+               ` · ${restMinText((en-st)/60000)}${note? ' · '+note : ''}`;
   toast(ok ? `☕ ${body} ${adding ? '넣었어요' : '로 고쳤어요'}` : (adding ? '넣지 못했어요' : '고치지 못했어요'));
   if(ok) refreshArchive();
 };
@@ -7680,7 +7707,7 @@ $('searchIn').addEventListener('input', e => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(()=>{ searchQ = e.target.value.trim(); refreshArchive(); }, 300);
 });
-function refreshArchive(){ (searchQ && !arcDone && !arcRest) ? doSearch(searchQ) : renderArchive(); }
+function refreshArchive(){ (searchQ && !arcDone && !arcRest && !arcDelay) ? doSearch(searchQ) : renderArchive(); }
 function hl(text, q){
   const i = text.toLowerCase().indexOf(q.toLowerCase());
   if(i<0) return esc(text);
@@ -8366,15 +8393,175 @@ function renderPrio(){
   });
 }
 
+/* ═══════════════ 기록 탭: ⏳ 지연 기록 ═══════════════
+   해낸 일 옆에 «왜 밀렸는지»를 나란히 둔다. 자책하려는 게 아니라
+   어떤 조건에서 계획이 어긋나는지 보고 다음 계획을 고치려는 것이다.
+   쌓아 둔 delayHistory 만 읽으므로 새로 저장하는 자료는 없다. */
+let arcDelay = false, arcDelayScope = 'month';
+const DELAY_MIN_SAMPLE = 8;          /* 이보다 적으면 경향이라고 말하지 않는다 */
+
+/* 흩어진 지연기록을 한 자리에 모은다.
+   ★ 미완료를 다음 날로 가져오면 delayHistory 도 함께 따라오므로 같은 기록이
+     여러 날짜 사본에 겹쳐 있다. r.id 로 한 번만 세지 않으면 횟수가 부풀려진다. */
+function collectDelays(yd){
+  const seen = new Set(), out = [];
+  const inScope = ds => arcDelayScope === 'year'
+    ? String(ds).slice(0,4) === String(arcYear)
+    : String(ds).slice(0,7) === `${arcYear}-${arcMonth}`;
+  const take = (t, catName) => {
+    validDelays(t).forEach(r => {
+      if(!r.date || !inScope(r.date) || seen.has(r.id)) return;
+      seen.add(r.id);
+      /* ★ 계보(origin||id)를 함께 지고 다닌다.
+         이름만으로 묶으면 «자료 검토» 같은 흔한 제목이 서로 다른 일인데도 한 덩어리가 된다.
+         이월된 사본은 origin 이 같으므로 계보로 묶어야 «같은 일이 몇 번 밀렸나»가 맞다. */
+      out.push({ r, key: t.origin || t.id, text:(t.text||'').trim() || '(제목 없음)',
+                 cat: catName || '분류 없음' });
+    });
+  };
+  Object.keys(yd||{}).forEach(mm => Object.keys(yd[mm]||{}).forEach(dd => {
+    const d = normalize(yd[mm][dd]);
+    (d.cats||[]).forEach(c => (c.tasks||[]).forEach(t => take(t, (c.name||'').trim())));
+  }));
+  (inbox||[]).forEach(t => take(t, '기타 업무함'));      /* 날짜에 안 묶인 곳도 함께 */
+  (priv ||[]).forEach(t => take(t, '개인 용무함'));
+  return out.sort((a,b) => String(b.r.date).localeCompare(String(a.r.date)));
+}
+/* 막대 한 줄 — 새 CSS 없이 이미 있는 색만 쓴다 */
+function delayBar(label, cnt, max, total){
+  const w = max ? Math.round(cnt/max*100) : 0;
+  return `<div style="display:flex;align-items:center;gap:8px;margin:5px 0">
+      <span style="flex:none;width:104px;font-size:.78rem;font-weight:700">${esc(label)}</span>
+      <span style="flex:1;height:9px;border-radius:999px;background:var(--field);overflow:hidden">
+        <span style="display:block;height:100%;width:${w}%;background:var(--accent);border-radius:999px"></span></span>
+      <span style="flex:none;font-size:.76rem;font-weight:800;color:var(--accent-deep)">${cnt}${
+        total ? ` <span style="font-weight:600;color:var(--ink-soft)">(${Math.round(cnt/total*100)}%)</span>` : ''}</span>
+    </div>`;
+}
+function delaySection(title, inner){
+  const sec = document.createElement('section');
+  sec.className = 'done-cat-group';
+  sec.innerHTML = `<div class="done-cat-head"><span>${title}</span></div>
+    <div style="padding:10px 12px 12px">${inner}</div>`;
+  return sec;
+}
+function renderArcDelay(yd){
+  const list = $('dayList'); list.innerHTML = '';
+  const bar = document.createElement('div');
+  bar.style.cssText = 'display:flex;gap:8px;justify-content:center;margin-bottom:14px;flex-wrap:wrap';
+  bar.innerHTML = `
+    <button class="mini-btn ${arcDelayScope==='month'?'active':''}" data-s="month">${+arcMonth}월</button>
+    <button class="mini-btn ${arcDelayScope==='year'?'active':''}" data-s="year">${arcYear}년 전체</button>`;
+  bar.querySelectorAll('button[data-s]').forEach(b => b.onclick = () => { arcDelayScope = b.dataset.s; renderArchive(); });
+  list.appendChild(bar);
+
+  const rows = collectDelays(yd);
+  const scopeTxt = arcDelayScope === 'month' ? `${+arcMonth}월` : `${arcYear}년`;
+  if(!rows.length){
+    const none = document.createElement('div');
+    none.className = 'empty-note';
+    none.innerHTML = `${scopeTxt}에는 적어 둔 지연사유가 없어요.<br>
+      업무가 예정 시각을 넘기면 ⏳ 가 뜨고, 그때 남긴 사유가 여기 쌓입니다.`;
+    list.appendChild(none);
+    return;
+  }
+  const days = new Set(rows.map(x => x.r.date)).size;
+  const head = document.createElement('div');
+  head.className = 'empty-note'; head.style.cssText = 'padding:0 0 12px;font-weight:800;color:var(--accent-deep)';
+  head.innerHTML = `⏳ ${scopeTxt}에 ${rows.length}번 밀렸어요 · 밀린 날 ${days}일` +
+    (rows.length < DELAY_MIN_SAMPLE
+      ? `<br><span style="font-weight:700;color:var(--ink-soft);font-size:.74rem">
+          아직 적어서 «경향»이라고 보기엔 일러요 — 그냥 모아 보는 정도로</span>` : '');
+  list.appendChild(head);
+
+  /* ① 왜 밀렸나 */
+  const byReason = {};
+  rows.forEach(x => { byReason[x.r.reasonCode] = (byReason[x.r.reasonCode]||0) + 1; });
+  const rOrder = Object.entries(byReason).sort((a,b) => b[1]-a[1]);
+  const rMax = rOrder.length ? rOrder[0][1] : 0;
+  list.appendChild(delaySection('① 왜 밀렸나',
+    rOrder.map(([code,c]) => delayBar(reasonLabel(code) || '기타', c, rMax, rows.length)).join('')));
+
+  /* ② 언제 밀리나 — 요일 · 원래 시작하려던 시각 */
+  const DOWN = ['일','월','화','수','목','금','토'];
+  const byDow = [0,0,0,0,0,0,0];
+  rows.forEach(x => { const d = new Date(x.r.date + 'T12:00:00');
+                      if(!isNaN(d)) byDow[d.getDay()]++; });
+  const dowMax = Math.max(...byDow);
+  const bands = {'~12시':0, '12~16시':0, '16시 이후':0, '시각 없음':0};
+  rows.forEach(x => {
+    const hm = (x.r.plannedStart || '').slice(0,2);
+    if(!/^\d{2}$/.test(hm)){ bands['시각 없음']++; return; }
+    const h = +hm;
+    bands[h < 12 ? '~12시' : h < 16 ? '12~16시' : '16시 이후']++;
+  });
+  const bMax = Math.max(...Object.values(bands));
+  list.appendChild(delaySection('② 언제 밀리나',
+    `<div style="font-size:.76rem;font-weight:700;color:var(--ink-soft);margin-bottom:4px">요일</div>` +
+    [1,2,3,4,5,6,0].filter(i => byDow[i]).map(i => delayBar(DOWN[i]+'요일', byDow[i], dowMax, 0)).join('') +
+    `<div style="font-size:.76rem;font-weight:700;color:var(--ink-soft);margin:10px 0 4px">원래 시작하려던 시각</div>` +
+    Object.entries(bands).filter(([,c]) => c).map(([k,c]) => delayBar(k, c, bMax, 0)).join('')));
+
+  /* ③ 무엇이 밀리나 — 카테고리 · 되풀이해 밀린 일 */
+  const byCat = {}, byTask = {};
+  rows.forEach(x => {
+    byCat[x.cat] = (byCat[x.cat]||0) + 1;
+    /* 묶는 것은 계보, 보여 주는 것은 이름 (가장 최근 이름을 쓴다) */
+    const g = (byTask[x.key] = byTask[x.key] || {n:0, why:{}, text:x.text});
+    g.n++; g.text = g.text || x.text;
+    g.why[x.r.reasonCode] = (g.why[x.r.reasonCode]||0) + 1;
+  });
+  const cOrder = Object.entries(byCat).sort((a,b) => b[1]-a[1]).slice(0,6);
+  const cMax = cOrder.length ? cOrder[0][1] : 0;
+  const repeat = Object.entries(byTask).filter(([,v]) => v.n >= 3).sort((a,b) => b[1].n - a[1].n).slice(0,6);
+  list.appendChild(delaySection('③ 무엇이 밀리나',
+    cOrder.map(([k,c]) => delayBar(k, c, cMax, 0)).join('') +
+    (repeat.length
+      ? `<div style="font-size:.76rem;font-weight:700;color:var(--ink-soft);margin:10px 0 4px">
+           세 번 넘게 밀린 일 — 계획을 다시 잡아 볼 만한 것</div>` +
+        repeat.map(([,v]) => `<div style="font-size:.8rem;line-height:1.6;margin:3px 0">
+           · <b>${esc(v.text)}</b> ${v.n}번
+           <span style="color:var(--ink-soft);font-size:.74rem">(${
+             Object.entries(v.why).sort((a,b)=>b[1]-a[1]).map(([c,n]) => `${reasonLabel(c)||'기타'} ${n}`).join(' · ')})</span>
+         </div>`).join('')
+      : '')));
+
+  /* ④ 적어 둔 사정 — 숫자보다 이 문장들이 더 말해 줄 때가 많다 */
+  const notes = {};
+  rows.forEach(x => {
+    const d = (x.r.reasonDetail||'').trim();
+    if(!d) return;
+    (notes[x.r.reasonCode] = notes[x.r.reasonCode] || []).push({date:x.r.date, text:x.text, detail:d});
+  });
+  const nKeys = Object.keys(notes);
+  if(nKeys.length){
+    list.appendChild(delaySection('④ 적어 둔 사정',
+      nKeys.sort((a,b) => notes[b].length - notes[a].length).map(code =>
+        `<div style="margin:8px 0 2px;font-size:.78rem;font-weight:800;color:var(--accent-deep)">
+           ${esc(reasonLabel(code) || '기타')} (${notes[code].length})</div>` +
+        notes[code].slice(0,8).map(o => `<div style="font-size:.78rem;line-height:1.65;color:var(--ink);
+             padding-left:8px;border-left:2px solid var(--rule);margin:4px 0">
+             <span style="color:var(--ink-soft);font-size:.72rem">${esc(o.date.slice(5).replace('-','/'))} · ${esc(o.text)}</span><br>
+             ${esc(o.detail.replace(/\s*\n\s*/g, ' / '))}</div>`).join('') +
+        (notes[code].length > 8
+          ? `<div style="font-size:.72rem;color:var(--ink-soft);padding-left:8px">외 ${notes[code].length-8}건</div>` : '')
+      ).join('')));
+  }
+}
+
 /* ═══════════════ 기록 탭: ✅ 완료 업무 라이브러리 ═══════════════ */
 let arcDone = false, arcDoneScope = 'month', arcDoneData = {records:[], total:0};
 let doneLibSelected = null;
 
+/* 같은 버튼을 세 걸음으로 — 해낸 일과 밀린 이유는 한 사건의 앞뒤라 나란히 오간다.
+   날짜별 기록 → ✅ 완료 업무 → ⏳ 지연 기록 → 다시 날짜별 기록 */
 $('arcDoneBtn').onclick = () => {
-  arcDone = !arcDone;
   searchQ = ''; $('searchIn').value = '';
-  if(arcDone){
-    arcRest = false;                                        /* 세 모드는 한 번에 하나만 */
+  if(!arcDone && !arcDelay){ arcDone = true;  arcDelay = false; }
+  else if(arcDone)          { arcDone = false; arcDelay = true; }
+  else                      { arcDone = false; arcDelay = false; }
+  if(arcDone || arcDelay){
+    arcRest = false;                                        /* 모드는 한 번에 하나만 */
     if(arcDiary){ arcDiary = false; $('arcLockBtn').classList.add('hidden'); armLock(); }
   }
   refreshArchive();
@@ -9858,7 +10045,7 @@ $('arcDiaryBtn').onclick = async () => {
     if(!ok) return;
   }
   disarmLock();
-  arcDiary = true; arcDone = false;
+  arcDiary = true; arcDone = false; arcDelay = false; arcRest = false;   /* 모드는 한 번에 하나만 */
   $('arcLockBtn').classList.remove('hidden');
   refreshArchive();
 };
@@ -11236,29 +11423,117 @@ async function loadBank(){
     }));
     try{ const t = await db.ref(`diaries/${USER.uid}/bankTs`).get(); bankTsSeen = t.exists()? +t.val()||0 : 0; }catch(e2){}
   }catch(e){ bank = bank || []; }
+  offerBoxDraft('bank');                 /* 못 보낸 초안이 남아 있으면 되살릴지 묻는다 */
 }
 function markBank(){ bankDirty = true; clearTimeout(bankTimer); bankTimer = setTimeout(saveBank, 800); }
 let bankTsSeen = 0;                  /* 내가 마지막으로 알고 있는 서버의 장기메모 수정 시각 */
-async function saveBank(){
-  if(!bankDirty || !USER) return;
-  bankDirty = false;
-  try{
-    /* 목표와 같은 이유 — 다른 기기의 최신본을 덮어쓰지 않는다 */
-    let serverTs = 0;
-    try{ const t = await db.ref(`diaries/${USER.uid}/bankTs`).get(); serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
-    if(serverTs && bankTsSeen && serverTs > bankTsSeen){
-      bankDirty = true;
-      toast('다른 기기에서 장기메모를 고쳤어요 — 📌 를 다시 열어 확인해 주세요');
-      return;
-    }
-    try{ const cur = await db.ref(`diaries/${USER.uid}/bank`).get();
-         if(cur.exists()) await pushUndo('bank', cur.val(), '장기메모가 바뀌기 직전'); }catch(e){}
-    if(bank.length) await db.ref(`diaries/${USER.uid}/bank`).set(JSON.parse(JSON.stringify(bank)));
-    else await db.ref(`diaries/${USER.uid}/bank`).remove();
-    bankTsSeen = Date.now();
-    try{ await db.ref(`diaries/${USER.uid}/bankTs`).set(bankTsSeen); }catch(e){}
-  }catch(e){ bankDirty = true; }
+/* ═══════════ 📌 장기메모 · 💡 포스트잇 저장 안전장치 ═══════════
+   날짜 일지에만 있던 대비를 이 둘에도 붙인다. 하는 일은 넷.
+   ① 서버를 부를 때마다 시간 제한 — set()·get() 은 연결이 늘어지면
+      «실패»가 아니라 끝나지 않는다. 그 하나에 걸리면 저장이 통째로 멈춘다.
+   ② 보내기 전에 이 기기에 초안을 남긴다 — 새로고침해도 살아남게.
+   ③ 앞의 저장이 안 끝났으면 겹쳐 보내지 않는다.
+   ④ 못 보냈으면 조용히 넘기지 않고 알리고, 잠시 뒤·연결되면 스스로 다시 보낸다.
+   ★ 서버에 저장되는 «자리와 모양»은 그대로다(diaries/{uid}/bank·stickies 와 ~Ts).
+     바깥 도구가 읽는 약속이라 손대지 않는다. 저장하는 방법만 바꾼다. */
+const BOX_SAVE_WAIT = 12000, BOX_RETRY_WAIT = 20000;
+const boxDraftKey = kind => `boxdraft:${USER.uid}:${kind}`;
+const boxSaving = {}, boxRetryTimer = {};
+const BOX_SAVE = {
+  bank: {
+    node:'bank', label:'장기메모', icon:'📌', undoWhy:'장기메모가 바뀌기 직전',
+    ready: () => true,
+    data:  () => JSON.parse(JSON.stringify(bank)),
+    seen:  () => bankTsSeen,      setSeen: v => { bankTsSeen = v; },
+    dirty: () => bankDirty,       setDirty: v => { bankDirty = v; },
+    apply: d => { bank = d; if(typeof renderBankList === 'function') renderBankList(); }
+  },
+  stickies: {
+    node:'stickies', label:'포스트잇', icon:'💡', undoWhy:'포스트잇이 바뀌기 직전',
+    ready: () => stickiesLoaded,          /* 못 읽어온 상태로는 절대 덮어쓰지 않는다 */
+    data:  () => JSON.parse(JSON.stringify(stickies)),
+    seen:  () => stickiesTsSeen,  setSeen: v => { stickiesTsSeen = v; },
+    dirty: () => stickyDirty,     setDirty: v => { stickyDirty = v; },
+    apply: d => { stickies = d.map(normSticky); if(typeof renderStickies === 'function') renderStickies(); }
+  }
+};
+function saveBoxDraft(kind, data){
+  try{ Promise.resolve(idbSet(boxDraftKey(kind), {ts: Date.now(), data})).catch(()=>{}); }catch(e){}
 }
+function dropBoxDraft(kind){
+  try{ Promise.resolve(idbDel(boxDraftKey(kind))).catch(()=>{}); }catch(e){}
+}
+async function saveBoxNow(kind){
+  const c = BOX_SAVE[kind];
+  if(!c || !USER || !c.dirty() || !c.ready()) return false;
+  if(boxSaving[kind]){                                  /* ③ 겹쳐 보내지 않는다 */
+    clearTimeout(boxRetryTimer[kind]);
+    boxRetryTimer[kind] = setTimeout(() => saveBoxNow(kind), 1500);
+    return false;
+  }
+  c.setDirty(false);
+  const snapshot = c.data();
+  const base = `diaries/${USER.uid}`;
+  saveBoxDraft(kind, snapshot);                         /* ② 서버보다 먼저 이 기기에 */
+  boxSaving[kind] = true;
+  try{
+    /* 다른 기기의 최신본을 덮어쓰지 않는다 */
+    let serverTs = 0;
+    try{ const t = await withTimeout(db.ref(`${base}/${c.node}Ts`).get(), BOX_SAVE_WAIT);
+         serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
+    if(serverTs && c.seen() && serverTs > c.seen()){
+      c.setDirty(true);
+      toast(`다른 기기에서 ${c.label}를 고쳤어요 — ${c.icon} 를 다시 열어 확인해 주세요`);
+      return false;
+    }
+    /* 덮어쓰기 직전 모습을 보관 — 설정 › 🕘 되돌리기 에서 되살릴 수 있다 */
+    try{ const cur = await withTimeout(db.ref(`${base}/${c.node}`).get(), BOX_SAVE_WAIT);
+         if(cur.exists()) await pushUndo(c.node, cur.val(), c.undoWhy); }catch(e){}
+    if(snapshot.length) await withTimeout(db.ref(`${base}/${c.node}`).set(snapshot), BOX_SAVE_WAIT);
+    else await withTimeout(db.ref(`${base}/${c.node}`).remove(), BOX_SAVE_WAIT);
+    const ts = Date.now(); c.setSeen(ts);
+    try{ await withTimeout(db.ref(`${base}/${c.node}Ts`).set(ts), BOX_SAVE_WAIT); }catch(e){}
+    dropBoxDraft(kind);                                 /* 서버에 안전히 들어갔다 */
+    return true;
+  }catch(e){                                            /* ④ 못 보냄 — 알리고 다시 시도 */
+    c.setDirty(true);
+    toast(`${c.icon} ${c.label}를 서버에 못 보냈어요 — 이 기기에는 남아 있어요 (연결되면 다시 보냅니다)`);
+    clearTimeout(boxRetryTimer[kind]);
+    boxRetryTimer[kind] = setTimeout(() => saveBoxNow(kind), BOX_RETRY_WAIT);
+    return false;
+  }finally{ boxSaving[kind] = false; }
+}
+/* 다시 열었을 때 — 이 기기의 초안이 서버보다 새로우면 되살릴지 묻는다.
+   묻지 않고 자동으로 덮으면 다른 기기에서 고친 내용을 모르게 밀어낼 수 있다. */
+async function offerBoxDraft(kind){
+  const c = BOX_SAVE[kind];
+  if(!c || !USER) return;
+  let d = null;
+  try{ d = await idbGet(boxDraftKey(kind)); }catch(e){ return; }
+  if(!d || !d.data || !d.ts) return;
+  if(d.ts <= (c.seen() || 0)){ dropBoxDraft(kind); return; }      /* 서버가 더 최신 */
+  if(JSON.stringify(d.data) === JSON.stringify(c.data())){ dropBoxDraft(kind); return; }
+  const mins = Math.max(1, Math.round((Date.now() - d.ts)/60000));
+  const when = mins >= 60 ? `${Math.floor(mins/60)}시간 ${mins%60}분 전` : `${mins}분 전`;
+  const pick = await askChoice({
+    title:`${c.icon} 못 보낸 ${c.label}가 있어요`,
+    desc:`${when}까지 이 기기에서 쓰던 ${c.label} 내용이 서버로 넘어가지 못했어요.\n` +
+         `되살리면 지금 내용을 그것으로 바꾸고 바로 저장합니다.\n\n` +
+         `(되살리기 직전 모습은 되돌리기에 남겨 두니 다시 돌아올 수 있어요)`,
+    options:[{value:'drop', label:'서버 것 쓰기', kind:'cancel'},
+             {value:'keep', label:'되살리기',     kind:'primary'}]
+  });
+  if(pick !== 'keep'){ dropBoxDraft(kind); return; }
+  c.apply(d.data);
+  c.setDirty(true);
+  const ok = await saveBoxNow(kind);
+  toast(ok ? `${c.icon} 못 보낸 ${c.label}를 되살렸어요`
+           : `${c.icon} 되살렸어요 — 서버 전송은 연결되면 이어집니다`);
+}
+/* 연결이 돌아오면 못 보낸 것을 곧바로 다시 보낸다 */
+window.addEventListener('online', () => { saveBoxNow('bank'); saveBoxNow('stickies'); });
+
+async function saveBank(){ return saveBoxNow('bank'); }
 function renderBankList(){
   const box = $('bankList'); box.innerHTML = '';
   $('bankList').classList.remove('hidden');
@@ -11441,31 +11716,10 @@ async function loadStickies(){
   renderStickies();
   await loadStickyPix();                 /* 다이어리 안에 보관된 사진 채우기 */
   if(Object.keys(stickyPix).length) renderStickies();
+  if(stickiesLoaded) offerBoxDraft('stickies');   /* 못 보낸 초안이 남아 있으면 되살릴지 묻는다 */
 }
 function markStickies(){ stickyDirty = true; clearTimeout(stickyTimer); stickyTimer = setTimeout(saveStickies, 700); }
-async function saveStickies(){
-  if(!stickyDirty || !USER || !stickiesLoaded) return;   /* 못 읽어온 상태로는 절대 덮어쓰지 않는다 */
-  stickyDirty = false;
-  const snapshot = JSON.parse(JSON.stringify(stickies));
-  try{
-    /* 목표·장기메모와 같은 이유 — 다른 기기의 최신본을 덮어쓰지 않는다 */
-    let serverTs = 0;
-    try{ const t = await db.ref(`diaries/${USER.uid}/stickiesTs`).get(); serverTs = t.exists()? +t.val()||0 : 0; }catch(e){}
-    if(serverTs && stickiesTsSeen && serverTs > stickiesTsSeen){
-      stickyDirty = true;
-      toast('다른 기기에서 포스트잇을 고쳤어요 — 💡 를 다시 열어 확인해 주세요');
-      return;
-    }
-    /* 덮어쓰기 직전 모습을 보관 — 설정 › 🕘 되돌리기 › 💡 포스트잇 에서 되살릴 수 있다.
-       사진은 본문에 담기지 않고 주소·번호만 있으므로 보관본이 무거워지지 않는다. */
-    try{ const cur = await db.ref(`diaries/${USER.uid}/stickies`).get();
-         if(cur.exists()) await pushUndo('stickies', cur.val(), '포스트잇이 바뀌기 직전'); }catch(e){}
-    if(snapshot.length) await db.ref(`diaries/${USER.uid}/stickies`).set(snapshot);
-    else await db.ref(`diaries/${USER.uid}/stickies`).remove();
-    stickiesTsSeen = Date.now();
-    try{ await db.ref(`diaries/${USER.uid}/stickiesTs`).set(stickiesTsSeen); }catch(e){}
-  }catch(e){ stickyDirty = true; }
-}
+async function saveStickies(){ return saveBoxNow('stickies'); }
 function applyStickyBox(el, s){
   el.style.left = s.x + 'px'; el.style.top = s.y + 'px';
   el.style.width = s.w + 'px'; el.style.height = s.h + 'px';
@@ -12141,6 +12395,7 @@ window.addEventListener('popstate', () => {
     renderCats(); renderInbox(); renderPriv(); return; }
   if(peekOpen){ peekOpen = false;            // ③ 목표 펼침 닫기
     $('goalPeekBox').classList.add('hidden'); return; }
+  if(arcDelay && !$('archiveView').classList.contains('hidden')){ arcDelay=false; refreshArchive(); return; }
   if(arcRest && !$('archiveView').classList.contains('hidden')){ arcRest=false; refreshArchive(); return; }
   if(arcDone && !$('archiveView').classList.contains('hidden')){ arcDone=false; searchQ=''; $('searchIn').value=''; refreshArchive(); return; }
   if($('todayView').classList.contains('hidden')){ switchTab('today'); return; }   // ④ 목록 탭으로
