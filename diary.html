@@ -1864,7 +1864,7 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
     <div class="arc-tools arc-tools-row">
       <button class="mini-btn" id="vacBtn">🏖 휴가 입력</button>
       <span class="at-spacer"></span>
-      <button class="mini-btn" id="arcDoneBtn">✅ 완료 업무</button>
+      <button class="mini-btn" id="arcDoneBtn">📅 날짜별 기록</button>
       <button class="mini-btn" id="arcRestBtn">☕ 휴식 기록</button>
       <button class="mini-btn" id="arcDiaryBtn">📖 일기 모아보기</button>
       <button class="mini-btn hidden" id="arcLockBtn" title="일기 즉시 잠그기">🔒 잠그기</button>
@@ -4537,9 +4537,9 @@ async function renderArchive(){
   const yd = await getYear(arcYear);
 
   /* 기록 탭 안에서 '날짜별 기록 → 완료 업무 → 지연 기록'을 같은 버튼으로 돌린다.
-     버튼 글씨는 «다음에 눌렀을 때 갈 곳»을 알려 준다. */
+     버튼 글씨는 지금 보고 있는 화면과 일치시킨다. */
   $('arcDoneBtn').classList.toggle('active', arcDone || arcDelay);
-  $('arcDoneBtn').textContent = arcDelay ? '📅 날짜별 기록' : arcDone ? '⏳ 지연 기록' : '✅ 완료 업무';
+  $('arcDoneBtn').textContent = arcDelay ? '⏳ 지연 기록' : arcDone ? '✅ 완료 업무' : '📅 날짜별 기록';
   $('arcDiaryBtn').classList.toggle('active', arcDiary);
   $('arcRestBtn').classList.toggle('active', arcRest);
   $('arcRestBtn').textContent = arcRest ? '📅 날짜별 기록' : '☕ 휴식 기록';
