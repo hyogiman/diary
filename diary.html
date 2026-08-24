@@ -860,7 +860,9 @@ body[data-theme="dark"] .tl-ev.task{background:#453A26;border-color:#E0A33E;colo
 .pr-ctl{flex:none;align-items:center}
 /* 📌 오늘만의 📝 — 카테고리 딱지와 업무명 사이에 앉는다 */
 #prioList .pr-note{flex:none;width:26px;height:26px;font-size:.92rem}
-#prioList .attach-panel{flex:1 1 100%;width:100%;margin:6px 0 2px}
+/* 상세 칸은 줄의 «형제»다 — 줄 안에 넣으면 nowrap 때문에 옆으로 밀린다 */
+#prioList .attach-panel.pr-panel{width:100%;box-sizing:border-box;margin:0 0 10px}
+#prioList .task.pr-open{border-bottom:none}
 /* 📌 오늘만 — 손댈 수 없는 것은 눌리는 시늉을 하지 않는다 */
 #prioList .task-text[readonly]{cursor:default;background:transparent}
 .status-chip.ro{cursor:default;pointer-events:none}
@@ -8327,6 +8329,7 @@ function renderPrio(){
       bindPrioJump(row, t, c, bx);
       const nb = row.querySelector('.pr-note');
       if(nb) nb.onclick = () => { t.open = !t.open; renderPrio(); };
+      box.appendChild(row);
       if(t.open){
         const ctx = bx
           ? { arr: bx==='priv'? priv : inbox, idx: (bx==='priv'? priv : inbox).indexOf(t),
@@ -8334,9 +8337,17 @@ function renderPrio(){
               inbox:true, priv: bx==='priv' }
           : { arr: c.tasks, idx: c.tasks.indexOf(t), save: markDirty, rerender: renderPrio, cat: c };
         const panel = taskRow(t, ctx).querySelector('.attach-panel');
-        if(panel) row.appendChild(panel);
+        if(panel){
+          /* ★ 상세 칸을 «줄 안»에 넣지 않는다.
+             우선순위 줄은 `#prioList .task{flex-wrap:nowrap}` 이라 폭 100% 를 줘도
+             아래로 못 내려가고 옆으로 붙는다(되돌리기 목록·배지 줄에서 겪은 것과 같은 함정).
+             줄 «바깥»에 형제로 두면 화면 폭과 무관하게 언제나 아래에 온다. */
+          panel.classList.add('pr-panel');
+          row.classList.add('pr-open');
+          box.appendChild(panel);
+        }
       }
-      box.appendChild(row); return;
+      return;
     }
     row.querySelector('.task-text').addEventListener('input', e => { t.text = e.target.value; save(); });
     row.querySelector('.status-chip').onclick = async () => {
