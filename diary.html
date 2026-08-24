@@ -3343,6 +3343,28 @@ async function pushUndo(ds, data, why){
      그대로였다. 그래서 새로고침하면 쓴 글이 통째로 사라졌다. 이제 기다리다 끊는다. */
 const SAVE_WAIT = 12000;
 let saveInFlight = false;
+/* 완료 이동처럼 '서버 확정'이 꼭 필요한 작업은, 앞선 날짜 저장이 진행 중이라고
+   곧바로 실패로 보지 않는다. 기존 저장이 끝난 뒤 현재 메모리의 최신본을 한 번 더 저장한다.
+   일반 자동저장의 겹침 방지 규칙(saveNow)은 그대로 두고, 확정이 필요한 경로에서만 기다린다. */
+async function waitDaySaveIdle(maxMs = SAVE_WAIT + 2000){
+  const until = Date.now() + maxMs;
+  while(saveInFlight && Date.now() < until){
+    await new Promise(r => setTimeout(r, 80));
+  }
+  return !saveInFlight;
+}
+async function saveNowConfirmed(){
+  clearTimeout(saveTimer);
+  if(saveInFlight){
+    $('saveState').textContent = '⏳ 앞선 저장이 끝나기를 기다리고 있어요 — 이 기기에는 남아 있어요';
+    if(!(await waitDaySaveIdle())) return false;
+  }
+  clearTimeout(saveTimer);                    /* 기다리는 사이 예약된 자동저장이 생겼어도 여기서 한 번만 확정 */
+  /* 앞선 저장이 끝나는 사이 새 변경이 없었다면 이미 안전하다.
+     완료 이동 중에는 markDirty()가 되어 있으므로 최신 완료본을 여기서 다시 확정한다. */
+  if(!dirty) return true;
+  return await saveNow();
+}
 async function saveNow(){
   if(!dirty) return true;                     /* 저장할 것이 없으면 이미 안전한 상태 */
   if(!USER) return false;
@@ -7274,6 +7296,7 @@ async function loadInbox(){
   inbox = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
   if(clearStaleTimes(inbox)) markInbox();        /* 지난 날짜에 잡아 둔 시간은 비운다 */
 }
+let inboxWriteInFlight = false;
 function markInbox(){
   inboxDirty = true;
   clearTimeout(inboxTimer);
@@ -7285,6 +7308,7 @@ async function saveInbox(){
   inboxDirty = false;
   const clean = JSON.parse(JSON.stringify(inbox, (k,v)=> k==='open'? undefined : v));
   const ts = Date.now();
+  inboxWriteInFlight = true;
   try{
     if(clean.length) await db.ref(`diaries/${USER.uid}/inbox`).set(clean);
     else await db.ref(`diaries/${USER.uid}/inbox`).remove();
@@ -7294,6 +7318,8 @@ async function saveInbox(){
   }catch(e){
     try{ await idbSet(inboxKey(), {__ts: ts, data: clean}); await addPending('inbox'); }catch(e2){}
     return false;
+  }finally{
+    inboxWriteInFlight = false;
   }
 }
 let inboxOpen = false;
@@ -7371,13 +7397,13 @@ async function completeBoxTask(kind, t, idx, completionMeta=null){
   markDirty();
   clearTimeout(saveTimer);
 
-  const daySaved = await saveNow();
+  const daySaved = await saveNowConfirmed();
   if(!daySaved){
     /* 서버 확정 실패면 원본은 절대 지우지 않는다. 화면의 임시 완료본도 되돌린다. */
     const ci = target.tasks.indexOf(completed);
     if(ci >= 0) target.tasks.splice(ci,1);
     if(madeTarget && !target.tasks.length){ const ti = day.cats.indexOf(target); if(ti >= 0) day.cats.splice(ti,1); }
-    markDirty(); clearTimeout(saveTimer); await saveNow();
+    markDirty(); clearTimeout(saveTimer); await saveNowConfirmed();
     renderAll();
     toast(`완료 기록을 Diary 서버에 저장하지 못해 원본 ${B.noun}를 그대로 유지했어요`);
     return false;
@@ -10129,6 +10155,7 @@ async function loadPriv(){
   priv = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
   if(clearStaleTimes(priv)) markPriv();          /* 지난 날짜에 잡아 둔 시간은 비운다 */
 }
+let privWriteInFlight = false;
 function markPriv(){ privDirty = true; clearTimeout(privTimer); privTimer = setTimeout(savePriv, 800); }
 async function savePriv(){
   if(!privDirty) return true;
@@ -10136,6 +10163,7 @@ async function savePriv(){
   privDirty = false;
   const clean = JSON.parse(JSON.stringify(priv, (k,v)=> k==='open'? undefined : v));
   const ts = Date.now();
+  privWriteInFlight = true;
   try{
     if(clean.length) await db.ref(`diaries/${USER.uid}/priv`).set(clean);
     else await db.ref(`diaries/${USER.uid}/priv`).remove();
@@ -10145,6 +10173,8 @@ async function savePriv(){
   }catch(e){
     try{ await idbSet(privKey(), {__ts: ts, data: clean}); await addPending('priv'); }catch(e2){}
     return false;
+  }finally{
+    privWriteInFlight = false;
   }
 }
 function renderPriv(){
@@ -10331,7 +10361,7 @@ $('saveState').onclick = async () => {
 function attachBoxListeners(){
   if(!inboxCb){
     inboxCb = snap => {
-      if(inboxDirty || isEditing() || boxHasCompletionHold('inbox')) return; // 작성·완료확정 중이면 건너뜀
+      if(inboxDirty || inboxWriteInFlight || isEditing() || boxHasCompletionHold('inbox')) return; // 작성·내 저장·완료확정 중이면 건너뜀
       const v = snap.exists()? snap.val() : [];
       const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
       if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(inbox.map(t=>({...t,open:0})))) return;
@@ -10385,7 +10415,7 @@ function attachBoxListeners(){
   }
   if(!privCb){
     privCb = snap => {
-      if(privDirty || isEditing() || boxHasCompletionHold('priv')) return;   // 작성·완료확정 중이면 건너뜀
+      if(privDirty || privWriteInFlight || isEditing() || boxHasCompletionHold('priv')) return;   // 작성·내 저장·완료확정 중이면 건너뜀
       const v = snap.exists()? snap.val() : [];
       const next = (Array.isArray(v)? v : Object.values(v||{})).map(normTask);
       if(JSON.stringify(next.map(t=>({...t,open:0}))) === JSON.stringify(priv.map(t=>({...t,open:0})))) return;
