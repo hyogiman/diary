@@ -4213,8 +4213,20 @@ function carryFromWorkDay(prev, stats){
     }
     undone.forEach(t => {
       if(target.tasks.some(x => x.text.trim() === t.text.trim())){ stats.skipped++; return; }
-      target.tasks.push({...normTask(t), id:uid8(), origin:(t.origin || t.id),
-        time:'', timeDay:'', gcalId:'', gcalCalendar:'', gcalSig:''});   // 원본 계보만 유지, 지난 실행/캘린더 메타는 초기화
+
+      /* 미래/당일 실행 일정은 다음 업무일로 가져와도 그대로 이어진다.
+         예: 어제 '오늘 10:00'으로 잡아 Google Calendar에 등록한 업무는
+         오늘 가져왔을 때 time/gcalId를 잃으면 기존 일정 수정이 불가능해진다.
+         반대로 실행 날짜가 이미 지난 일정은 예전처럼 시간·캘린더 연결을 초기화한다. */
+      const nt = normTask(t);
+      const runDate = (nt.due || nt.timeDay || '').trim();
+      const keepSchedule = !!nt.time && !!runDate && runDate >= curDate;
+      target.tasks.push({...nt, id:uid8(), origin:(t.origin || t.id),
+        time: keepSchedule ? nt.time : '',
+        timeDay: keepSchedule ? (nt.timeDay || runDate) : '',
+        gcalId: keepSchedule ? nt.gcalId : '',
+        gcalCalendar: keepSchedule ? nt.gcalCalendar : '',
+        gcalSig: keepSchedule ? nt.gcalSig : ''});
       stats.moved++;
     });
   });
