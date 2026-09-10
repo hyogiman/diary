@@ -2013,8 +2013,8 @@ body[data-theme="plum"] #topbar{background:rgba(44,35,51,.92)}
 
     <div class="delay-action-row hidden" id="delayActions">
       <button type="button" id="delayComplete">✓ 업무 완료</button>
-      <button type="button" id="delayDoing">◐ 진행중</button>
-      <button type="button" id="delayClose">저장(닫기)</button>
+      <button type="button" id="delayDoing">◐ 진행중 저장</button>
+      <button type="button" id="delayClose">⏳ 지연으로 저장</button>
     </div>
     <div class="set-list hidden" id="delayHistoryCloseWrap" style="margin-top:12px">
       <button class="btn-line" id="delayHistoryClose" style="border-style:dashed">닫기</button>
@@ -4916,11 +4916,15 @@ function refreshDelayButtons(){
     let found = null;
     for(const c of (day.cats||[])){
       const t = (c.tasks||[]).find(x => x.id === tid);
-      if(t){ found = {t, ctx:{arr:c.tasks, cat:c}}; break; }
+      if(t){ found = {t, ctx:{arr:c.tasks, idx:c.tasks.indexOf(t), save:markDirty, rerender:renderCats, cat:c}}; break; }
     }
     if(!found){
-      const t = (inbox||[]).find(x => x.id === tid) || (priv||[]).find(x => x.id === tid);
-      if(t) found = {t, ctx:{inbox:true}};
+      const it = (inbox||[]).find(x => x.id === tid);
+      if(it) found = {t:it, ctx:{arr:inbox, idx:inbox.indexOf(it), save:markInbox, rerender:renderInbox, cat:null, inbox:true}};
+    }
+    if(!found){
+      const pt = (priv||[]).find(x => x.id === tid);
+      if(pt) found = {t:pt, ctx:{arr:priv, idx:priv.indexOf(pt), save:markPriv, rerender:renderPriv, cat:null, inbox:true, priv:true}};
     }
     seen.set(tid, found);
     return found;
@@ -5010,7 +5014,6 @@ function renderDelayModal(){
   $('delayHist').classList.toggle('hidden', !past.length);
   $('delayActions').classList.toggle('hidden', !actionable);
   $('delayHistoryCloseWrap').classList.toggle('hidden', actionable);
-  $('delayDoing').classList.toggle('on', actionable && (t.status || 'wait') === 'doing');
 
   if(editable){
     const cur = rec || {};
@@ -5035,18 +5038,17 @@ function renderDelayModal(){
       });
     }
     [...box.children].forEach(b => b.classList.toggle('on', b.dataset.code === cur.reasonCode));
-    /* 질문 + 상세 — 진행중으로 바꾼 경우에는 사유 칩을 고르지 않아도 상세를 바로 적을 수 있다. */
+    /* 결과 버튼을 누르기 전에 내용을 먼저 적는다.
+       진행중 버튼을 누른 뒤 다시 위로 올라와 입력하게 만들지 않고,
+       지연/진행중 어느 쪽이든 같은 상세 칸을 처음부터 보여 준다. */
     const has = !!cur.reasonCode;
-    const doingDetail = ((t.status || 'wait') === 'doing') || !!delayCtx.forceDetail;
-    const showDetail = has || doingDetail || !!(cur.reasonDetail||'').trim();
-    $('delayAskWrap').classList.toggle('hidden', !showDetail);
-    if(showDetail) $('delayAsk').textContent = has
+    $('delayAskWrap').classList.remove('hidden');
+    $('delayAsk').textContent = has
       ? reasonAsk(cur.reasonCode)
-      : '진행한 부분과 아직 남은 부분을 적어 주세요.';
+      : '진행한 부분·남은 일 또는 지연 이유를 적어 주세요.';
     $('delayDetail').value = cur.reasonDetail || '';
-    /* 적어 둔 내용이 있으면 창을 열 때부터 그 길이만큼 펼쳐 둔다.
-       예전에는 한 글자 고쳐야(input) 비로소 늘어나 전체가 안 보였다. */
-    if(showDetail) requestAnimationFrame(() => grow($('delayDetail'), 64));
+    /* 적어 둔 내용이 있으면 창을 열 때부터 그 길이만큼 펼쳐 둔다. */
+    requestAnimationFrame(() => grow($('delayDetail'), 64));
     /* 실제 업무시간 */
     $('delayStart').value = cur.actualStart || '';
     [...$('delayDur').children].forEach(b => b.classList.toggle('on', +b.dataset.m === +cur.actualDuration));
@@ -5114,6 +5116,12 @@ function markDelayOwnerDirty(){
   if(ctx && typeof ctx.save === 'function') ctx.save();
   else markDirty();
 }
+/* 지연 모달은 일반 목록·보관함·우선순위 어디에서든 열릴 수 있다.
+   결과를 확정한 뒤에는 한 화면만 다시 그리지 말고 관련 업무 보기를 함께 맞춘다. */
+function rerenderDelayTaskViews(){
+  renderCats(); renderInbox(); renderPriv();
+  if(typeof renderPrio === 'function') renderPrio();
+}
 function saveDelay(){
   if(!delayCtx) return;
   const {t} = delayCtx, ds = todayStr();
@@ -5157,19 +5165,22 @@ $('delayDurIn').addEventListener('input', e => {
 });
 $('delayDurIn').addEventListener('blur', () => renderDelayModal());
 
-/* 업무를 일부 수행한 경우 — 상태는 바로 진행중으로 바꾸고, 모달은 열어 둔 채 상세를 적게 한다. */
+/* 일부 수행한 경우 — 입력을 먼저 마친 뒤 이 버튼이 '확정' 역할을 한다.
+   상태를 진행중으로 바꾸고 현재 상세/실제시간을 저장한 다음 모달을 바로 닫는다. */
 $('delayDoing').onclick = () => {
   if(!delayCtx) return;
-  const {t, ctx} = delayCtx;
-  if(t.done){ toast('이미 완료된 업무예요'); return; }
+  clearTimeout(delaySaveTimer);
+  const {t} = delayCtx;
+  if(t.done){ toast('이미 완료된 업무예요'); closeDelayModalWithoutSave(); return; }
+
+  /* textarea/change 이벤트가 이미 delayHistory를 갱신한다. 남은 자동저장 예약을 여기서 즉시 확정한다. */
+  saveDelay();
   cancelCompletionHold(t);
   t.status = 'doing'; t.done = false; t.doneAt = ''; t.completedAt = 0;
-  delayCtx.forceDetail = true;
-  if(ctx && typeof ctx.save === 'function') ctx.save(); else markDirty();
-  if(ctx && typeof ctx.rerender === 'function') ctx.rerender();
-  renderDelayModal();
-  setTimeout(() => { const el = $('delayDetail'); if(el){ el.focus(); grow(el, 64); } }, 60);
-  toast('진행중으로 바꿨어요. 진행한 부분과 남은 이유를 적어둘 수 있어요');
+  markDelayOwnerDirty();
+  closeDelayModalWithoutSave();
+  rerenderDelayTaskViews();
+  toast('진행중으로 저장했어요');
 };
 
 /* 이미 끝난 업무라면 오늘의 잘못된 지연기록은 남기지 않고, 기존 정식 완료 흐름을 그대로 탄다. */
@@ -5189,19 +5200,21 @@ $('delayComplete').onclick = async () => {
     const ok = await completePriv(t, ctx.arr ? ctx.arr.indexOf(t) : -1, meta);
     if(!ok){ t.delayHistory = prevHistory; renderDelayModal(); return; }
     closeDelayModalWithoutSave();
+    rerenderDelayTaskViews();
     return;
   }
   if(ctx && ctx.inbox){
     const ok = await completeInbox(t, ctx.arr ? ctx.arr.indexOf(t) : -1, meta);
     if(!ok){ t.delayHistory = prevHistory; renderDelayModal(); return; }
     closeDelayModalWithoutSave();
+    rerenderDelayTaskViews();
     return;
   }
 
   /* 날짜 일지의 일반 업무는 기존 상태 토글의 완료 경로와 같은 순서로 저장·Calendar 반영한다. */
   t.status = 'done'; t.done = true; t.doneAt = meta.doneAt; t.completedAt = meta.completedAt;
   if(ctx && typeof ctx.save === 'function') ctx.save(); else markDirty();
-  if(ctx && typeof ctx.rerender === 'function') ctx.rerender();
+  rerenderDelayTaskViews();
   clearTimeout(saveTimer);
   const diarySaved = await saveNowConfirmed();
   closeDelayModalWithoutSave();
@@ -5211,6 +5224,7 @@ $('delayComplete').onclick = async () => {
   }
   if(ctx && ctx.cat) await clearCarriedCopies(t, ctx.cat, meta.doneAt);
   await reflectTaskCompletion(t, ctx ? ctx.cat : null);
+  rerenderDelayTaskViews();
   toast('업무 완료로 처리했어요. 오늘의 지연사유 기록은 남기지 않았어요');
 };
 
@@ -8453,7 +8467,12 @@ function renderPrio(){
           <button title="더 중요하게">▲</button><button title="덜 중요하게">▼</button>
         </div>`}
       </div>`;
-    bindDelayBtn(row, t, {inbox:!!bx});
+    const delayRowCtx = bx
+      ? { arr: bx==='priv'? priv : inbox, idx:(bx==='priv'? priv : inbox).indexOf(t),
+          save: bx==='priv'? markPriv : markInbox, rerender:renderPrio, cat:null,
+          inbox:true, priv:bx==='priv' }
+      : { arr:c.tasks, idx:c.tasks.indexOf(t), save:markDirty, rerender:renderPrio, cat:c };
+    bindDelayBtn(row, t, delayRowCtx);
     /* ★ 여기도 체크박스를 없앴다 — 완료는 .status-chip 한 곳에서만 확정한다. */
     /* 📌 오늘만 — 이름칸·상태 토글은 잠가 두되, 📝 상세는 그대로 쓴다.
        ★ 상세 칸을 여기서 새로 만들지 않는다. taskRow 가 만든 것을 그대로 «옮겨» 온다.
